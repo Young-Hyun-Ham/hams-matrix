@@ -1,5 +1,6 @@
 import "server-only";
 import { HttpError } from "./auth";
+import type { AiCallEvent } from "./ai/token-types";
 
 export async function aiModels() {
   if (!process.env.OPENAI_API_KEY)
@@ -45,6 +46,7 @@ export async function generateAi(
   },
   images: { dataUrl: string }[] = [],
   history: Record<string, unknown>[] = [],
+  track?: (event: AiCallEvent) => Promise<void>,
 ) {
   const messages: Record<string, unknown>[] = [
     ...history,
@@ -64,6 +66,8 @@ export async function generateAi(
   ];
   const deadline = Date.now() + 120000;
   for (let turn = 0; turn < 6; turn++) {
+    const started = Date.now();
+    await track?.({ turn, status: "started" });
     let response: Response;
     try {
       response = await fetch("https://api.openai.com/v1/responses", {
@@ -89,11 +93,50 @@ export async function generateAi(
         signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
       });
     } catch {
+      await track?.({
+        turn,
+        status: "failed",
+        durationMs: Date.now() - started,
+      });
       throw new HttpError(
         504,
         "AI 응답을 기다리지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
     }
+    let raw: unknown;
+    try {
+      raw = await response.json();
+    } catch {
+      await track?.({
+        turn,
+        status: "invalid_response",
+        httpStatus: response.status,
+        durationMs: Date.now() - started,
+      });
+      throw new HttpError(
+        502,
+        "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+      );
+    }
+    const metadata =
+      raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    await track?.({
+      turn,
+      status: response.ok
+        ? typeof metadata.status === "string"
+          ? metadata.status.slice(0, 80)
+          : "unknown"
+        : "failed",
+      httpStatus: response.status,
+      responseId:
+        typeof metadata.id === "string" ? metadata.id.slice(0, 200) : undefined,
+      model:
+        typeof metadata.model === "string"
+          ? metadata.model.slice(0, 200)
+          : model,
+      usage: metadata.usage,
+      durationMs: Date.now() - started,
+    });
     if (!response.ok)
       throw new HttpError(
         response.status === 429 ? 429 : 502,
@@ -101,7 +144,7 @@ export async function generateAi(
           ? "AI 사용 한도 또는 요청 한도를 확인해 주세요."
           : "AI 요청에 실패했습니다. 선택한 모델의 Responses API 지원 및 API 키 권한을 확인해 주세요.",
       );
-    const data = (await response.json()) as {
+    const data = metadata as {
       status?: string;
       output?: (Record<string, unknown> & {
         type: string;

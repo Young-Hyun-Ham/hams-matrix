@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 // Loaded only by test-ai.mjs into its isolated server process.
 if (process.env.MATRIX_AI_TEST !== "1")
   throw new Error("Test provider requires isolated test mode");
@@ -31,6 +32,26 @@ globalThis.fetch = async (input, init) => {
     ? content.filter((item) => item.type === "input_image")
     : [];
   const userInput = JSON.parse(rawInput);
+  const usage = rawInput.includes("[NO_USAGE]")
+    ? {}
+    : {
+        id: rawInput.includes("[DUPLICATE_USAGE]")
+          ? "resp-duplicate-test"
+          : `resp_${randomUUID()}`,
+        model: data.model,
+        usage: rawInput.includes("[BAD_USAGE]")
+          ? { input_tokens: -1, output_tokens: 20, total_tokens: 19 }
+          : {
+              input_tokens: 100,
+              output_tokens: 40,
+              total_tokens: 140,
+              input_tokens_details: { cached_tokens: 20 },
+              output_tokens_details: { reasoning_tokens: 10 },
+            },
+      };
+  if (rawInput.includes("[NETWORK_FAIL]")) throw Error("test network failure");
+  if (rawInput.includes("[BROKEN_JSON]"))
+    return new Response("broken json", { status: 200 });
   const toolOutputs = Array.isArray(data.input)
     ? data.input.filter((item) => item.type === "function_call_output")
     : [];
@@ -42,6 +63,7 @@ globalThis.fetch = async (input, init) => {
     );
     if (!toolOutputs.length)
       return Response.json({
+        ...usage,
         status: "completed",
         output: [
           {
@@ -55,6 +77,7 @@ globalThis.fetch = async (input, init) => {
     if (userInput.request.includes("[FAIL_AFTER_WRITE]"))
       return Response.json({}, { status: 429 });
     return Response.json({
+      ...usage,
       status: "completed",
       output: [
         {
@@ -106,6 +129,7 @@ globalThis.fetch = async (input, init) => {
         imageTypes: imageInputs.map((image) => image.image_url.split(";")[0]),
       });
   return Response.json({
+    ...usage,
     status: rawInput.includes("[INCOMPLETE]") ? "incomplete" : "completed",
     output: [
       { type: "reasoning", summary: [] },

@@ -10,6 +10,7 @@ import { ThemeToggle } from "./theme-toggle";
 import { AiChatbotToggle } from "./ai/ai-conversation-menu";
 import { AiWorkspaceLayout } from "./ai/ai-workspace-layout";
 import { emptyAiContext } from "@/lib/ai-context";
+import { AiTokenStatistics } from "./ai/ai-token-statistics";
 export function WorkspaceShell({
   user,
   children,
@@ -29,6 +30,7 @@ export function WorkspaceShell({
     [success, setSuccess] = useState(""),
     [busy, setBusy] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const [accountTab, setAccountTab] = useState("usage");
   const menu = menus.find((m) => pathname === `/${m.key}`) ?? menus[0];
   useEffect(() => {
     setUser(user);
@@ -64,6 +66,7 @@ export function WorkspaceShell({
   function openModal(value: "profile" | "help") {
     setError("");
     setSuccess("");
+    setAccountTab("usage");
     setModal(value);
   }
   async function logout() {
@@ -327,7 +330,7 @@ export function WorkspaceShell({
       </div>
       <dialog
         ref={dialogRef}
-        className="workspace-dialog"
+        className={`workspace-dialog ${modal === "profile" ? "account-dialog" : ""}`}
         onCancel={() => setModal(null)}
         onClick={(e) => {
           if (e.target === e.currentTarget) setModal(null);
@@ -346,59 +349,134 @@ export function WorkspaceShell({
           </button>
         </div>
         {modal === "profile" ? (
-          <form onSubmit={saveProfile} className="settings-form">
-            <p className="muted">
-              {activeUser.accountRole === "owner"
-                ? "팀에서 사용할 프로필 이름을 변경할 수 있습니다."
-                : "user 계정은 조회 전용입니다."}
-            </p>
-            <label htmlFor="profile-name">
-              이름
-              <input
-                id="profile-name"
-                name="name"
-                key={activeUser.name}
-                defaultValue={activeUser.name}
-                minLength={2}
-                maxLength={80}
-                required
-                readOnly={activeUser.accountRole === "user"}
-              />
-            </label>
-            <label>
-              로그인 계정
-              <input
-                value={activeUser.email ?? "소셜 계정으로 로그인"}
-                readOnly
-              />
-            </label>
-            <div className="settings-info">
-              <Icon name="shield" size={17} />
-              <span>
-                {activeUser.workspaceName}
-                <br />
-                <small>
-                  {activeUser.accountRole} · {activeUser.plan.toUpperCase()}{" "}
-                  플랜
-                </small>
-              </span>
-            </div>
-            {error && (
-              <p className="error-message" role="alert">
-                {error}
-              </p>
-            )}
-            {success && (
-              <p className="success-message" role="status">
-                {success}
-              </p>
-            )}
-            {activeUser.accountRole === "owner" && (
-              <button className="button primary" disabled={busy}>
-                {busy ? "저장 중…" : "변경사항 저장"}
+          <>
+            <div
+              className="account-tabs"
+              role="tablist"
+              aria-label="계정 설정 메뉴"
+              onKeyDown={(event) => {
+                if (
+                  !["ArrowLeft", "ArrowRight", "Home", "End"].includes(
+                    event.key,
+                  )
+                )
+                  return;
+                const buttons = Array.from(
+                  event.currentTarget.querySelectorAll<HTMLButtonElement>(
+                    "button",
+                  ),
+                );
+                const index = buttons.indexOf(
+                  document.activeElement as HTMLButtonElement,
+                );
+                const next =
+                  event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? buttons.length - 1
+                      : (index +
+                          (event.key === "ArrowRight" ? 1 : -1) +
+                          buttons.length) %
+                        buttons.length;
+                event.preventDefault();
+                buttons[next]?.click();
+                buttons[next]?.focus();
+              }}
+            >
+              <button
+                type="button"
+                role="tab"
+                id="account-usage-tab"
+                aria-controls="account-settings-panel"
+                aria-selected={accountTab === "usage"}
+                tabIndex={accountTab === "usage" ? 0 : -1}
+                onClick={() => setAccountTab("usage")}
+              >
+                토큰 사용량
               </button>
-            )}
-          </form>
+              <button
+                type="button"
+                role="tab"
+                id="account-profile-tab"
+                aria-controls="account-settings-panel"
+                aria-selected={accountTab === "profile"}
+                tabIndex={accountTab === "profile" ? 0 : -1}
+                onClick={() => setAccountTab("profile")}
+              >
+                프로필
+              </button>
+            </div>
+            <div
+              className="account-dialog-body"
+              role="tabpanel"
+              id="account-settings-panel"
+              aria-labelledby={
+                accountTab === "usage"
+                  ? "account-usage-tab"
+                  : "account-profile-tab"
+              }
+            >
+              {accountTab === "usage" ? (
+                <AiTokenStatistics
+                  key={`${activeUser.workspaceId}:${activeUser.id}`}
+                />
+              ) : (
+                <form onSubmit={saveProfile} className="settings-form">
+                  <p className="muted">
+                    {activeUser.accountRole === "owner"
+                      ? "팀에서 사용할 프로필 이름을 변경할 수 있습니다."
+                      : "user 계정은 조회 전용입니다."}
+                  </p>
+                  <label htmlFor="profile-name">
+                    이름
+                    <input
+                      id="profile-name"
+                      name="name"
+                      key={activeUser.name}
+                      defaultValue={activeUser.name}
+                      minLength={2}
+                      maxLength={80}
+                      required
+                      readOnly={activeUser.accountRole === "user"}
+                    />
+                  </label>
+                  <label>
+                    로그인 계정
+                    <input
+                      value={activeUser.email ?? "소셜 계정으로 로그인"}
+                      readOnly
+                    />
+                  </label>
+                  <div className="settings-info">
+                    <Icon name="shield" size={17} />
+                    <span>
+                      {activeUser.workspaceName}
+                      <br />
+                      <small>
+                        {activeUser.accountRole} ·{" "}
+                        {activeUser.plan.toUpperCase()} 플랜
+                      </small>
+                    </span>
+                  </div>
+                  {error && (
+                    <p className="error-message" role="alert">
+                      {error}
+                    </p>
+                  )}
+                  {success && (
+                    <p className="success-message" role="status">
+                      {success}
+                    </p>
+                  )}
+                  {activeUser.accountRole === "owner" && (
+                    <button className="button primary" disabled={busy}>
+                      {busy ? "저장 중…" : "변경사항 저장"}
+                    </button>
+                  )}
+                </form>
+              )}
+            </div>
+          </>
         ) : (
           <div className="help-content">
             <span className="badge purple">EARLY ACCESS</span>

@@ -55,7 +55,7 @@ function ConversationList({ version }: { version: number }) {
     aiContext.pathname === pathname &&
     (!requiresProject || !!aiContext.projectId);
   const [rooms, setRooms] = useState<AiConversation[]>([]);
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [action, setAction] = useState<{
     room: AiConversation;
     kind: "rename" | "delete";

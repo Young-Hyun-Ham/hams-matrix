@@ -1,5 +1,15 @@
 # AI 페이지별 프롬프트 / CRUD
 
+## 계정 설정의 토큰 사용 통계
+
+- `011_ai_token_usage.sql`을 `pnpm db:migrate`로 적용합니다. 도입 이전 기록은 추정치로 채우지 않습니다. `ai_token_usage`는 사용자·워크스페이스·프로젝트·채팅방·메시지·요청·호출 순번별 실제 사용량을 기록합니다. 프로젝트명·방 제목 스냅샷과 논리 ID를 보관하므로 채팅방을 삭제해도 사용량 기록은 남습니다. 원문 프롬프트·이미지는 추가 복제하지 않고 입력/최종 결과 글자 수를 저장합니다.
+- `lib/ai/token-usage.ts`: 유료 호출 전에 미확인 행을 확보하고, Responses API의 `usage.input_tokens`, `output_tokens`, `total_tokens`, `input_tokens_details.cached_tokens`, `output_tokens_details.reasoning_tokens`를 검증해 저장합니다. 미수신·잘못된 숫자·네트워크 오류는 NULL/미확인으로 보존합니다. 중간 도구 호출·미완성 응답도 사용량이 확인되면 기록합니다. 같은 응답 ID는 트랜잭션과 유니크 인덱스로 중복 집계를 막습니다.
+- `lib/ai-server.ts`의 호출 추적 콜백이 각 도구 실행 단계의 AI 호출을 별도 기록합니다. 한 질문의 사용량은 `request_id`로 합산할 수 있습니다. `chat_saved`와 `result_characters`는 대화/이미지 저장 트랜잭션에서 함께 갱신하며, 대화 저장 실패 시에도 이미 발생한 사용량은 보존합니다.
+- `GET /api/ai/usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=monthly|weekday|daily`는 현재 로그인 사용자·워크스페이스의 통계만 반환합니다. `projectId`(빈 값은 공통 작업 공간)·`convId`를 추가 필터로 지원합니다. 날짜는 한국 시간(Asia/Seoul)이며 최대 367일 범위를 검증합니다. 월별·월~일 요일별·일별로 사용 없는 구간도 0으로 채웁니다. 미확인은 확인된 토큰 합계에서 제외하고 건수를 함께 반환합니다.
+- `ai-token-statistics.tsx/css`: 계정 설정 모달의 기본 `토큰 사용량` 탭. 연도·월·프로젝트·채팅방 필터, 입력/출력/합계/질문 및 호출 수, 입력·출력 누적 막대 그래프, 마우스·키보드 선택 상세값, 통계 표, 캐시·추론·미확인 건수를 표시합니다. `프로필` 탭에서 기존 이름 변경 기능을 유지합니다. 모달 헤더와 탭은 고정하고 본문만 스크롤합니다.
+- 캐시·추론은 입력·출력의 부분집합이며 합계에 재가산하지 않습니다. 금액이나 글자 수 기반 추정 토큰은 표시하지 않습니다. 참고: https://developers.openai.com/api/docs/guides/token-counting
+- `scripts/check-ai-token-usage.mjs`는 `pnpm test:ai`에서 실행합니다. 다단계 호출·실패/미완성/미확인·중복 응답·KST 자정 경계·사용자 격리·기간 검증·채팅방 삭제 후 보존을 검사합니다. 외부 AI만 모의 처리하고 별도 임시 DB/가짜 키를 사용합니다.
+
 - `app/api/ai/chats/route.ts`의 `selectAiPage` switch에서 현재 화면·탭을 분기합니다.
 - `lib/ai/page-prompts.ts`: 화면별 `instruction`, 조회할 `reads`(kind), 데이터 원본 `source`, 쓰기 대상 `kind`를 정의합니다. `pageInstructions`에는 도구 사용·등록/수정/삭제·필수값·실행 결과 보고에 대한 공통 규칙이 있습니다.
 - `lib/ai/page-data.ts`: 프로젝트/팀/이력/산출물별 실제 조회 쿼리. WBS·아키텍처·요구사항·화면·DB·프로그램·검증은 공통 `project_artifacts`의 kind로 구분합니다. 관련 문서와 `artifact_links`를 함께 조회합니다. 이력은 `artifact_revisions`, 대시보드는 `projects`/`project_members`, 팀은 `workspace_members`/`team_join_requests`를 사용합니다.

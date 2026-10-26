@@ -1,5 +1,6 @@
 // Real HTTP routes, authentication and SQLite; only the external AI provider is mocked.
 import { checkAiConversations } from "./check-ai-conversations.mjs";
+import { checkAiTokenUsage } from "./check-ai-token-usage.mjs";
 import { checkAiConversationOptions } from "./check-ai-conversation-options.mjs";
 import { checkAiImages } from "./check-ai-images.mjs";
 import { checkAiCrud } from "./check-ai-crud.mjs";
@@ -338,6 +339,15 @@ try {
       base,
       makeRoom,
     });
+  await checkAiTokenUsage({
+    request,
+    client,
+    cookie,
+    other,
+    project,
+    base,
+    makeRoom,
+  });
   const clientHtml = await (
     await request(`/projects/${project.id}`, { cookie })
   ).text();

@@ -17,6 +17,7 @@ import { aiPages, pageInstructions, type AiPage } from "@/lib/ai/page-prompts";
 import { readAiPage } from "@/lib/ai/page-data";
 import { createPageAgent } from "@/lib/ai/page-tools";
 import { encryptAiImages, validateAiImages } from "@/lib/ai/chat-images";
+import { createTokenTracker } from "@/lib/ai/token-usage";
 import {
   conversationId,
   requireConversation,
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
         ["owner", "admin", "member"].includes(String(project.role));
     }
     const convId = conversationId(input.convId);
-    await requireConversation(user, projectId, convId);
+    const conversation = await requireConversation(user, projectId, convId);
     if (!(await aiModels()).includes(model))
       throw new HttpError(400, "사용 가능한 AI 모델을 선택해 주세요.");
     await rateLimit(`ai:${user.workspaceId}:${user.id}`, 20);
@@ -190,6 +191,18 @@ export async function POST(request: Request) {
         agent,
         images,
         history,
+        createTokenTracker({
+          workspaceId: user.workspaceId,
+          userId: user.id,
+          projectId,
+          projectName,
+          convId,
+          conversationTitle: conversation.title,
+          chatId: id,
+          requestId,
+          model,
+          prompt,
+        }),
       );
     } catch (error) {
       // 변경이 이미 커밋된 경우 재시도로 중복 저장하지 않도록 실제 결과를 반환합니다.
@@ -232,6 +245,15 @@ export async function POST(request: Request) {
           ],
         },
         ...encrypted.statements,
+        {
+          sql: "UPDATE ai_token_usage SET chat_saved=1,result_characters=? WHERE request_id=? AND workspace_id=? AND user_id=?",
+          args: [
+            Array.from(result).length,
+            requestId,
+            user.workspaceId,
+            user.id,
+          ],
+        },
         {
           sql: "UPDATE ai_conversations SET updated_at=? WHERE conv_id=? AND workspace_id=? AND user_id=?",
           args: [createdAt, convId, user.workspaceId, user.id],

@@ -1,0 +1,297 @@
+.workspace-dialog.account-dialog {
+  max-width: 960px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.account-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.account-dialog > .dialog-header,
+.account-tabs {
+  flex-shrink: 0;
+}
+.account-dialog-body {
+  overflow-y: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+}
+.account-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 12px 24px 0;
+  border-bottom: 1px solid var(--line);
+}
+.account-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 10px 16px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+}
+.account-tabs button[aria-selected="true"] {
+  border-bottom-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+.ai-token-statistics {
+  padding: 24px;
+  color: var(--ink);
+}
+.ai-token-statistics > header {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+}
+.ai-token-statistics > header > .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ai-token-statistics h3 {
+  font-size: 18px;
+  margin: 0;
+}
+.ai-token-statistics header p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.ai-usage-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 22px 0 16px;
+}
+.ai-usage-filters label {
+  flex: 1;
+  min-width: 120px;
+  display: grid;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.ai-usage-filters select {
+  width: 100%;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.ai-usage-group {
+  display: inline-flex;
+  padding: 4px;
+  gap: 4px;
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.ai-usage-group button {
+  border: 0;
+  padding: 8px 18px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+.ai-usage-group button[aria-pressed="true"] {
+  background: var(--primary);
+  color: white;
+}
+.ai-usage-period {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 12px 0;
+}
+.ai-usage-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 16px 0 22px;
+}
+.ai-usage-summary > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px;
+  background: var(--canvas);
+}
+.ai-usage-summary span {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.ai-usage-summary strong {
+  display: block;
+  font-size: 23px;
+  margin-top: 9px;
+  overflow-wrap: anywhere;
+}
+.ai-usage-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 11px;
+  align-items: center;
+}
+.ai-usage-legend span {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.ai-usage-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+}
+.ai-usage-legend small {
+  margin-left: auto;
+  color: var(--muted);
+}
+.ai-token-statistics .is-input {
+  background: #9171ef;
+}
+.ai-token-statistics .is-output {
+  background: #29b7a2;
+}
+.ai-usage-chart {
+  position: relative;
+  padding: 18px 0 0 44px;
+}
+.ai-usage-axis,
+.ai-usage-zero {
+  position: absolute;
+  left: 0;
+  color: var(--muted);
+  font-size: 10px;
+}
+.ai-usage-axis {
+  top: 18px;
+}
+.ai-usage-zero {
+  bottom: 27px;
+}
+.ai-usage-chart-scroll {
+  overflow-x: auto;
+}
+.ai-usage-bars {
+  display: grid;
+  gap: 6px;
+  height: 235px;
+  background: repeating-linear-gradient(
+    to top,
+    transparent 0,
+    transparent calc(25% - 1px),
+    var(--line) 25%
+  );
+}
+.ai-usage-bars button {
+  min-width: 30px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  padding: 0 4px;
+  color: var(--muted);
+}
+.ai-usage-column {
+  height: 208px;
+  width: min(34px, 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.ai-usage-column i {
+  display: block;
+  flex-shrink: 0;
+  width: 100%;
+}
+.ai-usage-bars button.is-selected .ai-usage-column {
+  filter: brightness(1.14);
+  outline: 1px solid var(--primary);
+  outline-offset: 3px;
+}
+.ai-usage-bar-label {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.ai-usage-selected {
+  min-height: 18px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 12px 0;
+}
+.ai-usage-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.ai-usage-note,
+.ai-usage-empty {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted);
+  padding: 12px;
+  background: var(--canvas);
+  border-radius: 7px;
+}
+.ai-token-statistics details {
+  font-size: 12px;
+  margin: 15px 0;
+}
+.ai-token-statistics summary {
+  cursor: pointer;
+  color: var(--primary);
+}
+.ai-usage-table {
+  overflow-x: auto;
+  margin-top: 12px;
+}
+.ai-usage-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.ai-usage-table th,
+.ai-usage-table td {
+  padding: 9px;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+}
+.ai-usage-table th:first-child {
+  text-align: left;
+}
+.ai-token-statistics :is(button, select):focus-visible,
+.account-tabs button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (max-width: 600px) {
+  .ai-token-statistics {
+    padding: 18px 14px;
+  }
+  .account-tabs {
+    padding: 8px 14px 0;
+  }
+  .ai-usage-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ai-usage-summary strong {
+    font-size: 20px;
+  }
+  .ai-usage-filters label {
+    min-width: 110px;
+  }
+  .ai-usage-group button {
+    padding: 8px 16px;
+  }
+}
