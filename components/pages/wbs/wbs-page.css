@@ -1,6 +1,15 @@
 .matrix-gantt {
   min-width: 1100px;
 }
+.matrix-wbs-schedule-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.matrix-wbs-image-button {
+  flex-shrink: 0;
+}
 .matrix-gantt-track {
   width: 260px;
   height: 22px;

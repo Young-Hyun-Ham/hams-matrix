@@ -1,0 +1,140 @@
+.wbs-image-stage {
+  position: fixed;
+  top: 0;
+  left: -10000px;
+  z-index: -1;
+  pointer-events: none;
+}
+.wbs-image-document {
+  width: 1440px;
+  padding: 54px;
+  color: #202235;
+  background: #f5f6fa;
+  font-family: Arial, "Noto Sans KR", sans-serif;
+}
+.wbs-image-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 34px 38px;
+  border-radius: 20px;
+  color: #fff;
+  background: linear-gradient(135deg, #25243a, #443a72);
+}
+.wbs-image-header h1 {
+  margin: 8px 0 10px;
+  font-size: 34px;
+  letter-spacing: -1px;
+}
+.wbs-image-header p {
+  margin: 0;
+  color: #d8d5ed;
+  font-size: 15px;
+}
+.wbs-image-eyebrow,
+.wbs-image-mark {
+  color: #bfb5f5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.6px;
+}
+.wbs-image-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin: 20px 0;
+}
+.wbs-image-summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px;
+  border: 1px solid #e1e3eb;
+  border-radius: 12px;
+  background: #fff;
+}
+.wbs-image-summary span {
+  color: #707287;
+  font-size: 13px;
+}
+.wbs-image-summary strong {
+  color: #50458a;
+  font-size: 22px;
+}
+.wbs-image-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid #dedfe8;
+  border-radius: 14px;
+  background: #fff;
+  font-size: 12px;
+}
+.wbs-image-table th {
+  padding: 14px 12px;
+  border-bottom: 1px solid #d9dbe5;
+  color: #55566b;
+  background: #eeeff5;
+  text-align: left;
+  white-space: nowrap;
+}
+.wbs-image-table td {
+  padding: 13px 12px;
+  border-bottom: 1px solid #ececf2;
+  color: #343548;
+  vertical-align: middle;
+}
+.wbs-image-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.wbs-image-table tbody tr:nth-child(even) td {
+  background: #fafafd;
+}
+.wbs-image-task {
+  display: flex;
+  gap: 8px;
+  min-width: 230px;
+  align-items: center;
+}
+.wbs-image-task b {
+  color: #6c5eb5;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.wbs-image-date {
+  white-space: nowrap;
+}
+.wbs-image-track {
+  position: relative;
+  width: 300px;
+  height: 18px;
+  overflow: hidden;
+  border-radius: 9px;
+  background: #ececf3;
+}
+.wbs-image-bar {
+  position: absolute;
+  top: 2px;
+  height: 14px;
+  min-width: 4px;
+  overflow: hidden;
+  border: 1px solid #8173cb;
+  border-radius: 7px;
+  background: #ded9f5;
+}
+.wbs-image-bar i {
+  display: block;
+  height: 100%;
+  background: #7566bf;
+}
+.wbs-image-progress {
+  color: #51468b;
+}
+.wbs-image-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 16px;
+  color: #858699;
+  font-size: 11px;
+}

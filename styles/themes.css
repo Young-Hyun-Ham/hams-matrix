@@ -14,6 +14,10 @@
   --surface: #22222e;
   --canvas: #181821;
 }
+:root[data-theme="dark"] ::selection {
+  background: #285b55;
+  color: #f1faf8;
+}
 
 /* Native select popups need explicit colors, including inside modal dialogs. */
 select {

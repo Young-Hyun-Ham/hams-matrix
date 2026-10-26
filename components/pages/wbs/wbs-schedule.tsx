@@ -1,10 +1,19 @@
 "use client";
+import { useRef, useState } from "react";
+import { toPng } from "html-to-image";
 import type { Artifact } from "@/lib/artifact-types";
 import { taskMetrics } from "@/lib/integration";
+import {
+  WbsScheduleImage,
+  type WbsScheduleItem,
+} from "./wbs-schedule-image";
 export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
   const tasks = artifacts.filter((a) => a.kind === "wbs"),
-    ordered: { task: Artifact; depth: number }[] = [],
+    ordered: WbsScheduleItem[] = [],
     seen = new Set<string>();
+  const imageRef = useRef<HTMLDivElement>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
   const walk = (parent: string, depth: number) => {
     for (const task of tasks.filter(
       (a) => (a.structure?.parentId ?? "") === parent,
@@ -16,6 +25,11 @@ export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
     }
   };
   walk("", 0);
+  ordered.sort(
+    (a, b) =>
+      a.task.fields.startDate.localeCompare(b.task.fields.startDate) ||
+      a.task.fields.endDate.localeCompare(b.task.fields.endDate),
+  );
   const dates = tasks
     .flatMap((a) => [a.fields.startDate, a.fields.endDate])
     .filter(Boolean)
@@ -24,9 +38,46 @@ export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
   const first = Date.parse(dates[0]),
     last = Date.parse(dates[dates.length - 1]),
     span = Math.max(86400000, last - first + 86400000);
+  const downloadImage = async () => {
+    if (!imageRef.current || downloading) return;
+    setDownloading(true);
+    setDownloadError("");
+    try {
+      await document.fonts.ready;
+      const dataUrl = await toPng(imageRef.current, {
+        backgroundColor: "#f5f6fa",
+        cacheBust: true,
+        pixelRatio: 2,
+      });
+      const link = document.createElement("a");
+      const today = new Intl.DateTimeFormat("sv-SE").format(new Date());
+      link.download = `WBS-일정-${today}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch {
+      setDownloadError("WBS 이미지를 만들지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setDownloading(false);
+    }
+  };
   return (
     <section className="panel matrix-section">
-      <h2>WBS 일정과 공수</h2>
+      <div className="matrix-wbs-schedule-heading">
+        <h2>WBS 일정과 공수</h2>
+        <button
+          type="button"
+          className="button matrix-wbs-image-button"
+          disabled={downloading}
+          onClick={() => void downloadImage()}
+        >
+          {downloading ? "이미지 생성 중..." : "이미지 다운로드"}
+        </button>
+      </div>
+      {downloadError && (
+        <p role="alert" className="matrix-error">
+          {downloadError}
+        </p>
+      )}
       <p>
         {dates[0]} ~ {dates[dates.length - 1]} · 선행 작업 종료 후 시작 · 요약
         작업은 하위 작업의 공수로 가중 집계합니다. 계획 공수가 0인 작업은 가중치
@@ -99,6 +150,16 @@ export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
           </tbody>
         </table>
       </div>
+      <WbsScheduleImage
+        ref={imageRef}
+        artifacts={artifacts}
+        tasks={tasks}
+        ordered={ordered}
+        firstDate={dates[0]}
+        lastDate={dates[dates.length - 1]}
+        first={first}
+        span={span}
+      />
     </section>
   );
 }

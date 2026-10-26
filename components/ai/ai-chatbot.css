@@ -178,7 +178,7 @@
   background: var(--surface);
 }
 .matrix-ai-room-dialog form {
-  padding: 0 22px 22px;
+  padding: 10px 22px 22px;
 }
 .matrix-ai-room-dialog p,
 .matrix-ai-room-dialog label {

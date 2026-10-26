@@ -198,7 +198,9 @@ function ConversationList({ version }: { version: number }) {
           ) : loading ? (
             <p role="status">채팅방을 불러오는 중입니다.</p>
           ) : !rooms.length ? (
-            <p>새 채팅을 만들어 대화를 시작하세요.</p>
+            <p style={{ marginTop: 5, textAlign: "center" }}>
+              새 채팅을 만들어 대화를 시작하세요.
+            </p>
           ) : (
             <ul aria-label="채팅방 목록">
               {rooms.map((room) => (
