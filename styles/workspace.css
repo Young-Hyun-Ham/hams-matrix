@@ -1,0 +1,7 @@
+/* Workspace stylesheet entry point. Keep this import order deterministic. */
+@import "./workspace-shell.css";
+@import "./shared-ui.css";
+@import "./page-heading.css";
+@import "./table.css";
+@import "./dialog.css";
+@import "./accessibility.css";

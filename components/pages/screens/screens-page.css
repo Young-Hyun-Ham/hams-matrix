@@ -1,0 +1,259 @@
+/* ScreensPage styles. Shared styles are loaded by styles/workspace.css. */
+
+.section-subheading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 26px 0 20px;
+}
+.section-subheading > .muted {
+  font-size: 10px;
+}
+.screen-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 22px;
+}
+.screen-card {
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  text-align: left;
+  background: white;
+  transition:
+    transform 0.15s,
+    border-color 0.15s;
+}
+.screen-card:hover {
+  transform: translateY(-3px);
+  border-color: #cbb6e8;
+}
+.screen-card-info {
+  padding: 18px;
+}
+.screen-card-info > span {
+  color: #b1a2bf;
+  font-family: monospace;
+  font-size: 9px;
+  display: flex;
+  justify-content: space-between;
+}
+.screen-card-info small {
+  font-family: var(--font-sans);
+}
+.screen-card h3 {
+  margin: 11px 0 15px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.screen-card-info > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.screen-card-info > div > span:last-child {
+  display: flex;
+  gap: 5px;
+  color: #b3a5bf;
+  font-size: 9px;
+}
+.wireframe {
+  height: 185px;
+  padding: 20px 24px 0;
+  background: #f4f1fa;
+  overflow: hidden;
+}
+.wire-top {
+  height: 16px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 7px;
+  background: #fcfbff;
+  border: 1px solid #e7e1f1;
+  border-radius: 5px 5px 0 0;
+}
+.wire-top i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: #d9cee9;
+}
+.wire-top span {
+  width: 55%;
+  height: 4px;
+  background: #f0ebf8;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 3px;
+}
+.wire-body {
+  display: flex;
+  height: 170px;
+  background: white;
+  border: 1px solid #e7e1f1;
+  border-top: 0;
+}
+.wire-side {
+  width: 35px;
+  background: #fbf9fe;
+  padding: 11px 6px;
+  border-right: 1px solid #f1edf7;
+}
+.wire-side b,
+.wire-side i {
+  display: block;
+  height: 4px;
+  margin-bottom: 8px;
+  border-radius: 2px;
+  background: #e9e0f5;
+}
+.wire-side b {
+  width: 12px;
+  height: 7px;
+  background: #bca4dc;
+}
+.wire-main {
+  flex: 1;
+  padding: 13px;
+}
+.wire-title {
+  width: 42%;
+  height: 5px;
+  background: #d8cbe8;
+  border-radius: 2px;
+  margin-bottom: 13px;
+}
+.wire-banner {
+  height: 30px;
+  background: #eee6fa;
+  border-radius: 3px;
+  margin-bottom: 10px;
+}
+.wire-metrics {
+  display: flex;
+  gap: 5px;
+  margin-bottom: 10px;
+}
+.wire-metrics i {
+  flex: 1;
+  height: 23px;
+  border: 1px solid #eee7f7;
+  border-radius: 3px;
+  background: #fdfbff;
+}
+.wire-lines i {
+  display: block;
+  height: 11px;
+  border-bottom: 1px solid #f0eaf8;
+  margin-top: 7px;
+  background: linear-gradient(
+    90deg,
+    #eee6f7 20%,
+    transparent 20%,
+    transparent 25%,
+    #f5f0fa 25%,
+    #f5f0fa 65%,
+    transparent 65%
+  );
+}
+.wire-auth {
+  display: grid;
+  gap: 8px;
+  width: 65%;
+  margin: 20px auto;
+}
+.wire-auth b {
+  display: block;
+  height: 8px;
+  width: 50%;
+  margin: 0 auto 5px;
+  background: #c2acd9;
+  border-radius: 2px;
+}
+.wire-auth i {
+  height: 13px;
+  border: 1px solid #e9e1f4;
+  border-radius: 3px;
+}
+.wire-auth em {
+  height: 13px;
+  background: #bb9fdd;
+  border-radius: 3px;
+}
+.wire-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 7px;
+}
+.wire-tiles i {
+  height: 37px;
+  border: 1px solid #e9e1f4;
+  border-radius: 4px;
+  background: linear-gradient(#f1eaf9 60%, #fff 60%);
+}
+@media (max-width: 1200px) {
+  .screen-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 960px) {
+  .section-subheading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (max-width: 700px) {
+  .screen-grid {
+    gap: 14px;
+  }
+  .screen-card-info {
+    padding: 13px;
+  }
+  .screen-card h3 {
+    font-size: 12px;
+  }
+  .screen-card-info > div > span:last-child {
+    font-size: 8px;
+  }
+  .screen-card .badge {
+    font-size: 9px;
+  }
+  .wireframe {
+    height: 145px;
+    padding: 13px 13px 0;
+  }
+  .wire-main {
+    padding: 10px;
+  }
+  .wire-side {
+    width: 25px;
+    padding: 10px 4px;
+  }
+  .wire-banner {
+    height: 20px;
+  }
+  .wire-title {
+    margin-bottom: 10px;
+  }
+  .wire-tiles {
+    gap: 4px;
+  }
+  .wire-tiles i {
+    height: 28px;
+  }
+}
+@media (max-width: 420px) {
+  .screen-grid {
+    grid-template-columns: 1fr;
+  }
+  .wireframe {
+    height: 190px;
+    padding: 20px 35px 0;
+  }
+  .screen-card-info {
+    padding: 18px;
+  }
+}

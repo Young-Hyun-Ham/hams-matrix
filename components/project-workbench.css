@@ -1,0 +1,228 @@
+.matrix-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 20px;
+}
+.matrix-heading,
+.matrix-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.matrix-heading h1 {
+  margin: 6px 0;
+  font-size: 28px;
+}
+.matrix-heading p {
+  color: var(--muted);
+}
+.matrix-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+}
+.matrix-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+.matrix-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.matrix-tabs button[aria-current] {
+  background: #6555d9;
+  color: white;
+}
+.matrix-workbench input:not([type="checkbox"]),
+.matrix-workbench select,
+.matrix-workbench textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+}
+.matrix-project-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.matrix-section {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.matrix-section h2,
+.matrix-section p {
+  margin: 0;
+}
+.matrix-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.matrix-stats .panel {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  color: inherit;
+}
+.matrix-stats button {
+  cursor: pointer;
+}
+.matrix-stats strong {
+  font-size: 30px;
+}
+.matrix-stats small,
+.matrix-section small {
+  color: var(--muted);
+}
+.matrix-empty {
+  padding: 32px;
+  text-align: center;
+}
+.matrix-error {
+  color: #c43b43;
+  padding: 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+}
+.matrix-notice {
+  padding: 12px;
+  background: #e8f5ed;
+  color: #205e38;
+  border-radius: 8px;
+}
+.matrix-dialog {
+  width: min(820px, calc(100vw - 32px));
+  max-height: 88dvh;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: var(--surface);
+  overflow-y: auto;
+}
+.matrix-dialog::backdrop {
+  background: #13152c88;
+}
+.matrix-dialog form {
+  display: grid;
+  gap: 18px;
+}
+.matrix-dialog fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.matrix-dialog label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.matrix-dialog input:not([type="checkbox"]),
+.matrix-dialog textarea,
+.matrix-dialog select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.matrix-dialog .matrix-links {
+  border: 1px solid var(--line);
+  padding: 16px;
+  max-height: 240px;
+  overflow: auto;
+}
+.matrix-links label {
+  display: flex;
+  align-items: center;
+}
+.matrix-section details {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.matrix-section summary {
+  cursor: pointer;
+}
+.matrix-section dl {
+  display: grid;
+  gap: 12px;
+}
+.matrix-section dt {
+  font-weight: 600;
+}
+.matrix-section dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .matrix-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .matrix-section {
+    padding: 16px;
+  }
+  .matrix-heading h1 {
+    font-size: 22px;
+  }
+}
+.matrix-structure,
+.matrix-column {
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  padding: 16px !important;
+}
+.matrix-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.matrix-check-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.matrix-check-row label,
+.matrix-dialog .matrix-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.matrix-section pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .matrix-field-grid {
+    grid-template-columns: 1fr;
+  }
+}

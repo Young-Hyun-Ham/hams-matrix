@@ -1,0 +1,701 @@
+.matrix-ai {
+  margin-bottom: 12px;
+}
+.matrix-ai-chevron {
+  margin-left: auto;
+}
+.matrix-ai-navigation {
+  min-width: 0;
+}
+.matrix-ai-conversations {
+  padding: 2px 0 12px;
+}
+.matrix-ai-project-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  font: inherit;
+  font-size: 11px;
+}
+.matrix-ai-project-toggle:hover {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+.matrix-ai-project-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matrix-ai-project-toggle svg {
+  flex-shrink: 0;
+}
+#matrix-ai-project-chats > p {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.matrix-ai-conversations ul {
+  padding: 0;
+  margin: 10px 0 0;
+  list-style: none;
+  overflow: visible;
+}
+.matrix-ai-room-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  border-radius: 8px;
+  margin-top: 4px;
+}
+.matrix-ai-room-row:hover,
+.matrix-ai-room-row.is-selected {
+  background: var(--primary-soft);
+}
+.matrix-ai-room-row.is-selected {
+  color: var(--primary);
+}
+.matrix-ai-new-chat {
+  width: 100%;
+  padding: 9px 13px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  text-align: left;
+  font-size: 12px;
+}
+.matrix-ai-room {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  padding: 10px 0 10px 14px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.matrix-ai-room-row.is-selected .matrix-ai-room {
+  color: var(--primary);
+}
+.matrix-ai-room-heading {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.matrix-ai-pinned-icon {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+.matrix-ai-room-title {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12px;
+}
+.matrix-ai-room time {
+  display: block;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--muted);
+}
+.matrix-ai-room-options {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  margin-right: 5px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+.matrix-ai-room-options:hover,
+.matrix-ai-room-options[aria-expanded="true"] {
+  background: var(--surface);
+  color: var(--primary);
+}
+.matrix-ai-room-options:disabled {
+  opacity: 0.5;
+}
+.matrix-ai-room-menu {
+  position: fixed;
+  z-index: 1000;
+  width: 176px;
+  display: grid;
+  gap: 2px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 10px 30px #17122b30;
+}
+.matrix-ai-room-menu button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: 12px;
+}
+.matrix-ai-room-menu button:hover,
+.matrix-ai-room-menu button:focus-visible {
+  background: var(--primary-soft);
+  outline: none;
+}
+.matrix-ai-room-menu .is-destructive {
+  color: #c5394d;
+}
+[data-theme="dark"] .matrix-ai-room-menu .is-destructive {
+  color: #ff9caa;
+}
+.matrix-ai-room-dialog {
+  width: min(420px, calc(100vw - 32px));
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+}
+.matrix-ai-room-dialog form {
+  padding: 0 22px 22px;
+}
+.matrix-ai-room-dialog p,
+.matrix-ai-room-dialog label {
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-room-dialog input {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 10px;
+  font: inherit;
+  background: var(--surface);
+  color: var(--ink);
+}
+.matrix-ai-room-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 24px;
+}
+.matrix-ai-room-dialog-actions .matrix-ai-delete-confirm {
+  background: #b53043;
+  color: #fff;
+  border-color: #b53043;
+}
+.matrix-ai-room-dialog :is(button, input):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.matrix-ai-conversation-title {
+  margin-bottom: 12px;
+}
+.matrix-ai-conversation-title > div,
+.matrix-ai-conversation-title form {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.matrix-ai-conversation-title strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.matrix-ai-conversation-title input {
+  width: 100%;
+  min-width: 0;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+}
+.matrix-ai-conversation-title button,
+.matrix-ai-message-actions button,
+.matrix-ai-older {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--primary);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.matrix-ai-messages {
+  margin-bottom: 16px;
+  max-height: 48dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+  scrollbar-gutter: stable;
+}
+.matrix-ai-messages > p {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--muted);
+}
+.matrix-ai-turn {
+  margin-bottom: 18px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-user-message,
+.matrix-ai-assistant-message {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.matrix-ai-user-message {
+  margin-left: 20px;
+  background: var(--primary-soft);
+}
+.matrix-ai-assistant-message {
+  margin-top: 8px;
+  margin-right: 10px;
+}
+.matrix-ai-turn strong {
+  font-size: 11px;
+  color: var(--primary);
+}
+.matrix-ai-turn small {
+  display: block;
+  font-size: 10px;
+  margin-top: 6px;
+  color: var(--muted);
+}
+.matrix-ai-turn p,
+.matrix-ai-turn pre {
+  margin: 8px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: 1.8;
+}
+.matrix-ai-message-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 12px;
+}
+.matrix-ai-messages .matrix-ai-saved-images {
+  margin-top: 10px;
+  margin-bottom: 0;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+}
+.matrix-ai-messages .matrix-ai-saved-images img {
+  height: 120px;
+}
+.matrix-ai-navigation :is(button, input):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.matrix-ai-result > .matrix-ai-error {
+  margin: 0;
+  padding: 10px 24px;
+}
+.matrix-ai-card,
+.matrix-ai-history {
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--primary-soft, #f8f6ff);
+  color: var(--ink);
+}
+.matrix-ai-card header {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 9px;
+}
+.matrix-ai-card header strong {
+  flex: 1;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.matrix-ai-spark {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.matrix-ai-history-toggle {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.matrix-ai-history-toggle[aria-expanded="true"] {
+  background: var(--primary);
+  color: var(--surface);
+}
+.matrix-ai-context {
+  color: var(--muted);
+  font-size: 10px;
+  margin: 0 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matrix-ai-card textarea {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  resize: vertical;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.65;
+}
+.matrix-ai-card textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.matrix-ai-model {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 10px 0;
+  font-size: 10px;
+  color: var(--muted);
+}
+.matrix-ai-model > span {
+  flex-shrink: 0;
+}
+.matrix-ai-model select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 4px;
+  font-size: 11px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.matrix-ai-generate {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border: 0;
+  border-radius: 8px;
+  background: #8761ed;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+.matrix-ai-generate > span {
+  font-size: 9px;
+  font-weight: 400;
+}
+.matrix-ai-generate:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.matrix-ai-hint {
+  margin: 9px 0 0;
+  text-align: center;
+  font-size: 9px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.matrix-ai-error {
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.matrix-ai-error button,
+.matrix-ai-history-list > p button {
+  display: block;
+  color: var(--primary);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  padding: 5px 0;
+}
+.matrix-ai-history {
+  margin-bottom: 10px;
+  background: var(--surface);
+}
+.matrix-ai-history > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.matrix-ai-history > header span {
+  padding: 4px 7px;
+  border-radius: 20px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 10px;
+}
+.matrix-ai-history-list {
+  max-height: 230px;
+  overflow-y: auto;
+}
+.matrix-ai-history-list > p {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.matrix-ai-history-list article {
+  margin-top: 7px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--canvas);
+}
+.matrix-ai-history-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  color: var(--ink);
+  padding: 0;
+}
+.matrix-ai-history-item strong {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.6;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-history-item span,
+.matrix-ai-history-item small,
+.matrix-ai-history-item time {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-reuse {
+  margin-top: 7px;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--primary);
+  font-size: 9px;
+}
+.matrix-ai :is(button, textarea, select):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+.matrix-ai-result {
+  padding: 0;
+  overflow: hidden;
+  width: min(850px, calc(100vw - 32px));
+  max-width: 850px;
+  color: var(--ink);
+  background: var(--surface);
+}
+.matrix-ai-result[open] {
+  display: flex;
+  flex-direction: column;
+}
+.matrix-ai-result > .dialog-header {
+  flex-shrink: 0;
+}
+.matrix-ai-result-body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 24px;
+}
+.matrix-ai-result-context {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.matrix-ai-result-prompt {
+  margin: 0 0 20px;
+  line-height: 1.7;
+  padding: 12px;
+  background: var(--primary-soft);
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.9;
+}
+.matrix-ai-result-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  padding: 16px 24px;
+}
+.matrix-ai-result-actions > span {
+  font-size: 11px;
+  color: var(--muted);
+}
+.matrix-ai-image-help {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+.matrix-ai-attachments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 8px;
+  margin-top: 10px;
+}
+.matrix-ai-attachments figure {
+  position: relative;
+  margin: 0;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-width: 0;
+}
+.matrix-ai-image-link {
+  display: block;
+  color: var(--muted);
+}
+.matrix-ai-image-link img {
+  display: block;
+  width: 100%;
+  height: 110px;
+  object-fit: contain;
+  background: var(--canvas);
+  border-radius: 6px;
+}
+.matrix-ai-attachments figcaption {
+  color: var(--muted);
+  font-size: 9px;
+  text-align: center;
+  margin-top: 5px;
+}
+.matrix-ai-attachments figure > .matrix-ai-remove-image {
+  display: grid;
+  place-items: center;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 25px;
+  height: 25px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+}
+.matrix-ai-attachments figure > .matrix-ai-remove-image:disabled {
+  opacity: 0.5;
+}
+.matrix-ai-image-error {
+  display: block;
+  padding: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.matrix-ai-saved-images {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 15px;
+}
+.matrix-ai-saved-images img {
+  height: 220px;
+}
+.matrix-ai-image-link {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: zoom-in;
+}
+.matrix-ai-image-dialog {
+  width: min(1200px, calc(100vw - 30px));
+  max-width: none;
+  max-height: 92dvh;
+  padding: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.matrix-ai-image-dialog > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.matrix-ai-image-dialog img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 78dvh;
+  object-fit: contain;
+}
+.matrix-ai-image-dialog::backdrop {
+  background: #17122baa;
+}
+
+@media (max-width: 600px) {
+  .matrix-ai-result-body {
+    padding: 18px 16px;
+  }
+  .matrix-ai-result > .dialog-header,
+  .matrix-ai-result-actions {
+    padding: 16px;
+  }
+}

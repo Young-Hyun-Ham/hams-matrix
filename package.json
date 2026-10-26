@@ -6,12 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node --env-file=.env scripts/migrate.mjs",
+    "test:ai": "node scripts/test-ai.mjs",
+    "test:auth": "node scripts/test-auth.mjs",
+    "test:auth:dev": "node scripts/test-auth.mjs --dev",
+    "test:auth:no-logs": "node scripts/test-auth.mjs --logging-disabled",
+    "test:migration": "node scripts/test-migration.mjs"
   },
   "dependencies": {
+    "@blocknote/core": "^0.56.0",
+    "@blocknote/mantine": "^0.56.0",
+    "@blocknote/react": "^0.56.0",
+    "@libsql/client": "^0.18.0",
+    "@onlyoffice/document-editor-react": "^2.3.0",
+    "@tiptap/pm": "^3.32.0",
+    "@tiptap/react": "^3.32.0",
+    "@tiptap/starter-kit": "^3.32.0",
     "next": "16.4.2",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

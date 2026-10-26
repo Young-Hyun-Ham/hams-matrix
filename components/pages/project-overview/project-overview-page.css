@@ -1,0 +1,18 @@
+.matrix-flow {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  background: var(--canvas);
+  border-radius: 12px;
+}
+.matrix-flow > span:nth-child(odd) {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 12px 20px;
+  border-radius: 8px;
+}
+.matrix-flow > span:nth-child(even) {
+  color: var(--muted);
+  font-size: 12px;
+}

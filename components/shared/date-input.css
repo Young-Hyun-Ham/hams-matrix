@@ -1,0 +1,74 @@
+.matrix-date-input {
+  display: inline-flex;
+  position: relative;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.matrix-date-input:focus-within {
+  outline: 3px solid #a99af1;
+  outline-offset: 2px;
+}
+.matrix-date-input input[type="text"].matrix-date-year,
+.matrix-date-input input[type="text"].matrix-date-part {
+  flex: none;
+  width: 3ch;
+  min-width: 0;
+  border: 0;
+  border-radius: 3px;
+  padding: 5px 0;
+  text-align: center;
+  background: transparent;
+  color: inherit;
+  outline: none;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.matrix-date-input input[type="text"].matrix-date-year {
+  width: 5ch;
+}
+.matrix-date-input input::placeholder {
+  color: var(--muted);
+}
+.matrix-date-input input:focus {
+  background: var(--primary-soft);
+}
+.matrix-date-input input[type="date"].matrix-date-native {
+  position: absolute;
+  right: 8px;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.matrix-date-calendar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 6px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+}
+.matrix-date-calendar:hover {
+  background: var(--primary-soft);
+}
+.matrix-field {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.matrix-field > label {
+  font-size: 14px;
+}

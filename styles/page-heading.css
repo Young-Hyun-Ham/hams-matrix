@@ -1,0 +1,86 @@
+/* Shared page headings and action rows, including responsive behavior. */
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  margin-bottom: 27px;
+}
+.page-title-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.page-heading h1 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 750;
+  letter-spacing: -0.8px;
+}
+.page-title-line .badge {
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  padding: 4px 6px;
+  font-weight: 600;
+}
+.page-heading p {
+  font-size: 11px;
+  color: #9992a5;
+  margin: 9px 0 0;
+}
+.page-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.page-heading-actions .button {
+  font-size: 11px;
+  padding: 9px 12px;
+  min-height: 37px;
+}
+@media (max-width: 1200px) {
+  .page-heading-actions {
+    gap: 12px;
+  }
+}
+@media (max-width: 960px) {
+  .page-heading {
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .page-heading-actions {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 700px) {
+  .page-heading {
+    margin-bottom: 21px;
+    gap: 18px;
+  }
+  .page-heading h1 {
+    font-size: 23px;
+  }
+  .page-heading p {
+    font-size: 10px;
+    line-height: 1.7;
+  }
+  .page-heading-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .page-heading-actions .button {
+    min-height: 40px;
+  }
+  .page-heading-actions > .button:only-child {
+    margin-left: auto;
+  }
+}
+@media (max-width: 420px) {
+  .page-heading h1 {
+    font-size: 22px;
+  }
+  .page-heading-actions .button {
+    font-size: 10px;
+  }
+}

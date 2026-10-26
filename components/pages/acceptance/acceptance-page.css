@@ -1,0 +1,12 @@
+.matrix-pass {
+  color: #238248;
+}
+.matrix-pending {
+  color: #b66612;
+}
+.matrix-issue {
+  display: flex;
+  gap: 16px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}

@@ -1,0 +1,77 @@
+/* DeliverablesPage styles. Shared styles are loaded by styles/workspace.css. */
+
+.document-categories {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 23px 0;
+}
+.document-categories button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 22px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: #ad9bbb;
+}
+.document-categories button strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+.document-categories button > span {
+  margin-left: auto;
+  font-size: 11px;
+}
+.document-categories button.selected {
+  border-color: #ccb5e9;
+  background: #f6f1fc;
+  color: #9b7cb9;
+}
+.document-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.document-icon {
+  width: 36px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+}
+.upload-preview {
+  padding: 35px 20px;
+  border: 1px dashed #dcd0e8;
+  border-radius: 11px;
+  margin-top: 25px;
+  color: #b7a0c9;
+  text-align: center;
+}
+.upload-preview h3 {
+  font-size: 13px;
+  margin: 14px 0 8px;
+  color: #9c83af;
+}
+.upload-preview p {
+  font-size: 10px;
+  color: #b6a4c3;
+}
+@media (max-width: 1200px) {
+  .document-categories {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .document-categories {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .document-categories button {
+    padding: 17px 14px;
+  }
+  .document-categories button strong {
+    font-size: 10px;
+  }
+}

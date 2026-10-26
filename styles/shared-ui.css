@@ -1,0 +1,182 @@
+/* Shared panels, notices, avatars, status indicators and common icon/text controls. */
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  color: #9994a8;
+  padding: 7px;
+  border-radius: 6px;
+}
+.icon-button:hover {
+  background: #f3f0fa;
+  color: var(--primary);
+}
+.sample-notice {
+  margin: 22px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  color: #9a91a8;
+  line-height: 1.7;
+}
+.sample-notice b {
+  font-weight: 400;
+  color: #aaa3b7;
+  margin-left: 5px;
+}
+.sample-pill {
+  margin-left: auto;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: #aaa0bb;
+  white-space: nowrap;
+}
+.stat-icon.purple,
+.project-symbol.purple,
+.quick-icon.purple,
+.activity-avatar.purple,
+.document-icon.purple {
+  background: #f0ebfc;
+  color: #9b7bd1;
+}
+.stat-icon.blue,
+.project-symbol.blue,
+.quick-icon.blue,
+.activity-avatar.blue,
+.document-icon.blue {
+  background: #eaf1fc;
+  color: #7c9acb;
+}
+.stat-icon.orange,
+.quick-icon.orange,
+.activity-avatar.orange,
+.document-icon.orange {
+  background: #fcf2e7;
+  color: #c9a06c;
+}
+.stat-icon.green,
+.project-symbol.green,
+.quick-icon.green,
+.activity-avatar.green,
+.document-icon.green {
+  background: #eaf6f1;
+  color: #78ac99;
+}
+.panel {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  min-width: 0;
+  overflow: hidden;
+}
+.panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 23px;
+  gap: 10px;
+}
+.panel-heading h2,
+.section-subheading h2 {
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+.panel-heading h2 > span,
+.section-subheading h2 > span {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a28ac8;
+  background: #f4f0fc;
+  border-radius: 4px;
+  padding: 2px 5px;
+  margin-left: 4px;
+}
+.panel-heading p {
+  font-size: 10px;
+  color: #b0a7bc;
+  margin: 7px 0 0;
+}
+.text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 0;
+  color: #a59aaf;
+  font-size: 10px;
+  padding: 4px 0;
+}
+.text-button:hover {
+  color: var(--primary);
+}
+.status-dot {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+  margin-right: 4px;
+}
+.member-stack {
+  display: flex;
+  padding-left: 5px;
+}
+.member-stack span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid white;
+  margin-left: -5px;
+  background: #e6d8ef;
+  font-size: 8px;
+  color: #a085af;
+}
+.member-stack span:nth-child(2) {
+  background: #dbe6e7;
+  color: #8ba7ab;
+}
+.member-stack span:nth-child(3) {
+  background: #eddfd4;
+  color: #b8a08a;
+}
+.activity-avatar {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 50%;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+@media (max-width: 700px) {
+  .sample-notice {
+    align-items: flex-start;
+    margin: 20px 0 15px;
+    font-size: 9px;
+  }
+  .sample-notice > svg {
+    margin-top: 2px;
+  }
+  .sample-notice b {
+    display: block;
+    margin: 1px 0 0;
+  }
+  .sample-pill {
+    font-size: 7px;
+    margin-top: 2px;
+  }
+  .panel-heading {
+    padding: 21px;
+  }
+  .icon-button {
+    min-width: 34px;
+    min-height: 34px;
+  }
+}

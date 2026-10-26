@@ -1,0 +1,361 @@
+/* Desktop chat starts at 30%; expanded mode uses 50%. Floating mode keeps the page full width. */
+.workspace-content-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
+  align-items: start;
+  position: relative;
+  min-height: calc(100dvh - 73px);
+  transition: grid-template-columns 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.workspace-content-layout.ai-is-open:not(.ai-is-floating) {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
+}
+.workspace-content-layout.ai-is-open.ai-is-expanded:not(.ai-is-floating) {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.workspace-page-content {
+  grid-column: 2;
+  min-width: 0;
+}
+.matrix-ai-drawer {
+  min-width: 0;
+  position: sticky;
+  top: 0;
+  height: calc(100dvh - 73px);
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: inset -1px 0 var(--line);
+  visibility: hidden;
+  transition: visibility 0s 300ms;
+}
+.ai-is-open .matrix-ai-drawer {
+  visibility: visible;
+  transition-delay: 0s;
+}
+.matrix-ai-drawer-inner {
+  padding: 20px 16px;
+  opacity: 0;
+  transform: translateX(-20px);
+  transition:
+    opacity 200ms ease,
+    transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ai-is-open .matrix-ai-drawer-inner {
+  opacity: 1;
+  transform: translateX(0);
+}
+.matrix-ai-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 18px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.matrix-ai-drag-handle {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.matrix-ai-drag-handle:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.ai-is-dragging .matrix-ai-drag-handle {
+  cursor: grabbing;
+}
+.matrix-ai-drawer-title {
+  min-width: 0;
+}
+.matrix-ai-drawer-title strong,
+.matrix-ai-drawer-title small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.matrix-ai-window-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.matrix-ai-window-actions .icon-button {
+  width: 28px;
+  height: 30px;
+  min-width: 28px;
+}
+.matrix-ai-window-actions .icon-button[aria-pressed="true"] {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.matrix-ai-drawer-header strong {
+  font-size: 14px;
+}
+.matrix-ai-drawer-header small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.matrix-ai-drawer-symbol {
+  display: grid;
+  place-items: center;
+  background: var(--primary-soft);
+  color: var(--primary);
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.matrix-ai-drawer-header > button {
+  flex-shrink: 0;
+}
+.matrix-ai-drawer .matrix-ai-card,
+.matrix-ai-drawer .matrix-ai-history {
+  padding: 16px 12px;
+}
+.matrix-ai-drawer .matrix-ai-card header strong {
+  font-size: 14px;
+}
+.matrix-ai-drawer .matrix-ai-card textarea {
+  min-height: 150px;
+  font-size: 12px;
+}
+.matrix-ai-drawer .matrix-ai-model {
+  margin: 14px 0;
+  font-size: 11px;
+}
+.matrix-ai-drawer .matrix-ai-model select {
+  font-size: 12px;
+}
+.matrix-ai-drawer .matrix-ai-generate {
+  font-size: 13px;
+  padding: 12px 6px;
+}
+.matrix-ai-drawer .matrix-ai-hint {
+  font-size: 10px;
+}
+.matrix-ai-drawer .matrix-ai-history-item strong {
+  font-size: 12px;
+}
+.matrix-ai-backdrop {
+  display: none;
+}
+@media (max-width: 960px) {
+  .workspace-content-layout,
+  .workspace-content-layout.ai-is-open:not(.ai-is-floating),
+  .workspace-content-layout.ai-is-open.ai-is-expanded:not(.ai-is-floating) {
+    grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
+  }
+  .matrix-ai-drawer {
+    position: fixed;
+    z-index: 31;
+    left: 210px;
+    top: 73px;
+    bottom: 0;
+    height: auto;
+    width: min(440px, calc(100vw - 210px));
+    transform: translateX(-100%);
+    opacity: 0;
+    box-shadow: 8px 0 30px #17122b25;
+    transition:
+      transform 300ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 200ms ease,
+      visibility 0s 300ms;
+  }
+  .ai-is-open .matrix-ai-drawer {
+    transform: translateX(0);
+    opacity: 1;
+    transition-delay: 0s;
+  }
+  .matrix-ai-drawer-inner {
+    transform: none;
+    padding: 20px;
+  }
+  .matrix-ai-backdrop {
+    display: block;
+    position: fixed;
+    z-index: 30;
+    inset: 73px 0 0 210px;
+    border: 0;
+    background: #17122b55;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 200ms ease,
+      visibility 0s 300ms;
+  }
+  .ai-is-open .matrix-ai-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+}
+@media (max-width: 700px) {
+  .workspace-content-layout {
+    min-height: calc(100dvh - 65px);
+  }
+  .matrix-ai-drawer {
+    top: 65px;
+    left: 0;
+    width: min(440px, 100vw);
+  }
+  .matrix-ai-backdrop {
+    top: 65px;
+    left: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-content-layout,
+  .matrix-ai-drawer,
+  .matrix-ai-drawer-inner,
+  .matrix-ai-backdrop {
+    transition: none;
+  }
+}
+
+/* One persistent chat instance switches to a non-modal floating window. */
+.ai-is-floating .matrix-ai-backdrop {
+  display: none;
+}
+.ai-is-floating .matrix-ai-drawer {
+  opacity: 0;
+  position: fixed;
+  z-index: 55;
+  left: var(--ai-window-x, 24px);
+  top: var(--ai-window-y, 88px);
+  bottom: auto;
+  width: min(460px, calc(100vw - 24px));
+  height: min(720px, calc(100dvh - 100px));
+  max-height: calc(100dvh - 24px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: 0 16px 55px #17122b44;
+  overflow: hidden;
+  transform: none;
+  transition:
+    opacity 200ms ease,
+    visibility 0s 300ms;
+}
+.ai-is-floating.ai-is-expanded .matrix-ai-drawer {
+  width: min(760px, calc(100vw - 24px));
+}
+.ai-is-floating.ai-is-open .matrix-ai-drawer {
+  opacity: 1;
+  transition-delay: 0s;
+}
+.ai-is-floating .matrix-ai-drawer-inner {
+  height: 100%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  transform: none;
+}
+.ai-is-floating .matrix-ai-drawer-header {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 14px 16px;
+}
+.ai-is-floating .matrix-ai-drawer-inner > .matrix-ai {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin: 0;
+  padding: 16px;
+}
+.matrix-ai-drag-handle:focus-visible,
+.matrix-ai-window-actions button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+@media (max-width: 700px) {
+  .ai-is-floating .matrix-ai-drawer {
+    height: min(600px, 70dvh);
+  }
+  .matrix-ai-window-actions .icon-button {
+    width: 32px;
+    height: 34px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ai-is-floating .matrix-ai-drawer {
+    transition: none;
+  }
+}
+
+/* Conversation messages scroll independently; the composer stays visible. */
+.matrix-ai-drawer {
+  overflow: hidden;
+}
+.matrix-ai-drawer-inner {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.matrix-ai-drawer-header {
+  flex-shrink: 0;
+}
+.matrix-ai-drawer-inner > .matrix-ai,
+.ai-is-floating .matrix-ai-drawer-inner > .matrix-ai {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  margin: 0;
+}
+.matrix-ai-panel-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.matrix-ai-conversation-title,
+.matrix-ai-panel-content > .matrix-ai-card {
+  flex-shrink: 0;
+}
+.matrix-ai-drawer .matrix-ai-messages {
+  flex: 1;
+  min-height: 70px;
+  max-height: none;
+}
+.matrix-ai-drawer .matrix-ai-card textarea {
+  min-height: 70px;
+  height: 80px;
+  max-height: 120px;
+}
+.matrix-ai-drawer .matrix-ai-card {
+  max-height: 65%;
+  overflow-y: auto;
+}
+.matrix-ai-drawer .matrix-ai-attachments img {
+  height: 70px;
+}
+@media (max-width: 700px) {
+  .matrix-ai-drawer .matrix-ai-card {
+    padding: 10px;
+  }
+  .matrix-ai-drawer .matrix-ai-card textarea {
+    min-height: 60px;
+    height: 60px;
+  }
+  .matrix-ai-drawer .matrix-ai-model {
+    margin: 8px 0;
+  }
+}

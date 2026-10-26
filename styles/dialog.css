@@ -1,0 +1,119 @@
+/* Shared native dialogs, account settings, help and preview details. */
+
+.workspace-dialog {
+  border: 1px solid var(--line);
+  padding: 0;
+  border-radius: 15px;
+  width: calc(100% - 40px);
+  max-width: 520px;
+  color: var(--ink);
+  box-shadow: 0 24px 90px #211b4433;
+  max-height: 85dvh;
+}
+.workspace-dialog::backdrop {
+  background: #28213d66;
+  backdrop-filter: blur(3px);
+}
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding: 20px 24px;
+}
+.dialog-header h2 {
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
+}
+.settings-form,
+.help-content,
+.detail-content {
+  padding: 24px;
+}
+.settings-form {
+  display: grid;
+  gap: 18px;
+}
+.settings-form > p {
+  font-size: 12px;
+  line-height: 1.7;
+  margin-bottom: 0;
+}
+.settings-form label {
+  display: grid;
+  gap: 9px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.settings-form input {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  width: 100%;
+}
+.settings-form input[readonly] {
+  background: #f9f7fc;
+  color: #a394ae;
+}
+.settings-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #f6f2fd;
+  padding: 14px;
+  color: #9a7eb3;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.settings-info small {
+  font-size: 9px;
+}
+.help-content p,
+.detail-content p {
+  color: #9d8aac;
+  font-size: 12px;
+  line-height: 1.9;
+  margin: 18px 0;
+}
+.detail-content .button {
+  margin-top: 10px;
+  width: 100%;
+}
+.detail-diff {
+  display: grid;
+  gap: 12px;
+}
+.detail-diff > div {
+  background: #f9f6fc;
+  padding: 15px;
+  border-radius: 8px;
+}
+.detail-diff strong {
+  font-size: 11px;
+  color: #9c81b0;
+}
+.detail-diff pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 11px;
+  color: #a08aad;
+}
+@media (max-width: 700px) {
+  .workspace-dialog {
+    width: calc(100% - 28px);
+  }
+  .dialog-header {
+    padding: 18px;
+  }
+  .dialog-header h2 {
+    font-size: 14px;
+  }
+  .settings-form,
+  .help-content,
+  .detail-content {
+    padding: 20px;
+  }
+}

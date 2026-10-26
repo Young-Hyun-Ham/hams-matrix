@@ -1,0 +1,38 @@
+/* RequirementsPage styles. Shared styles are loaded by styles/workspace.css. */
+
+.priority {
+  font-size: 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.priority i {
+  width: 5px;
+  height: 5px;
+  background: currentColor;
+  border-radius: 50%;
+}
+.priority-높음 {
+  color: #ce8c91;
+}
+.priority-보통 {
+  color: #c0a169;
+}
+.priority-낮음 {
+  color: #9da7b7;
+}
+.table-owner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.table-owner > span {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0e8f7;
+  color: #ae94be;
+  font-size: 9px;
+}
