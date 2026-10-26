@@ -89,13 +89,13 @@ export function ArtifactDialogs({
                 </select>
               </label>
               <ArtifactFields
-                key={selected?.id ?? draft?.kind ?? editorKind}
+                key={`fields:${selected?.id ?? draft?.kind ?? editorKind}`}
                 kind={editorKind}
                 artifact={defaults}
                 isExisting={!!selected}
               />
               <StructureEditor
-                key={selected?.id ?? editorKind}
+                key={`structure:${selected?.id ?? editorKind}`}
                 kind={editorKind}
                 artifact={defaults}
                 artifacts={artifacts}

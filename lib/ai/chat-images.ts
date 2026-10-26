@@ -1,13 +1,8 @@
 import "server-only";
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  randomBytes,
-  randomUUID,
-} from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { InStatement, Row } from "@libsql/client";
 import { HttpError } from "../auth";
+import { encryptImage, decryptImage } from "./image-crypto";
 import {
   AI_IMAGE_MAX_BYTES,
   AI_IMAGE_MAX_COUNT,
@@ -26,19 +21,6 @@ export type ImageScope = {
   userId: string;
   projectId: string;
 };
-function imageKey() {
-  const encoded = process.env.AI_IMAGE_ENCRYPTION_KEY?.trim() ?? "";
-  const key = Buffer.from(encoded, "base64");
-  if (key.length !== 32 || key.toString("base64") !== encoded)
-    throw new HttpError(
-      503,
-      "이미지 암호화 키가 설정되지 않았습니다. 서버 설정을 확인해 주세요.",
-    );
-  return {
-    key,
-    keyId: createHash("sha256").update(key).digest("hex").slice(0, 24),
-  };
-}
 export function validateAiImages(value: unknown): ValidAiImage[] {
   if (value === undefined) return [];
   if (!Array.isArray(value) || value.length > AI_IMAGE_MAX_COUNT)
@@ -126,7 +108,6 @@ export function encryptAiImages(
   scope: ImageScope,
 ): { statements: InStatement[]; images: AiImageInfo[] } {
   if (!images.length) return { statements: [], images: [] };
-  const { key, keyId } = imageKey();
   const statements: InStatement[] = [],
     info: AiImageInfo[] = [];
   images.forEach((image, position) => {
@@ -137,13 +118,7 @@ export function encryptAiImages(
       width: image.width,
       height: image.height,
     };
-    const iv = randomBytes(12),
-      cipher = createCipheriv("aes-256-gcm", key, iv);
-    cipher.setAAD(associatedData(scope, metadata));
-    const ciphertext = Buffer.concat([
-      cipher.update(image.bytes),
-      cipher.final(),
-    ]);
+    const encrypted = encryptImage(image.bytes, associatedData(scope, metadata));
     statements.push({
       sql: "INSERT INTO ai_chat_images(id,chat_id,workspace_id,user_id,position,mime_type,byte_length,width,height,key_id,iv_base64,tag_base64,ciphertext_base64) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
       args: [
@@ -156,10 +131,10 @@ export function encryptAiImages(
         metadata.byteLength,
         metadata.width,
         metadata.height,
-        keyId,
-        iv.toString("base64"),
-        cipher.getAuthTag().toString("base64"),
-        ciphertext.toString("base64"),
+        encrypted.key_id,
+        encrypted.iv_base64,
+        encrypted.tag_base64,
+        encrypted.ciphertext_base64,
       ],
     });
     info.push({
@@ -170,28 +145,10 @@ export function encryptAiImages(
   return { statements, images: info };
 }
 export function decryptAiImage(row: Row, scope: ImageScope) {
-  try {
-    const { key, keyId } = imageKey();
-    if (Number(row.encryption_version) !== 1 || keyId !== row.key_id)
-      throw new Error();
-    const iv = Buffer.from(String(row.iv_base64), "base64"),
-      tag = Buffer.from(String(row.tag_base64), "base64");
-    if (iv.length !== 12 || tag.length !== 16) throw new Error();
-    const decipher = createDecipheriv("aes-256-gcm", key, iv),
-      metadata = imageInfo(row);
-    const { url: unusedUrl, ...info } = metadata;
-    void unusedUrl;
-    decipher.setAAD(associatedData(scope, info));
-    decipher.setAuthTag(tag);
-    return Buffer.concat([
-      decipher.update(Buffer.from(String(row.ciphertext_base64), "base64")),
-      decipher.final(),
-    ]);
-  } catch (error) {
-    if (error instanceof HttpError) throw error;
-    throw new HttpError(
-      500,
-      "첨부 이미지를 복호화하지 못했습니다. 서버 키 또는 저장 데이터를 확인해 주세요.",
-    );
-  }
+  const { url: unusedUrl, ...info } = imageInfo(row);
+  void unusedUrl;
+  return decryptImage({
+    key_id: row.key_id, encryption_version: row.encryption_version,
+    iv_base64: row.iv_base64, tag_base64: row.tag_base64, ciphertext_base64: row.ciphertext_base64,
+  }, associatedData(scope, info));
 }

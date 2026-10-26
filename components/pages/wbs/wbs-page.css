@@ -6,6 +6,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  flex-wrap: wrap;
 }
 .matrix-wbs-image-button {
   flex-shrink: 0;

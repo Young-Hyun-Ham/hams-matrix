@@ -1,0 +1,82 @@
+.matrix-image-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.matrix-image-modal[open] {
+  display: block;
+  text-align: left;
+}
+.matrix-image-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 16px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.matrix-image-header h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.matrix-image-header > button {
+  flex: 0 0 auto;
+}
+.matrix-image-modal .matrix-image-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 18px;
+  width: 100%;
+  text-align: left;
+}
+.matrix-image-form > p {
+  margin: 0;
+}
+.matrix-image-footer {
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.matrix-image-hint {
+  color: var(--muted);
+  font-size: 13px;
+}
+.matrix-image-generate {
+  width: min(680px, calc(100vw - 32px));
+  box-sizing: border-box;
+}
+.matrix-image-preview {
+  width: min(1320px, calc(100vw - 32px));
+  box-sizing: border-box;
+}
+.matrix-image-canvas {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f5f3fa;
+  overflow: auto;
+}
+.matrix-image-generated-image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.matrix-image-image-result {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+.matrix-image-image-result > p {
+  margin: 0;
+  font-size: 13px;
+}
+.matrix-image-stale {
+  padding: 12px;
+  color: var(--ink);
+  background: var(--primary-soft);
+  border-radius: 8px;
+}

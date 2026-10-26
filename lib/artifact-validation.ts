@@ -6,6 +6,7 @@
   TableOperation,
 } from "./artifact-types";
 import { HttpError } from "./auth";
+import { validateTopology } from "./architecture";
 const fail = (message: string): never => {
   throw new HttpError(400, message);
 };
@@ -77,6 +78,7 @@ export function prepareStructure(
   after: Artifact,
   input: Record<string, unknown>,
   artifacts: Artifact[],
+  previous?: ArtifactStructure,
 ): ArtifactStructure {
   const raw = record(input.structure),
     structure: ArtifactStructure = {};
@@ -87,6 +89,13 @@ export function prepareStructure(
       fail("같은 프로젝트의 유효한 연결 대상을 선택해 주세요.");
     return a!;
   };
+  if (after.kind === "architecture") {
+    const topology = raw.topology === undefined ? previous?.topology : raw.topology;
+    if (topology !== undefined) {
+      try { structure.topology = validateTopology(topology); }
+      catch (error) { fail(error instanceof Error ? error.message : "아키텍처 구성도를 확인해 주세요."); }
+    }
+  }
   if (after.kind === "wbs") {
     structure.parentId = raw.parentId
       ? text(raw.parentId, "상위 작업", 100)

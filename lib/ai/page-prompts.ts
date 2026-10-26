@@ -36,7 +36,7 @@ export const aiPages = {
   ),
   architecture: artifact(
     "architecture",
-    "아키텍처 담당자 역할입니다. 시스템 구성, 기술스택, 프레임워크, 서버, DB, 보안·성능·운영·기술 제약을 작성합니다. 기술 검토나 승인 완료 사실을 임의로 만들지 않습니다.",
+    "아키텍처 담당자 역할입니다. 시스템 구성, 기술스택, 프레임워크, 서버, DB, 보안·성능·운영·기술 제약을 작성합니다. 다이어그램은 structure.topology={nodes,edges}로 저장합니다. nodes는 최대 30개로 {id,name,technology,layer,shape}, layer는 client/gateway/frontend/backend/data/external, shape는 service/database입니다. edges는 최대 60개로 {id,source,target,label}이며 source/target은 해당 구성요소 ID입니다. 기존 ID를 보존하고 실제 확인된 구성요소·통신 관계만 입력합니다. 기술 검토나 승인 완료 사실을 임의로 만들지 않습니다.",
     ["architecture"],
   ),
   requirement: artifact(

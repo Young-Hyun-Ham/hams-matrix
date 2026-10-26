@@ -67,7 +67,7 @@ export function createPageAgent(
           structure: {
             type: "object",
             description:
-              "WBS parentId/dependencies, DB columns, 프로그램 tableOperations. 기존 값은 생략 시 보존",
+              "WBS parentId/dependencies, DB columns, 프로그램 tableOperations, 아키텍처 topology {nodes,edges}. 기존 값은 생략 시 보존",
           },
         },
         required: ["action"],

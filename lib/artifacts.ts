@@ -278,7 +278,7 @@ export async function mutateArtifact(
         ),
       );
       const candidate = [...all.filter((a) => a.id !== after.id), after];
-      after.structure = prepareStructure(after, input, candidate);
+      after.structure = prepareStructure(after, input, candidate, before?.structure);
       validateProjectGraph(candidate);
       if (before)
         await tx.execute({
