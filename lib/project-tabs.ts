@@ -5,7 +5,8 @@ export type ProjectTab =
   | "trace"
   | "history"
   | "export"
-  | "acceptance";
+  | "acceptance"
+  | "documents";
 export const projectSections: Record<string, ProjectTab> = {
   requirements: "requirement",
   screens: "screen",
@@ -26,4 +27,5 @@ export const projectTabLabels: Record<ProjectTab, string> = {
   acceptance: "통합 검수",
   history: "변경 이력",
   export: "산출물",
+  documents: "문서함",
 };

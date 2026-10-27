@@ -26,6 +26,7 @@ import { TraceabilityPage } from "./pages/traceability/traceability-page";
 import { AcceptancePage } from "./pages/acceptance/acceptance-page";
 import { HistoryPage } from "./pages/history/history-page";
 import { DeliverablesPage } from "./pages/deliverables/deliverables-page";
+import { DocumentsPage } from "./pages/documents/documents-page";
 import "./project-workbench.css";
 const pages: Record<ProjectTab, ComponentType> = {
   overview: ProjectOverviewPage,
@@ -40,6 +41,7 @@ const pages: Record<ProjectTab, ComponentType> = {
   acceptance: AcceptancePage,
   history: HistoryPage,
   export: DeliverablesPage,
+  documents: DocumentsPage,
 };
 function ProjectContent({
   user,
