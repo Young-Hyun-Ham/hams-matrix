@@ -1,4 +1,5 @@
 ﻿import assert from "node:assert/strict";
+import { temporaryProjectViewer } from "./test-project-role.mjs";
 export async function checkAiImages({
   request,
   client,
@@ -133,6 +134,7 @@ export async function checkAiImages({
     ).rows.length,
     0,
   );
+  const restoreProjectOwner = await temporaryProjectViewer(client, owner.user, project.id);
   await client.execute({
     sql: "DELETE FROM project_members WHERE project_id=? AND user_id=?",
     args: [project.id, owner.user.id],
@@ -142,6 +144,7 @@ export async function checkAiImages({
     sql: "INSERT INTO project_members(project_id,workspace_id,user_id) VALUES (?,?,?)",
     args: [project.id, owner.user.workspaceId, owner.user.id],
   });
+  await restoreProjectOwner();
   console.log(
     "PASS: vision image input, image-only prompt, encrypted Base64 storage, random IVs, authenticated decryption, tenant/project access, tamper detection, input limits and atomic chat/image rollback.",
   );

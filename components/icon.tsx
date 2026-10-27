@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
   pin: "m16 3 5 5-4 1-4 4v4l-2 2-6-6 2-2h4l4-4zM8 16l-5 5",
+  message: "M4 4h16v12H9l-5 4V4zM8 8h8M8 12h5",
   edit: "m15 4 5 5M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16z",
   trash: "M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7",
   "window-expand": "M4 4h16v16H4z",

@@ -10,6 +10,11 @@ export type RegistrationChoice = {
   plan: "free" | "team" | "business";
   teamId: string | null;
 };
+export function registrationJobTitle(value: unknown) {
+  if (value === undefined) return "";
+  if (typeof value !== "string" || value.trim().length > 80) throw new HttpError(400, "담당 역할은 80자 이내로 입력해 주세요.");
+  return value.trim();
+}
 
 export async function registrationChoice(
   data: Record<string, unknown>,
@@ -38,7 +43,7 @@ export async function registrationChoice(
     throw new HttpError(400, "Guest 또는 팀을 선택해 주세요.");
   if (typeof data.teamId === "string") {
     const team = await db().execute({
-      sql: "SELECT w.id FROM workspaces w JOIN workspace_members m ON m.workspace_id=w.id AND m.user_id=w.owner_id AND m.role='owner' JOIN users u ON u.id=w.owner_id WHERE w.id=? AND u.account_role='owner' AND u.onboarding_complete=1 AND w.subscription_plan IN ('team','business')",
+      sql: "SELECT w.id FROM workspaces w JOIN workspace_members m ON m.workspace_id=w.id AND m.user_id=w.owner_id AND m.role='owner' JOIN users u ON u.id=w.owner_id WHERE w.id=? AND u.onboarding_complete=1 AND w.subscription_plan IN ('team','business')",
       args: [data.teamId],
     });
     if (!team.rows.length)

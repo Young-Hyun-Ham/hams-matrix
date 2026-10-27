@@ -10,9 +10,9 @@ function message(error: unknown) { return error instanceof Error ? error.message
 function fileSize(size: number) { return size < 1024 ? `${size} B` : size < 1024 * 1024 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1024 / 1024).toFixed(1)} MB`; }
 
 export function DocumentsPage() {
-  const { data, user } = useProjectPage();
+  const { data } = useProjectPage();
   const base = `/api/projects/${data.project.id}/documents`;
-  const canWrite = user.accountRole === "owner" && user.onboardingComplete && ["owner", "admin", "member"].includes(user.role);
+  const canWrite = data.canWrite;
   const [current, setCurrent] = useState<string | null>(null);
   const [listing, setListing] = useState<DocumentListing>({ folders: [], files: [] });
   const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false);

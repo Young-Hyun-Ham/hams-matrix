@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import type { Client, Row } from "@libsql/client";
-import { HttpError, requireWriter } from "./auth";
+import { HttpError } from "./auth";
 import { projectAccess } from "./artifacts";
 import { audit } from "./audit";
 import { db } from "./db";
@@ -70,14 +70,14 @@ async function fileFor(executor: Executor, projectId: string, workspaceId: strin
   return row;
 }
 function writer(user: User) {
-  return user.accountRole === "owner" && user.onboardingComplete && ["owner", "admin", "member"].includes(user.role);
+  return user.onboardingComplete && ["owner", "admin", "member"].includes(user.role);
 }
 export async function onlyofficeConfiguration(user: User, projectId: string, fileId: string): Promise<OnlyofficeConfiguration> {
-  await projectAccess(db(), user, projectId);
+  const access = await projectAccess(db(), user, projectId);
   const row = await fileFor(db(), projectId, user.workspaceId, fileId);
   const { fileType, documentType } = onlyofficeFileType(String(row.name));
   const { serverUrl, appUrl, secret } = onlyofficeSettings();
-  const key = onlyofficeKey(row), canEdit = writer(user);
+  const key = onlyofficeKey(row), canEdit = writer({ ...user, role: String(access.role) });
   const scope = { projectId, fileId, workspaceId: user.workspaceId, userId: user.id, key };
   const now = Math.floor(Date.now() / 1000);
   const path = `/api/projects/${encodeURIComponent(projectId)}/documents/files/${encodeURIComponent(fileId)}/editor`;
@@ -110,9 +110,8 @@ async function scopedUser(executor: Executor, scope: Scope, write: boolean) {
   })).rows[0];
   if (!row || Number(row.onboarding_complete) !== 1) throw new HttpError(403, "문서 접근 권한이 만료되었습니다.");
   const user: User = { id: String(row.id), name: String(row.name), email: null, workspaceId: scope.workspaceId, workspaceName: "", role: String(row.role), plan: "", accountRole: row.account_role === "owner" ? "owner" : "user", onboardingComplete: true };
-  await projectAccess(executor, user, scope.projectId, write);
-  if (write) requireWriter(user);
-  return user;
+  const access = await projectAccess(executor, user, scope.projectId, write);
+  return { ...user, role: String(access.role) };
 }
 export async function onlyofficeContent(scope: Scope) {
   await scopedUser(db(), scope, false);

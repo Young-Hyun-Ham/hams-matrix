@@ -55,7 +55,7 @@ export function createTokenTracker(scope: {
     if (event.status === "started") {
       // Reserve durable storage before the paid call. A crash leaves an explicit unknown record.
       await db().execute({
-        sql: "INSERT INTO ai_token_usage(id,workspace_id,user_id,project_id,project_name,conv_id,conversation_title,chat_id,request_id,call_index,model,prompt_characters,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_id,call_index) DO NOTHING",
+        sql: "INSERT INTO ai_token_usage(id,workspace_id,user_id,project_id,project_name,conv_id,conversation_title,chat_id,request_id,call_index,model,prompt_characters,created_at,purpose) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_id,call_index) DO NOTHING",
         args: [
           randomUUID(),
           scope.workspaceId,
@@ -67,9 +67,10 @@ export function createTokenTracker(scope: {
           scope.chatId,
           scope.requestId,
           event.turn,
-          scope.model,
+          event.model ?? scope.model,
           Array.from(scope.prompt).length,
           new Date().toISOString(),
+          event.purpose ?? "generation",
         ],
       });
       return;
@@ -84,11 +85,25 @@ export function createTokenTracker(scope: {
               args: [event.responseId, scope.requestId, event.turn],
             })
           : { rows: [] };
-      const measured = duplicates.rows.length ? null : usage;
+      const previous = (await tx.execute({
+        sql: "SELECT response_id,status,input_tokens,output_tokens,total_tokens,cached_tokens,reasoning_tokens,usage_known,usage_final FROM ai_token_usage WHERE request_id=? AND call_index=?",
+        args: [scope.requestId, event.turn],
+      })).rows[0];
+      const running = ["queued", "in_progress"].includes(event.status);
+      if (running && previous && !["started", "queued", "in_progress"].includes(String(previous.status))) {
+        await tx.commit();
+        return; // Ignore a poll that arrived after cancellation was already recorded.
+      }
+      // A later status without usage must not erase an already measured snapshot.
+      const measured = duplicates.rows.length ? null : usage ?? (previous?.usage_known ? {
+        input: Number(previous.input_tokens), output: Number(previous.output_tokens), total: Number(previous.total_tokens),
+        cached: previous.cached_tokens === null ? null : Number(previous.cached_tokens),
+        reasoning: previous.reasoning_tokens === null ? null : Number(previous.reasoning_tokens),
+      } : null);
       await tx.execute({
-        sql: "UPDATE ai_token_usage SET response_id=?,model=?,status=?,http_status=?,usage_known=?,input_tokens=?,output_tokens=?,total_tokens=?,cached_tokens=?,reasoning_tokens=?,duration_ms=?,finished_at=? WHERE request_id=? AND call_index=? AND workspace_id=? AND user_id=?",
+        sql: "UPDATE ai_token_usage SET response_id=?,model=?,status=?,http_status=?,usage_known=?,input_tokens=?,output_tokens=?,total_tokens=?,cached_tokens=?,reasoning_tokens=?,duration_ms=?,finished_at=?,usage_final=? WHERE request_id=? AND call_index=? AND workspace_id=? AND user_id=?",
         args: [
-          event.responseId || null,
+          event.responseId || previous?.response_id || null,
           event.model || scope.model,
           duplicates.rows.length ? "duplicate" : event.status,
           event.httpStatus ?? null,
@@ -99,7 +114,8 @@ export function createTokenTracker(scope: {
           measured?.cached ?? null,
           measured?.reasoning ?? null,
           event.durationMs ?? null,
-          new Date().toISOString(),
+          running ? null : new Date().toISOString(),
+          measured && ((!running && usage) || previous?.usage_final) ? 1 : 0,
           scope.requestId,
           event.turn,
           scope.workspaceId,

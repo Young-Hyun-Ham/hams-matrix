@@ -23,7 +23,6 @@ export function DashboardPage({ user }: { user: User }) {
     [creating, setCreating] = useState(false),
     [attempt, setAttempt] = useState(0);
   const canCreate =
-    user.accountRole === "owner" &&
     ["owner", "admin", "member"].includes(user.role);
   useEffect(() => {
     const controller = new AbortController();

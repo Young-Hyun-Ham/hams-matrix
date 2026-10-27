@@ -22,15 +22,16 @@ export async function readAiPage(user: User, context: AiContext, page: AiPage) {
   }
   if (page.source === "team") {
     const members = await db().execute({
-      sql: "SELECT u.id,u.name,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? ORDER BY u.name LIMIT 100",
+      sql: "SELECT u.id,u.name,u.job_title AS jobTitle,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? ORDER BY u.name LIMIT 100",
       args: [user.workspaceId],
     });
-    const owner = user.accountRole === "owner" && user.role === "owner";
+    const owner = user.role === "owner";
     const requests = await db().execute({
       sql: `SELECT r.id,r.status,r.requested_at,u.name,w.name AS team_name FROM team_join_requests r JOIN users u ON u.id=r.user_id JOIN workspaces w ON w.id=r.workspace_id WHERE ${owner ? "r.workspace_id=? AND w.owner_id=?" : "r.user_id=?"} ORDER BY r.requested_at DESC LIMIT 100`,
       args: owner ? [user.workspaceId, user.id] : [user.id],
     });
-    return { members: members.rows, requests: requests.rows };
+    const posts = await db().execute({ sql: "SELECT t.id,t.title,t.body,t.category,t.created_at,u.name AS author FROM team_posts t JOIN users u ON u.id=t.author_id WHERE t.workspace_id=? AND (t.project_id IS NULL OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id=t.project_id AND m.workspace_id=t.workspace_id AND m.user_id=?)) ORDER BY t.created_at DESC,t.id DESC LIMIT 20", args: [user.workspaceId, user.id] });
+    return { members: members.rows, requests: requests.rows, posts: posts.rows.map(row => ({ ...row, body: String(row.body).slice(0, 2000) })) };
   }
   if (!context.projectId)
     return { message: "프로젝트를 먼저 선택해 주세요.", artifacts: [] };

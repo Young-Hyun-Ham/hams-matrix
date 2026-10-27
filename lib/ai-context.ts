@@ -50,12 +50,22 @@ export function aiPresentation(context: AiContext) {
   const label = context.tab ? projectTabLabels[context.tab] : context.screen;
   const title =
     context.tab === "screen"
-      ? "AI로 화면 만들기"
+      ? "AI로 화면 생성"
       : context.tab === "wbs"
-        ? "AI로 WBS 만들기"
-        : context.tab === "requirement"
-          ? "AI로 요구사항 만들기"
-          : "AI로 설계하기";
+        ? "AI로 WBS 생성"
+        : context.tab === "architecture"
+          ? "AI로 아키텍처 생성"
+          : context.tab === "requirement"
+            ? "AI로 요구사항 생성"
+            : context.tab === "database"
+              ? "AI로 DB설계서 생성"
+              : context.tab === "program"
+                ? "AI로 프로그램 정의서 생성"
+                : context.tab === "test"
+                  ? "AI로 검수/검증 생성"
+                  : context.tab === "trace"
+                    ? "AI로 요구사항 추적표 생성"
+                    : "AI로 설계하기";
   return {
     title,
     label,

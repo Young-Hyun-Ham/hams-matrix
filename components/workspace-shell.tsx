@@ -31,7 +31,8 @@ export function WorkspaceShell({
     [busy, setBusy] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [accountTab, setAccountTab] = useState("usage");
-  const menu = menus.find((m) => pathname === `/${m.key}`) ?? menus[0];
+  const adminPage = pathname.startsWith("/admin/ai-guardrails");
+  const menu = adminPage ? { ...menus[0], key: "guardrails", label: "AI 가드레일 관리" } : menus.find((m) => pathname === `/${m.key}`) ?? menus[0];
   useEffect(() => {
     setUser(user);
   }, [user, setUser]);
@@ -171,6 +172,7 @@ export function WorkspaceShell({
             )}
           </nav>
           <div className="sidebar-bottom">
+            {["owner", "admin"].includes(activeUser.role) && <Link className={`nav-item secondary ${pathname.startsWith("/admin/ai-guardrails") ? "active" : ""}`} href="/admin/ai-guardrails" onClick={() => setSidebarOpen(false)}><Icon name="lock" size={18} />AI 가드레일 관리</Link>}
             <button
               className="nav-item secondary"
               onClick={() => openModal("profile")}
@@ -257,7 +259,7 @@ export function WorkspaceShell({
                 <div className="notification-popover">
                   <strong>알림</strong>
                   <p>
-                    {activeUser.accountRole === "owner"
+                    {activeUser.role === "owner"
                       ? "팀 공유 메뉴에서 가입 신청을 검토할 수 있습니다."
                       : "팀 공유 메뉴에서 가입 신청 상태를 확인할 수 있습니다."}
                   </p>
@@ -311,9 +313,9 @@ export function WorkspaceShell({
         </header>
         <AiWorkspaceLayout>
           <main id="main-content" className="main-content">
-            {activeUser.accountRole === "user" && (
+            {activeUser.role === "viewer" && (
               <p className="sample-notice">
-                {activeUser.workspaceName} · user 계정은 조회만 가능합니다. 팀
+                {activeUser.workspaceName} · viewer 권한은 조회 전용입니다. 팀
                 가입 신청 상태는 팀 공유 메뉴에서 확인하세요.
               </p>
             )}
@@ -423,9 +425,9 @@ export function WorkspaceShell({
               ) : (
                 <form onSubmit={saveProfile} className="settings-form">
                   <p className="muted">
-                    {activeUser.accountRole === "owner"
+                    {activeUser.role !== "viewer"
                       ? "팀에서 사용할 프로필 이름을 변경할 수 있습니다."
-                      : "user 계정은 조회 전용입니다."}
+                      : "viewer 권한은 조회 전용입니다."}
                   </p>
                   <label htmlFor="profile-name">
                     이름
@@ -437,7 +439,7 @@ export function WorkspaceShell({
                       minLength={2}
                       maxLength={80}
                       required
-                      readOnly={activeUser.accountRole === "user"}
+                      readOnly={activeUser.role === "viewer"}
                     />
                   </label>
                   <label>
@@ -468,7 +470,7 @@ export function WorkspaceShell({
                       {success}
                     </p>
                   )}
-                  {activeUser.accountRole === "owner" && (
+                  {activeUser.role !== "viewer" && (
                     <button className="button primary" disabled={busy}>
                       {busy ? "저장 중…" : "변경사항 저장"}
                     </button>

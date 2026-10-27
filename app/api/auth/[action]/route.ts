@@ -22,7 +22,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import type { User } from "@/lib/types";
-import { registrationChoice, joinRequestStatements } from "@/lib/registration";
+import { registrationChoice, joinRequestStatements, registrationJobTitle } from "@/lib/registration";
 
 export async function POST(
   request: Request,
@@ -81,6 +81,7 @@ export async function POST(
           "서비스 이용 및 개인정보 처리 안내에 동의해 주세요.",
         );
       const choice = await registrationChoice(data);
+      const jobTitle = registrationJobTitle(data.jobTitle);
       const existing = await db().execute({
         sql: "SELECT id FROM users WHERE email=?",
         args: [email],
@@ -103,6 +104,7 @@ export async function POST(
         plan: choice.plan,
         accountRole: choice.role,
         onboardingComplete: true,
+        jobTitle,
       };
       const statements = newUserStatements(
         id,
@@ -111,6 +113,8 @@ export async function POST(
         email,
         await hashPassword(password),
         choice,
+        true,
+        jobTitle,
       );
       statements.push(
         ...auditStatements(request, {

@@ -127,16 +127,11 @@ export async function checkAiCrud({
   );
   assert.equal(deleted.tool.success, true);
   assert.equal(await current(), undefined);
-  const committed = await tool(
-    {
-      action: "CREATE",
-      title: "설명 실패 후 저장",
-      fields: { definition: "개요", details: "상세" },
-    },
-    "화면을 등록해줘 [FAIL_AFTER_WRITE]",
-  );
-  assert.equal(committed.actions.length, 1);
-  assert.ok(committed.chat.result.includes("DB에 반영"));
+  const failedSpec = Buffer.from(JSON.stringify({ name: "save_artifact", args: {
+    action: "CREATE", title: "설명 실패 후 저장", fields: { definition: "개요", details: "상세" },
+  } })).toString("base64");
+  assert.equal((await post({ prompt: `화면을 등록해줘 [FAIL_AFTER_WRITE] [TOOL]${failedSpec}` })).status, 429);
+  assert.equal((await client.execute("SELECT id FROM project_artifacts WHERE title='설명 실패 후 저장'")).rows.length, 0, "failed generation must discard staged writes");
   const revisions = await client.execute({
     sql: "SELECT action FROM artifact_revisions WHERE artifact_id=? ORDER BY version",
     args: [artifact.id],
@@ -221,6 +216,6 @@ export async function checkAiCrud({
   assert.equal(denied.status, 200);
   assert.equal(JSON.parse((await denied.json()).chat.result).status, 403);
   console.log(
-    "PASS: actual AI tool CRUD, partial update preservation, revisions, optimistic concurrency, linked deletion guard, tab and role boundaries, explicit intent, committed-write recovery and page-specific data sources.",
+    "PASS: actual AI tool CRUD, partial update preservation, revisions, optimistic concurrency, linked deletion guard, tab and role boundaries, explicit intent, staged-write rollback and page-specific data sources.",
   );
 }

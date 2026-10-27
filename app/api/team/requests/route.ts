@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   await connection();
   try {
     const user = await requireUser();
-    const owner = user.accountRole === "owner" && user.role === "owner";
+    const owner = user.role === "owner";
     const result = await db().execute({
       sql: `SELECT r.id,r.status,r.requested_at,r.reviewed_at,u.name,w.name AS team_name FROM team_join_requests r JOIN users u ON u.id=r.user_id JOIN workspaces w ON w.id=r.workspace_id WHERE ${owner ? "r.workspace_id=? AND w.owner_id=?" : "r.user_id=?"} ORDER BY CASE WHEN r.status='pending' THEN 0 ELSE 1 END,r.requested_at DESC,r.id LIMIT 100`,
       args: owner ? [user.workspaceId, user.id] : [user.id],
@@ -44,7 +44,7 @@ export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    if (user.accountRole !== "owner" || user.role !== "owner")
+    if (user.role !== "owner")
       throw new HttpError(403, "팀 owner만 가입 신청을 처리할 수 있습니다.");
     const data = await body(request);
     if (
@@ -76,13 +76,14 @@ export async function PATCH(request: Request) {
         )
           throw new HttpError(409, "승인 가능한 user 계정이 아닙니다.");
         await tx.execute({
-          sql: "INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,'viewer') ON CONFLICT(workspace_id,user_id) DO UPDATE SET role='viewer'",
+          sql: "INSERT INTO workspace_members(workspace_id,user_id,role,join_source) VALUES (?,?,'member','application') ON CONFLICT(workspace_id,user_id) DO UPDATE SET role=CASE WHEN workspace_members.role='viewer' THEN 'member' ELSE workspace_members.role END,join_source='application'",
           args: [user.workspaceId, memberId],
         });
         const shared = await tx.execute({
           sql: "INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id) SELECT id,workspace_id,? FROM projects WHERE workspace_id=?",
           args: [memberId, user.workspaceId],
         });
+        await tx.execute({ sql: "UPDATE project_members SET role=NULL WHERE workspace_id=? AND user_id=? AND role='viewer'", args: [user.workspaceId, memberId] });
         await tx.execute({
           sql: "UPDATE users SET active_workspace_id=?,updated_at=? WHERE id=?",
           args: [user.workspaceId, new Date().toISOString(), memberId],
@@ -98,7 +99,7 @@ export async function PATCH(request: Request) {
             action: "CREATE",
             resource: "workspace_member",
             resourceId: memberId,
-            after: { role: "viewer" },
+            after: { role: "member" },
             metadata: { sharedProjects: shared.rowsAffected },
           },
           tx,

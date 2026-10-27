@@ -1,6 +1,7 @@
-export type TeamMember = { id: string; name: string; role: string };
+export type TeamMember = { id: string; name: string; role: string; jobTitle?: string };
 export type Project = {
   id: string;
+  ownerId?: string;
   name: string;
   description: string;
   status: string;

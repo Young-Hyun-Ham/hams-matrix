@@ -43,6 +43,11 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     [modelVersion, setModelVersion] = useState(0);
   const [generating, setGenerating] = useState(false),
     [error, setError] = useState("");
+  const [stopping, setStopping] = useState(false), [notice, setNotice] = useState("");
+  const [stopRetry, setStopRetry] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ input: number; output: number; unknown: number; pending: number; calls: number } | null>(null);
+  const activeRequest = useRef<string | null>(null);
+  const stopBusy = useRef(false);
   const conversationState = useAiConversation(conversation, aiOpen);
   const [result, setResult] = useState<AiChat | null>(null),
     [copyError, setCopyError] = useState("");
@@ -104,6 +109,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     !imagesLoading &&
     !!model &&
     !generating &&
+    !stopRetry &&
     !modelsLoading &&
     !!user &&
     context.pathname === pathname &&
@@ -118,20 +124,63 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     setCopyError("");
     requestAnimationFrame(() => promptInput.current?.focus());
   }
+  async function stopGeneration() {
+    const requestId = activeRequest.current ?? stopRetry;
+    if (!requestId || stopBusy.current || !window.confirm("AI 생성을 중지하시겠습니까? 이미 반영된 변경사항은 유지됩니다.")) return;
+    stopBusy.current = true;
+    setStopping(true);
+    try {
+      const response = await fetch("/api/ai/chats/stop", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, convId: conversation.convId, projectId: conversation.projectId }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      if (data.settled && activeRequest.current === null) {
+        setStopRetry(null);
+        setStopping(false);
+        setError("");
+        setNotice("생성이 중지되었습니다." + (data.actions?.length ? ` 이미 반영된 작업 ${data.actions.length}건은 유지됩니다.` : ""));
+      }
+      // Keep awaiting the generation response: it confirms cleanup and committed actions.
+    } catch (e) {
+      if (activeRequest.current === requestId || stopRetry === requestId) {
+        setStopping(false);
+        setError(e instanceof Error ? e.message : "중지 요청에 실패했습니다. 다시 시도해 주세요.");
+      }
+    } finally { stopBusy.current = false; }
+  }
   async function generate() {
     if (!ready || busyRef.current) return;
     busyRef.current = true;
     setGenerating(true);
     setError("");
     setCopyError("");
+    setNotice("");
+    setUsage(null);
+    setStopping(false);
+    setStopRetry(null);
+    const requestId = crypto.randomUUID();
+    activeRequest.current = requestId;
+    const updateUsage = async () => {
+      try {
+        const response = await fetch(`/api/ai/chats/usage?requestId=${requestId}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
+        if (response.ok) {
+          const snapshot = await response.json();
+          if (activeRequest.current === requestId) setUsage(snapshot);
+        }
+      } catch { /* A statistics refresh must not interrupt generation. */ }
+    };
     const requestScope = scope,
       controller = new AbortController();
     generation.current = controller;
+    const usageTimer = window.setInterval(() => void updateUsage(), 1000);
     try {
       const response = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          requestId,
           convId: conversation.convId,
           prompt: prompt.trim(),
           images: images.map((image) => ({ dataUrl: image.dataUrl })),
@@ -143,8 +192,15 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         signal: controller.signal,
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      if (data.stopUnconfirmed) setStopRetry(requestId);
       if (data.actions?.length) useWorkspace.getState().notifyAiChange();
+      if (!response.ok) throw new Error(data.error);
+      if (data.cancelled) {
+        setError("");
+        setNotice("생성이 중지되었습니다." + (data.actions?.length
+          ? ` 이미 반영된 작업: ${data.actions.map((action: { code: string; title: string }) => `${action.code} · ${action.title}`).join(", ")}` : ""));
+        return;
+      }
       if (activeScope.current === requestScope) {
         conversationState.append(data.chat);
         setPrompt("");
@@ -157,8 +213,12 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
           e instanceof Error ? e.message : "AI 요청을 완료하지 못했습니다.",
         );
     } finally {
+      window.clearInterval(usageTimer);
+      await updateUsage();
+      activeRequest.current = null;
       busyRef.current = false;
       setGenerating(false);
+      setStopping(false);
       generation.current = null;
     }
   }
@@ -189,6 +249,42 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               <Icon name="spark" size={16} />
             </span>
             <strong>{title}</strong>
+            <label className="matrix-ai-model">
+              {/* <span>사용 모델</span> */}
+              <select
+                aria-label="AI 사용 모델"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                disabled={modelsLoading || generating || !models.length}
+              >
+                {!models.length ? (
+                  <option value="">
+                    {modelsLoading ? "불러오는 중…" : "모델 없음"}
+                  </option>
+                ) : (
+                  models.map((m) => (
+                    <option key={m} value={m}>
+                      {m}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            {modelError && (
+              <p className="matrix-ai-error" role="alert">
+                {modelError}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModelsLoading(true);
+                    setModelError("");
+                    setModelVersion((v) => v + 1);
+                  }}
+                >
+                  다시 시도
+                </button>
+              </p>
+            )}
           </header>
           <p
             className="matrix-ai-context"
@@ -256,52 +352,21 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               {attachmentError}
             </p>
           )}
-          <label className="matrix-ai-model">
-            <span>사용 모델</span>
-            <select
-              aria-label="AI 사용 모델"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              disabled={modelsLoading || generating || !models.length}
-            >
-              {!models.length ? (
-                <option value="">
-                  {modelsLoading ? "불러오는 중…" : "모델 없음"}
-                </option>
-              ) : (
-                models.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-          {modelError && (
-            <p className="matrix-ai-error" role="alert">
-              {modelError}
-              <button
-                type="button"
-                onClick={() => {
-                  setModelsLoading(true);
-                  setModelError("");
-                  setModelVersion((v) => v + 1);
-                }}
-              >
-                다시 시도
-              </button>
-            </p>
-          )}
           <button
             type="button"
             className="matrix-ai-generate"
-            disabled={!ready}
+            disabled={generating || stopRetry ? stopping : !ready}
             aria-busy={generating}
-            onClick={() => void generate()}
+            onClick={() => void (generating || stopRetry ? stopGeneration() : generate())}
           >
-            {generating ? "생성 중…" : "생성하기"}
-            <span>Ctrl/⌘ ↵</span>
+            {generating || stopRetry ? stopping ? "중지 중…" : stopRetry ? "중지 재시도" : "중지" : "생성하기"}
+            {!generating && !stopRetry && <span>Ctrl/⌘ ↵</span>}
           </button>
+          {notice && <p role="status" className="matrix-ai-hint">{notice}</p>}
+          {usage && <p role="status" className="matrix-ai-hint">
+            확인된 토큰: 입력 {usage.calls > usage.unknown ? usage.input.toLocaleString() : "미확인"} · 출력 {usage.calls > usage.unknown ? usage.output.toLocaleString() : "미확인"}
+            {(!usage.calls || usage.unknown > 0 || usage.pending > 0) && " · 사용량 미확인/집계 중 포함"}
+          </p>}
           <p className="matrix-ai-hint">
             현재 화면을 조회하고, 요청한 문서 변경을 처리합니다.
           </p>

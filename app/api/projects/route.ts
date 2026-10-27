@@ -13,18 +13,19 @@ import {
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import type { Project } from "@/lib/project-types";
+import { projectRoleSql } from "@/lib/team-permissions";
 
 export async function GET(request: Request) {
   await connection();
   try {
     const user = await requireUser();
     const result = await db().execute({
-      sql: `SELECT p.id,p.name,p.description,p.status,p.created_at,
+      sql: `SELECT p.id,p.name,p.description,p.status,p.created_at,p.owner_id,
         (SELECT COUNT(*) FROM project_artifacts a WHERE a.project_id=p.id AND a.workspace_id=p.workspace_id AND a.deleted_at IS NULL AND a.kind='requirement') AS requirement_count,
         (SELECT COUNT(*) FROM project_artifacts a WHERE a.project_id=p.id AND a.workspace_id=p.workspace_id AND a.deleted_at IS NULL AND a.kind='screen') AS screen_count,
         (SELECT COUNT(*) FROM project_artifacts a WHERE a.project_id=p.id AND a.workspace_id=p.workspace_id AND a.deleted_at IS NULL AND a.kind='program') AS program_count,
         (SELECT COUNT(*) FROM project_artifacts a WHERE a.project_id=p.id AND a.workspace_id=p.workspace_id AND a.deleted_at IS NULL AND a.kind='requirement' AND a.status='완료') AS completed_count,
-        u.id AS member_id,u.name AS member_name,w.role
+        u.id AS member_id,u.name AS member_name,u.job_title,${projectRoleSql} AS role
         FROM projects p JOIN project_members own ON own.project_id=p.id AND own.workspace_id=p.workspace_id AND own.user_id=?
         JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id
         JOIN users u ON u.id=m.user_id JOIN workspace_members w ON w.workspace_id=m.workspace_id AND w.user_id=m.user_id
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
       if (!projects.has(id))
         projects.set(id, {
           id,
+          ownerId: String(row.owner_id),
           name: String(row.name),
           description: String(row.description),
           status: String(row.status),
@@ -53,6 +55,7 @@ export async function GET(request: Request) {
         id: String(row.member_id),
         name: String(row.member_name),
         role: String(row.role),
+        jobTitle: String(row.job_title),
       });
     }
     const documents = await db().execute({
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
         throw new HttpError(403, "프로젝트를 생성할 권한이 없습니다.");
       // Approved user accounts share every project in this team, including future projects.
       const approved = await tx.execute({
-        sql: "SELECT m.user_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND u.account_role='user' AND EXISTS (SELECT 1 FROM team_join_requests r WHERE r.workspace_id=m.workspace_id AND r.user_id=m.user_id AND r.status='approved')",
+        sql: "SELECT m.user_id FROM workspace_members m JOIN workspaces w ON w.id=m.workspace_id WHERE m.workspace_id=? AND (m.join_source='application' OR m.user_id=w.owner_id)",
         args: [user.workspaceId],
       });
       memberIds = [
@@ -173,7 +176,7 @@ export async function POST(request: Request) {
       const id = randomUUID(),
         createdAt = new Date().toISOString();
       await tx.execute({
-        sql: "INSERT INTO projects(id,workspace_id,name,description,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
+        sql: "INSERT INTO projects(id,workspace_id,name,description,created_by,created_at,updated_at,owner_id) VALUES (?,?,?,?,?,?,?,?)",
         args: [
           id,
           user.workspaceId,
@@ -182,6 +185,7 @@ export async function POST(request: Request) {
           user.id,
           createdAt,
           createdAt,
+          user.id,
         ],
       });
       for (const memberId of memberIds)
@@ -202,6 +206,7 @@ export async function POST(request: Request) {
       );
       const project: Project = {
         id,
+        ownerId: user.id,
         name,
         description,
         status: "진행 중",
@@ -209,7 +214,7 @@ export async function POST(request: Request) {
         members: selected.rows.map((row) => ({
           id: String(row.id),
           name: String(row.name),
-          role: String(row.role),
+          role: row.id === user.id ? "owner" : row.role === "owner" ? "admin" : String(row.role),
         })),
       };
       await tx.commit();

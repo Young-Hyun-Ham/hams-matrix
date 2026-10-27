@@ -96,6 +96,10 @@ export function useAiImages(disabled: boolean) {
       .filter((file): file is File => !!file);
     if (!files.length) return;
     event.preventDefault();
+    await addFiles(files);
+  }
+  async function addFiles(files: File[]) {
+    if (!files.length) return;
     if (disabled || busy.current) return;
     if (current.current.length + files.length > AI_IMAGE_MAX_COUNT) {
       setAttachmentError("이미지는 최대 3장까지 첨부할 수 있습니다.");
@@ -167,6 +171,7 @@ export function useAiImages(disabled: boolean) {
     imagesLoading,
     attachmentError,
     handlePaste,
+    addFiles,
     removeImage,
     restoreImages,
     clearImages,

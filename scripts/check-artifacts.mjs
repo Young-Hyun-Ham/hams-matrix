@@ -1,5 +1,6 @@
 ﻿import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { temporaryProjectViewer } from "./test-project-role.mjs";
 function unzipStored(buffer) {
   const entries = new Map();
   let offset = 0;
@@ -164,6 +165,7 @@ export async function checkArtifacts({
     ).status,
     400,
   );
+  const restoreProjectOwner = await temporaryProjectViewer(client, user, project.id);
   await client.execute({
     sql: "UPDATE workspace_members SET role='viewer' WHERE workspace_id=? AND user_id=?",
     args: [user.workspaceId, user.id],
@@ -198,6 +200,7 @@ export async function checkArtifacts({
     sql: "UPDATE workspace_members SET role=? WHERE workspace_id=? AND user_id=?",
     args: [user.role, user.workspaceId, user.id],
   });
+  await restoreProjectOwner();
   const exported = await request(`/api/projects/${project.id}/export`, {
     cookie,
   });

@@ -19,6 +19,7 @@ import { checkProjects } from "./check-projects.mjs";
 import { checkArtifacts } from "./check-artifacts.mjs";
 import { checkIntegrated } from "./check-integrated.mjs";
 import { checkRegistration } from "./check-registration.mjs";
+import { checkTeamCollaboration } from "./check-team-collaboration.mjs";
 
 const temp = await mkdtemp(join(tmpdir(), "hams-matrix-auth-"));
 const dbUrl = pathToFileURL(join(temp, "test.db")).href;
@@ -428,6 +429,7 @@ try {
       otherCookie: secondCookie,
       sessionCookie,
     });
+    await checkTeamCollaboration({ request, client, sessionCookie });
     const activity = await request("/api/activity", { cookie: secondCookie });
     assert.equal(activity.status, 200);
     const activityBody = await activity.json();

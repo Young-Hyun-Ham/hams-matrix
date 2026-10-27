@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       .trim()
       .slice(0, 100);
     const result = await db().execute({
-      sql: `SELECT w.id,w.name FROM workspaces w JOIN users u ON u.id=w.owner_id JOIN workspace_members m ON m.workspace_id=w.id AND m.user_id=w.owner_id AND m.role='owner' WHERE u.account_role='owner' AND u.onboarding_complete=1 AND w.subscription_plan IN ('team','business') AND instr(lower(w.name),lower(?))>0 ORDER BY w.name,w.id LIMIT 30`,
+      sql: `SELECT w.id,w.name FROM workspaces w JOIN users u ON u.id=w.owner_id JOIN workspace_members m ON m.workspace_id=w.id AND m.user_id=w.owner_id AND m.role='owner' WHERE u.onboarding_complete=1 AND w.subscription_plan IN ('team','business') AND instr(lower(w.name),lower(?))>0 ORDER BY w.name,w.id LIMIT 30`,
       args: [query],
     });
     await audit(request, {

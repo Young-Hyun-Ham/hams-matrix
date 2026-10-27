@@ -6,6 +6,7 @@ export type AiCallEvent = {
   model?: string;
   usage?: unknown;
   durationMs?: number;
+  purpose?: "generation" | "guardrail";
 };
 export type TokenTotals = {
   input: number;
@@ -16,6 +17,7 @@ export type TokenTotals = {
   calls: number;
   requests: number;
   unknown: number;
+  guardrail: number;
 };
 export type TokenBucket = TokenTotals & { key: string; label: string };
 export type TokenStatistics = {

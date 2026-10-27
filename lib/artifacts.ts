@@ -1,8 +1,9 @@
 ﻿import { randomUUID } from "node:crypto";
-import type { Client, Row } from "@libsql/client";
+import type { Client, Row, Transaction } from "@libsql/client";
 import { HttpError, requireWriter } from "./auth";
 import { audit } from "./audit";
 import { db } from "./db";
+import { projectRoleSql } from "./team-permissions";
 import type { User } from "./types";
 import {
   allowedLinks,
@@ -25,7 +26,7 @@ export async function projectAccess(
   write = false,
 ) {
   const result = await executor.execute({
-    sql: `SELECT p.id,p.name,p.description,p.status,w.role FROM projects p
+    sql: `SELECT p.id,p.name,p.description,p.status,p.owner_id,${projectRoleSql} AS role FROM projects p
       JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id
       JOIN workspace_members w ON w.workspace_id=m.workspace_id AND w.user_id=m.user_id
       WHERE p.id=? AND p.workspace_id=? AND m.user_id=?`,
@@ -95,7 +96,6 @@ export async function projectData(
       snapshot: JSON.parse(String(row.snapshot_json)) as Artifact,
     })),
     canWrite:
-      user.accountRole === "owner" &&
       ["owner", "admin", "member"].includes(String(p.role)),
   };
 }
@@ -166,8 +166,10 @@ export async function mutateArtifact(
   input: Record<string, unknown>,
   action: "CREATE" | "UPDATE" | "DELETE",
   id?: string,
+  beforeCommit?: (executor: Pick<Client, "execute">) => Promise<void>,
+  transaction?: Transaction,
 ) {
-  const tx = await db().transaction("write");
+  const tx = transaction ?? await db().transaction("write");
   try {
     await projectAccess(tx, user, projectId, true);
     let before: Artifact | undefined;
@@ -375,12 +377,13 @@ export async function mutateArtifact(
       },
       tx,
     );
-    await tx.commit();
+    await beforeCommit?.(tx);
+    if (!transaction) await tx.commit();
     return after;
   } catch (error) {
-    await tx.rollback();
+    if (!transaction) await tx.rollback();
     throw error;
   } finally {
-    tx.close();
+    if (!transaction) tx.close();
   }
 }

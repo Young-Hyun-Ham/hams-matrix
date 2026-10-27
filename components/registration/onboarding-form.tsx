@@ -13,6 +13,7 @@ export function OnboardingForm() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
+  const [jobTitle, setJobTitle] = useState("");
   async function logout() {
     if (pending) return;
     setPending(true);
@@ -40,7 +41,7 @@ export function OnboardingForm() {
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(choice),
+        body: JSON.stringify({ ...choice, jobTitle }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
@@ -96,6 +97,7 @@ export function OnboardingForm() {
           </button>
         </p>
       )}
+      <label>담당 역할·직무<input maxLength={80} value={jobTitle} disabled={pending} placeholder="예: 서비스 기획자" onChange={event => setJobTitle(event.target.value)} /></label>
       {error && (
         <p className="error-message" role="alert">
           {error}

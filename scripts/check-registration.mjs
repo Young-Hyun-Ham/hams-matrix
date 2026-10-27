@@ -179,7 +179,7 @@ export async function checkRegistration({
     await (await request("/api/me", { cookie: applicantCookie })).json()
   ).user;
   assert.equal(approved.workspaceId, owner.workspaceId);
-  assert.equal(approved.role, "viewer");
+  assert.equal(approved.role, "member");
   assert.equal(approved.accountRole, "user");
   const shared = (
     await (await request("/api/projects", { cookie: applicantCookie })).json()
@@ -205,7 +205,7 @@ export async function checkRegistration({
         data: { name: "승인 후 쓰기", description: "", memberIds: [] },
       })
     ).status,
-    403,
+    201,
   );
   const rejected = await signup(
     { role: "user", plan: "free", teamId: owner.workspaceId },
@@ -274,6 +274,6 @@ export async function checkRegistration({
   });
   assert.equal((await relogin.json()).user.workspaceId, owner.workspaceId);
   console.log(
-    "PASS: owner plans, required choices, Guest Free, team approval/rejection, tenant boundaries, existing/future project sharing, read-only users and social onboarding gate.",
+    "PASS: owner plans, required choices, Guest Free, member approval/rejection, tenant boundaries, existing/future project sharing and social onboarding gate.",
   );
 }

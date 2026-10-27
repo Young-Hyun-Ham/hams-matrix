@@ -65,8 +65,8 @@ try {
   await client.executeMultiple(`
     INSERT INTO users(id,name,account_role) VALUES ('owner','소유자','owner'),('reader','조회자','user'),('outsider','외부인','owner');
     INSERT INTO workspaces(id,name) VALUES ('ws','작업공간'),('other','다른 작업공간');
-    INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','member'),('other','outsider','owner');
-    INSERT INTO projects(id,workspace_id,name,created_by) VALUES ('project','ws','프로젝트','owner'),('second','ws','두번째','owner');
+    INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','viewer'),('other','outsider','owner');
+    INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('project','ws','프로젝트','owner','owner'),('second','ws','두번째','owner','owner');
     INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner'),('project','ws','reader'),('second','ws','owner');
     UPDATE app_settings SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED';
   `);

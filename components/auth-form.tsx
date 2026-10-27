@@ -53,6 +53,7 @@ export function AuthForm({
           email: values.get("email"),
           password: values.get("password"),
           name: values.get("name"),
+          ...(signup ? { jobTitle: values.get("jobTitle") } : {}),
           accepted: values.get("accepted") === "on",
           ...(signup ? choice : {}),
         }),
@@ -200,7 +201,7 @@ export function AuthForm({
                       />
                       {value === "owner"
                         ? "owner · 팀 운영"
-                        : "user · 조회 전용"}
+                        : "user · Free 또는 팀 가입"}
                     </label>
                   ))}
                 </fieldset>
@@ -241,6 +242,7 @@ export function AuthForm({
                 />
               </label>
             )}
+            {signup && <label htmlFor="jobTitle">담당 역할·직무<input id="jobTitle" name="jobTitle" maxLength={80} placeholder="예: 프로젝트 매니저, 프론트엔드 개발자" /></label>}
             <label htmlFor="email">
               이메일 주소
               <div className="auth-input">

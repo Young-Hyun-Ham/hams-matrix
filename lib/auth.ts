@@ -100,13 +100,14 @@ export async function rateLimit(key: string, limit = 10) {
       "시도 횟수를 초과했습니다. 15분 후 다시 시도해 주세요.",
     );
 }
-const userSelect = `SELECT u.id,u.name,u.email,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,COALESCE(w.subscription_plan,w.plan) AS plan FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
+const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,COALESCE(w.subscription_plan,w.plan) AS plan FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
 // libSQL Row instances carry their own prototype; React server props must be plain DTOs.
 function toUser(row: Row | undefined): User | null {
   if (!row) return null;
   return {
     id: String(row.id),
     name: String(row.name),
+    jobTitle: String(row.job_title ?? ""),
     email: row.email === null ? null : String(row.email),
     workspaceId: String(row.workspaceId),
     workspaceName: String(row.workspaceName),
@@ -143,11 +144,10 @@ export async function requireUser() {
 }
 export function requireWriter(user: User) {
   if (
-    user.accountRole !== "owner" ||
     !user.onboardingComplete ||
     !["owner", "admin", "member"].includes(user.role)
   )
-    throw new HttpError(403, "user 계정은 조회만 가능합니다.");
+    throw new HttpError(403, "현재 역할에는 변경 권한이 없습니다.");
 }
 export function newUserStatements(
   id: string,
@@ -157,10 +157,11 @@ export function newUserStatements(
   passwordHash: string | null,
   choice: RegistrationChoice,
   onboardingComplete = true,
+  jobTitle = "",
 ): InStatement[] {
   return [
     {
-      sql: "INSERT INTO users(id,email,name,password_hash,account_role,onboarding_complete) VALUES (?,?,?,?,?,?)",
+      sql: "INSERT INTO users(id,email,name,password_hash,account_role,onboarding_complete,job_title) VALUES (?,?,?,?,?,?,?)",
       args: [
         id,
         email,
@@ -168,6 +169,7 @@ export function newUserStatements(
         passwordHash,
         choice.role,
         onboardingComplete ? 1 : 0,
+        jobTitle,
       ],
     },
     {

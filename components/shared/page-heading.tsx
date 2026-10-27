@@ -30,7 +30,7 @@ export function PageHeading({
       </div>
       <div className="page-heading-actions">
         {children}
-        {user?.accountRole === "owner" && user.role !== "viewer" && (
+        {user && ["owner", "admin", "member"].includes(user.role) && (
           <button className="button primary" onClick={onAction}>
             <Icon name="plus" size={17} />
             {actionLabel}

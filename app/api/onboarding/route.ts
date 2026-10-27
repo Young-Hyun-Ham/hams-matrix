@@ -6,7 +6,7 @@ import {
   HttpError,
   userById,
 } from "@/lib/auth";
-import { registrationChoice, joinRequestStatements } from "@/lib/registration";
+import { registrationChoice, joinRequestStatements, registrationJobTitle } from "@/lib/registration";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 
@@ -15,7 +15,9 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await currentUser();
     if (!user) throw new HttpError(401, "로그인이 필요합니다.");
-    const choice = await registrationChoice(await body(request));
+    const data = await body(request);
+    const choice = await registrationChoice(data);
+    const jobTitle = registrationJobTitle(data.jobTitle);
     const tx = await db().transaction("write");
     try {
       const row = await tx.execute({
@@ -31,8 +33,8 @@ export async function POST(request: Request) {
       const name =
         choice.role === "owner" ? `${user.name}의 팀` : `${user.name}의 Guest`;
       await tx.execute({
-        sql: "UPDATE users SET account_role=?,onboarding_complete=1,updated_at=? WHERE id=?",
-        args: [choice.role, new Date().toISOString(), user.id],
+        sql: "UPDATE users SET account_role=?,onboarding_complete=1,job_title=?,updated_at=? WHERE id=?",
+        args: [choice.role, jobTitle, new Date().toISOString(), user.id],
       });
       await tx.execute({
         sql: "UPDATE workspaces SET name=?,plan=?,subscription_plan=?,owner_id=? WHERE id=?",

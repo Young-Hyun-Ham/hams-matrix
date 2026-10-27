@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { resolve } from "node:path";
 
+import { temporaryProjectViewer } from "./test-project-role.mjs";
 export async function checkOnlyoffice({ load, client, file, setToken, setFailStorage, objects }) {
   const configRoute = load(resolve("app/api/projects/[projectId]/documents/files/[fileId]/editor/route.ts"));
   const contentRoute = load(resolve("app/api/projects/[projectId]/documents/files/[fileId]/editor/content/route.ts"));
@@ -59,7 +60,7 @@ export async function checkOnlyoffice({ load, client, file, setToken, setFailSto
         body: JSON.stringify(options.header ? payload : { ...payload, ...options.unsigned, token }),
       }), context(options.projectId));
     };
-    const payload = { key, status: 6, filetype: "docx", url: "https://office.example/cache/edited.docx" };
+    const payload = { key, status: 6, filetype: "docx", url: "http://localhost:8080/cache/edited.docx" };
     const before = await stored(), count = objects.size;
     assert.equal((await callback({ ...payload, key: "another-file" })).status, 403);
     assert.equal((await callback(payload, { projectId: "second" })).status, 403);
@@ -71,9 +72,11 @@ export async function checkOnlyoffice({ load, client, file, setToken, setFailSto
     setFailStorage(true); assert.equal((await callback(payload)).status, 500); setFailStorage(false);
     assert.equal((await stored()).object_key, before.object_key);
     assert.equal(objects.size, count);
+    const restoreProjectOwner = await temporaryProjectViewer(client, { id: "owner", workspaceId: "ws" }, "project");
     await client.execute("DELETE FROM project_members WHERE project_id='project' AND user_id='owner'");
     assert.equal((await callback(payload)).status, 404);
     await client.execute("INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner')");
+    await restoreProjectOwner();
     assert.deepEqual(await (await callback(payload, { unsigned: { url: "https://evil.example/bad", status: 2 } })).json(), { error: 0 });
     assert.equal(objects.size, count);
     assert.equal(objects.get((await stored()).object_key).toString(), savedBytes);

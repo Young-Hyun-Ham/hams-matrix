@@ -1,6 +1,7 @@
 export type User = {
   id: string;
   name: string;
+  jobTitle?: string;
   email: string | null;
   workspaceId: string;
   workspaceName: string;

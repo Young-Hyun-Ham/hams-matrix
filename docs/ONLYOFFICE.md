@@ -25,6 +25,20 @@ JWT는 HS256으로 서명합니다. 문서 서버의 브라우저·송신 JWT �
 
 ## 저장 흐름
 
+### Docker Desktop에서 로컬 개발
+
+앱은 Windows에서, ONLYOFFICE는 Docker Desktop에서 실행한다면 다음 주소를 사용합니다.
+
+```dotenv
+APP_URL=http://localhost:3000
+ONLYOFFICE_DOCUMENT_SERVER_URL=http://localhost:8080
+ONLYOFFICE_PUBLIC_APP_URL=http://host.docker.internal:3000
+```
+
+컨테이너의 `localhost`는 컨테이너 자신입니다. 파일 제공·콜백 URL에 Windows 호스트 주소를 사용해야 합니다. 설정 변경 후 앱을 재시작하고 기존 편집 탭을 닫은 뒤 문서함에서 다시 엽니다. 문서 서버 로그에 사설 IP 차단 오류가 있으면 개발용 컨테이너의 `ALLOW_PRIVATE_IP_ADDRESS=true` 설정도 확인합니다.
+
+콜백 API는 ONLYOFFICE 서버가 서명된 JSON을 `POST`하는 주소입니다. 브라우저 주소창으로 열면 `GET` 요청이 되어 `405 Method Not Allowed`가 반환됩니다. 로그의 `;data`는 콜백 URL의 일부가 아니므로 URL에 붙이지 않습니다.
+
 - 문서 서버는 쿠키 대신 파일·프로젝트·사용자·문서 버전에 한정된 서명 URL로 원본을 가져옵니다. 원본 URL은 24시간 유효하며, 긴 편집 작업은 저장 후 문서를 다시 여세요.
 - 저장 버튼은 `forcesave`를 사용합니다. 상태 6 콜백에서 R2와 DB에 반영하고 현재 공동 편집 키는 유지합니다.
 - 최종 저장(상태 2)과 변경 없는 종료(상태 4) 후 다음 열기에 사용할 문서 버전 키를 바꿉니다. 종료된 버전의 재전송 콜백은 내용을 덮어쓰지 않습니다.

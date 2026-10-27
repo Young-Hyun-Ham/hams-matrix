@@ -1,5 +1,5 @@
 import "server-only";
-import { HttpError, requireWriter } from "../auth";
+import { HttpError } from "../auth";
 import { mutateArtifact, projectAccess, toArtifact } from "../artifacts";
 import { db } from "../db";
 import type { User } from "../types";
@@ -7,6 +7,10 @@ import type { AiContext } from "../ai-context";
 import type { AiPage } from "./page-prompts";
 import { readAiPage } from "./page-data";
 import { definitions } from "../artifact-types";
+import type { Client, Transaction } from "@libsql/client";
+import { GenerationCancelled } from "./generation-control";
+import { GuardrailBlocked } from "./guardrails";
+import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
 export type AiAction = {
   action: string;
   id: string;
@@ -28,9 +32,12 @@ export function createPageAgent(
   page: AiPage,
   canWrite: boolean,
   prompt: string,
+  checkpoint?: (executor?: Pick<Client, "execute">) => Promise<void>,
+  guard?: { policy: GuardrailPolicy; inspect: (stage: GuardrailStage, value: unknown) => Promise<unknown> },
 ) {
   const actions: AiAction[] = [],
     seen = new Set<string>();
+  const pending: { input: Record<string, unknown>; action: "CREATE" | "UPDATE" | "DELETE"; id?: string }[] = [];
   const tools: Record<string, unknown>[] = [
     {
       type: "function",
@@ -76,17 +83,24 @@ export function createPageAgent(
     });
   async function execute(name: string, input: Record<string, unknown>) {
     try {
-      if (name === "read_page")
-        return { success: true, data: await readAiPage(user, context, page) };
+      await checkpoint?.();
+      await guard?.inspect("tool", { name, input });
+      if (name === "read_page") {
+        if (Object.keys(input).length) throw new HttpError(400, "조회 도구에는 인자를 지정할 수 없습니다.");
+        const data = await readAiPage(user, context, page);
+        await guard?.inspect("tool-result", data);
+        return { success: true, data, pendingChanges: pending.map(change => ({ action: change.action, title: change.input.title, state: "pending_validation" })) };
+      }
       if (name !== "save_artifact" || !page.kind || !canWrite)
         throw new HttpError(
           403,
           "현재 화면 또는 권한에서는 이 도구를 사용할 수 없습니다.",
         );
-      requireWriter(user);
+      await projectAccess(db(), user, context.projectId, true);
       const action = input.action;
       if (action !== "CREATE" && action !== "UPDATE" && action !== "DELETE")
         throw new HttpError(400, "작업 유형을 확인해 주세요.");
+      if (guard && !guard.policy.allowedActions.includes(action)) throw new HttpError(403, "관리자 정책에서 허용하지 않은 변경 작업입니다.");
       if (
         /(?:등록|저장|추가|수정|변경|삭제|제거).{0,6}(?:하지\s*마|하지\s*말|금지|하지\s*않)/.test(
           prompt,
@@ -101,7 +115,7 @@ export function createPageAgent(
           403,
           "사용자가 해당 등록·수정·삭제 작업을 명시적으로 요청하지 않았습니다.",
         );
-      if (actions.length >= 3)
+      if (pending.length >= (guard?.policy.maxChanges ?? 3))
         throw new HttpError(
           400,
           "한 요청에서는 최대 3건까지 변경할 수 있습니다.",
@@ -183,11 +197,8 @@ export function createPageAgent(
           Array.isArray(input.structure))
       )
         throw new HttpError(400, "structure는 객체여야 합니다.");
-      const saved = await mutateArtifact(
-        request,
-        user,
-        context.projectId,
-        {
+      await checkpoint?.();
+      const change = {
           kind: page.kind,
           title: input.title ?? before?.title,
           status: input.status ?? before?.status ?? "초안",
@@ -198,10 +209,15 @@ export function createPageAgent(
             ...(input.structure as Record<string, unknown> | undefined),
           },
           version: input.version,
-        },
-        action,
-        before?.id,
-      );
+        };
+      // Validate through the real mutation path in a short transaction, then discard the preview.
+      // No transaction remains open while waiting for the model or guardrail classifier.
+      const previewTx = await db().transaction("write");
+      let saved;
+      try {
+        saved = await mutateArtifact(request, user, context.projectId, change, action, before?.id, checkpoint, previewTx);
+      } finally { await previewTx.rollback(); previewTx.close(); }
+      pending.push({ input: change, action, id: before?.id });
       seen.add(signature);
       const result = {
         action,
@@ -210,9 +226,10 @@ export function createPageAgent(
         title: saved.title,
         version: saved.version,
       };
-      actions.push(result);
-      return { success: true, ...result };
+      return { success: true, pending: true, action: result.action, title: result.title,
+        message: "검증된 변경안입니다. 최종 출력 검사 후 저장되며 아직 DB에 반영되지 않았습니다." };
     } catch (error) {
+      if (error instanceof GenerationCancelled || error instanceof GuardrailBlocked) throw error;
       return {
         success: false,
         status: error instanceof HttpError ? error.status : 500,
@@ -223,5 +240,20 @@ export function createPageAgent(
       };
     }
   }
-  return { tools, execute, actions };
+  async function commit(tx: Transaction) {
+    const committed: AiAction[] = [];
+    if (!pending.length) return committed;
+    const row = (await tx.execute({ sql: "SELECT u.account_role,u.onboarding_complete,m.role FROM users u JOIN workspace_members m ON m.user_id=u.id WHERE u.id=? AND m.workspace_id=?", args: [user.id, user.workspaceId] })).rows[0];
+    if (!row) throw new HttpError(403, "워크스페이스 접근 권한이 변경되었습니다.");
+    const currentUser: User = { ...user, role: String(row.role), accountRole: row.account_role === "owner" ? "owner" : "user", onboardingComplete: Number(row.onboarding_complete) === 1 };
+    const access = await projectAccess(tx, currentUser, context.projectId, true);
+    currentUser.role = String(access.role);
+    for (const change of pending) {
+      await checkpoint?.(tx);
+      const saved = await mutateArtifact(request, currentUser, context.projectId, change.input, change.action, change.id, checkpoint, tx);
+      committed.push({ action: change.action, id: saved.id, code: saved.code, title: saved.title, version: saved.version });
+    }
+    return committed;
+  }
+  return { tools, execute, actions, commit, pendingCount: () => pending.length };
 }

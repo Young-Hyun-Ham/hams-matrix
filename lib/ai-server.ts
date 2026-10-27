@@ -1,6 +1,7 @@
 import "server-only";
 import { HttpError } from "./auth";
 import type { AiCallEvent } from "./ai/token-types";
+import { finishBackgroundResponse } from "./ai/background-response";
 
 export async function aiModels() {
   if (!process.env.OPENAI_API_KEY)
@@ -47,6 +48,8 @@ export async function generateAi(
   images: { dataUrl: string }[] = [],
   history: Record<string, unknown>[] = [],
   track?: (event: AiCallEvent) => Promise<void>,
+  checkpoint?: () => Promise<void>,
+  options?: { responseFormat?: Record<string, unknown>; deadline?: number },
 ) {
   const messages: Record<string, unknown>[] = [
     ...history,
@@ -64,8 +67,9 @@ export async function generateAi(
         : input,
     },
   ];
-  const deadline = Date.now() + 120000;
+  const deadline = Math.min(Date.now() + 120000, options?.deadline ?? Infinity);
   for (let turn = 0; turn < 6; turn++) {
+    await checkpoint?.();
     const started = Date.now();
     await track?.({ turn, status: "started" });
     let response: Response;
@@ -81,7 +85,9 @@ export async function generateAi(
           instructions,
           input: agent || images.length || history.length ? messages : input,
           store: false,
+          background: true,
           max_output_tokens: 6000,
+          ...(options?.responseFormat ? { text: { format: options.responseFormat } } : {}),
           ...(agent
             ? {
                 tools: agent.tools,
@@ -118,8 +124,9 @@ export async function generateAi(
         "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
       );
     }
-    const metadata =
+    let metadata =
       raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    if (response.ok) metadata = await finishBackgroundResponse(metadata, turn, started, deadline, track, checkpoint);
     await track?.({
       turn,
       status: response.ok
@@ -166,6 +173,7 @@ export async function generateAi(
         throw new HttpError(502, "허용된 도구 호출 수를 초과했습니다.");
       messages.push(...output);
       for (const call of calls) {
+        await checkpoint?.();
         if (!call.call_id || !call.name || !call.arguments)
           throw new HttpError(502, "AI 도구 요청 형식이 올바르지 않습니다.");
         let args: Record<string, unknown>;
@@ -178,6 +186,7 @@ export async function generateAi(
           throw new HttpError(502, "AI 도구 입력을 해석하지 못했습니다.");
         }
         const result = await agent.execute(call.name, args);
+        await checkpoint?.();
         messages.push({
           type: "function_call_output",
           call_id: call.call_id,
