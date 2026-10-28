@@ -29,5 +29,5 @@ async function AuthenticatedWorkspace({
   if (!user.onboardingComplete) redirect("/onboarding");
   const row=(await db().execute({sql:'SELECT toast_position,default_theme,toast_background_color,toast_font_color,version FROM user_preferences WHERE user_id=?',args:[user.id]})).rows[0];
   const initial:Preferences={toastPosition:row?.toast_position==='top'?'top':'bottom',defaultTheme:row?.default_theme==='dark'?'dark':'light',toastBackgroundColor:String(row?.toast_background_color??'#ffffff'),toastFontColor:String(row?.toast_font_color??'#262138'),version:Number(row?.version??0)};
-  return <><script dangerouslySetInnerHTML={{__html:`document.documentElement.dataset.theme=${JSON.stringify(initial.defaultTheme)}`}}/><PreferencesRuntime userId={user.id} initial={initial}/><WorkspaceShell user={user}>{children}</WorkspaceShell></>;
+  return <><PreferencesRuntime userId={user.id} initial={initial}/><WorkspaceShell user={user}>{children}</WorkspaceShell></>;
 }

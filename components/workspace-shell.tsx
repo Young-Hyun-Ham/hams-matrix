@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/stores/workspace";
 import { navigationMenus, personalTabs, adminTabs } from "@/lib/menus";
+import { projectSections, projectTabLabels, type ProjectTab } from "@/lib/project-tabs";
 import type { User } from "@/lib/types";
 import { Brand, Icon } from "./icon";
 import { ThemeToggle } from "./theme-toggle";
@@ -43,6 +44,15 @@ export function WorkspaceShell({
   const titleHref = pathname.startsWith("/projects/") ? pathname
     : pathname === "/admin/settings" || pathname === "/settings" ? `${pathname}?tab=${tab}`
     : selected.action === "link" ? selected.href : pathname;
+  const projectRoute = pathname.startsWith("/projects/") || Object.hasOwn(projectSections, pathname.slice(1));
+  const requestedProjectTab = query.get("tab");
+  const projectTab: ProjectTab = requestedProjectTab && Object.hasOwn(projectTabLabels, requestedProjectTab)
+    ? requestedProjectTab as ProjectTab : projectSections[pathname.slice(1)] ?? "overview";
+  function tabHref(value: string) {
+    const params = new URLSearchParams(query.toString());
+    params.set("tab", value);
+    return `${pathname}?${params.toString()}`;
+  }
   useEffect(() => {
     const media = window.matchMedia("(max-width: 700px)");
     const update = () => setIsMobile(media.matches);
@@ -182,7 +192,7 @@ export function WorkspaceShell({
       </aside>
       <div className="workspace-body">
         <header className="topbar">
-          <div className="breadcrumb">
+          <nav className="breadcrumb" aria-label="현재 위치">
             <button
               className="icon-button menu-toggle"
               onClick={() => isMobile ? setSidebarOpen(!sidebarOpen) : setDesktopSidebarOpen(!desktopSidebarOpen)}
@@ -194,12 +204,18 @@ export function WorkspaceShell({
             </button>
             <Link className="breadcrumb-workspace" href="/dashboard">워크스페이스</Link>
             <Icon name="chevron" size={13} />
-            <Link className="breadcrumb-title" href={titleHref}>
-              {pathname.startsWith("/projects/")
+            <Link className="breadcrumb-title" href={projectRoute ? tabHref("overview") : tabLabels ? pathname : titleHref} aria-current={!projectRoute && !tabLabels ? "page" : undefined}>
+              {projectRoute
                 ? "프로젝트 작업 공간"
-                : pathname === "/admin/settings" ? adminTabs[tab as keyof typeof adminTabs] ?? adminTabs.plans : menu.label}
+                : selected.label}
             </Link>
-          </div>
+            {(projectRoute || tabLabels) && <>
+              <Icon name="chevron" size={13} />
+              <Link className="breadcrumb-title" href={tabHref(projectRoute ? projectTab : tabLabels && Object.hasOwn(tabLabels, tab) ? tab : pathname === "/settings" ? "usage" : "plans")} aria-current="page">
+                {projectRoute ? projectTabLabels[projectTab] : tabLabels?.[tab] ?? Object.values(tabLabels ?? {})[0]}
+              </Link>
+            </>}
+          </nav>
           <div className="topbar-tools">
             <label className="global-search">
               <Icon name="search" size={17} />

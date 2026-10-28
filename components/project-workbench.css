@@ -25,29 +25,42 @@
 }
 .matrix-tabs {
   display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
+  gap: 1px;
+  flex-wrap: wrap;
   min-width: 0;
   max-width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  position: relative;
+  margin: 0;
   border-bottom: 1px solid var(--line);
-  padding-bottom: 12px;
+  padding: 3px 0 0;
+  background: var(--canvas);
 }
 .matrix-tabs button {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
   white-space: nowrap;
-  padding: 10px 14px;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: inherit;
+  padding: 5px 10px;
+  min-height: 30px;
+  margin-bottom: -1px;
+  border: 1px solid var(--line);
+  border-radius: 5px 5px 0 0;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
   cursor: pointer;
 }
-.matrix-tabs button[aria-current] {
-  background: #6555d9;
-  color: white;
+.matrix-tabs button[aria-current="page"] {
+  border-top: 2px solid var(--primary);
+  border-bottom-color: var(--surface);
+  padding-top: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+}
+.matrix-tabs button:focus-visible {
+  outline-offset: -3px;
 }
 .matrix-workbench input:not([type="checkbox"]),
 .matrix-workbench select,
@@ -63,7 +76,21 @@
 .matrix-project-picker {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.matrix-workbench .matrix-project-picker select {
+  min-height: 28px;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font: inherit;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .matrix-workbench .matrix-project-picker select {
+    min-height: 32px;
+  }
 }
 .matrix-section {
   padding: 24px;
@@ -225,4 +252,35 @@
   .matrix-field-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Match settings density only inside non-overview project tab content. */
+.matrix-tab-content { display: contents; }
+.matrix-workbench .matrix-tab-content-compact {
+  display: grid; min-width: 0; gap: 12px; font-size: 12px; line-height: 1.45;
+}
+.matrix-workbench .matrix-tab-content-compact :is(h1,h2,h3,h4,p,span,strong,small,legend,label,input,select,textarea,button,table,th,td,pre,a,li) {
+  font-size: 12px; line-height: 1.45;
+}
+.matrix-workbench .matrix-tab-content-compact :is(h2,h3,h4,legend) { font-weight: 650; }
+.matrix-workbench .matrix-tab-content-compact p { margin: 0 0 8px; }
+.matrix-workbench .matrix-tab-content-compact :is(.button,button:not(.icon-button)) {
+  min-height: 26px; padding: 3px 8px; border-radius: 5px;
+  font-size: 12px; line-height: 1.45; gap: 5px;
+}
+.matrix-workbench .matrix-tab-content-compact .button { width: auto; flex-shrink: 0; }
+.matrix-workbench .matrix-tab-content-compact .icon-button {
+  width: 26px; height: 26px; min-height: 26px; padding: 4px; border-radius: 5px;
+}
+.matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 5px;
+  background-color: var(--surface); color: var(--ink); padding: 4px 8px; font: inherit;
+}
+.matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 28px; }
+.matrix-workbench .matrix-tab-content-compact :is(th,td) { padding: 6px 8px; }
+.matrix-workbench .matrix-tab-content-compact .matrix-section { padding: 12px; gap: 12px; }
+@media (max-width: 700px), (pointer: coarse) {
+  .matrix-workbench .matrix-tab-content-compact :is(.button,button:not(.icon-button)) { min-height: 32px; }
+  .matrix-workbench .matrix-tab-content-compact .icon-button { width: 32px; height: 32px; min-height: 32px; }
+  .matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 32px; }
 }

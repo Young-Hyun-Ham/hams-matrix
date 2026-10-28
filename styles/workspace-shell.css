@@ -217,10 +217,16 @@
 }
 .breadcrumb {
   display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
   align-items: center;
   gap: 15px;
   font-size: 11px;
   color: #aaa5b5;
+}
+.breadcrumb > * {
+  flex-shrink: 0;
 }
 .breadcrumb-title {
   color: #696176;

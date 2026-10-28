@@ -1,3 +1,11 @@
 - [좌측 메뉴·개인 설정·관리자설정 개편 분석 및 설계](docs/history/2026-10-28/navigation-settings-admin-design.md) - 2026-10-28
 - [회원·권한·요금제 개편 분석 및 설계](docs/history/2026-10-28/membership-roles-plans-design.md) - 2026-10-28
 - [관리자설정 화면 밀도·탭·상세 모달 개선 분석 및 설계](docs/history/2026-10-28/admin-settings-compact-design.md) - 2026-10-28
+- [로그인 스크립트 경고 수정 및 회원등록·로그인 버튼 너비 정리](docs/work/2026-10-28/sample-work.md) - 2026-10-28
+- [게스트 요금제 화면 통합 및 회원 요금제 변경](docs/work/2026-10-28/sample-work.md#게스트-요금제-화면-통합-및-회원-요금제-변경) - 2026-10-28
+- [팀 공유 멤버 추가 시 React 중복 key 경고 수정](docs/work/2026-10-28/sample-work.md#팀-공유-멤버-추가-시-react-중복-key-경고-수정) - 2026-10-28
+- [사이트 전체 select 화살표 우측 여백 통일](docs/work/2026-10-28/sample-work.md#사이트-전체-select-화살표-우측-여백-통일) - 2026-10-28
+- [상단 경로에 현재 탭 표시 및 이동 링크 추가](docs/work/2026-10-28/sample-work.md#상단-경로에-현재-탭-표시-및-이동-링크-추가) - 2026-10-28
+- [프로젝트 탭을 설정 화면 UI로 통일](docs/work/2026-10-28/sample-work.md#프로젝트-탭을-설정-화면-ui로-통일) - 2026-10-28
+- [개요 외 프로젝트 상세 탭의 글자·버튼 크기 통일](docs/work/2026-10-28/sample-work.md#개요-외-프로젝트-상세-탭의-글자버튼-크기-통일) - 2026-10-28
+- [프로젝트 선택 문구·select 크기 통일](docs/work/2026-10-28/sample-work.md#프로젝트-선택-문구select-크기-통일) - 2026-10-28

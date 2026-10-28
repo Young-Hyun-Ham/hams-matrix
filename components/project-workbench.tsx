@@ -1,8 +1,7 @@
 "use client";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
-import { useEffect, useState, type ComponentType } from "react";
+import { useEffect, type ComponentType } from "react";
 import type { User } from "@/lib/types";
 import type { ProjectData } from "@/lib/artifact-types";
 import {
@@ -72,8 +71,10 @@ function ProjectContent({
         openDelete: actions.openDelete,
       }}
     >
-      <Page />
-      <ArtifactDialogs actions={actions} onReload={onReload} />
+      <div className={`matrix-tab-content${tab === "overview" ? "" : " matrix-tab-content-compact"}`}>
+        <Page />
+        <ArtifactDialogs actions={actions} onReload={onReload} />
+      </div>
     </ProjectPageProvider.Provider>
   );
 }
@@ -86,10 +87,16 @@ export function ProjectWorkbench({
   initialProjectId?: string;
   section?: string;
 }) {
-  const model = useProjectData(user, initialProjectId),
-    [tab, setTab] = useState<ProjectTab>(
-      projectSections[section ?? ""] ?? "overview",
-    );
+  const model = useProjectData(user, initialProjectId);
+  const query = useSearchParams();
+  const requestedTab = query.get("tab");
+  const tab: ProjectTab = requestedTab && Object.hasOwn(projectTabLabels, requestedTab)
+    ? requestedTab as ProjectTab : projectSections[section ?? ""] ?? "overview";
+  function setTab(nextTab: ProjectTab) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", nextTab);
+    window.history.pushState(null, "", url);
+  }
   const pathname = usePathname(),
     setAiContext = useWorkspace((s) => s.setAiContext);
   const currentProject =
@@ -107,16 +114,6 @@ export function ProjectWorkbench({
   }, [pathname, tab, aiProjectId, aiProjectName, setAiContext]);
   return (
     <div className="matrix-workbench">
-      <div className="matrix-heading">
-        <div>
-          <p className="matrix-eyebrow">HAMS MATRIX · 연결된 프로젝트 문서</p>
-          <h1>{model.data?.project.name ?? "프로젝트 작업 공간"}</h1>
-          <p>{model.data?.project.description}</p>
-        </div>
-        <Link className="button" href="/dashboard">
-          전체 프로젝트
-        </Link>
-      </div>
       <label className="matrix-project-picker">
         프로젝트 선택{" "}
         <select

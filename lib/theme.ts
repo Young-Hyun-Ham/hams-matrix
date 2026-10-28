@@ -1,3 +1,3 @@
 export type Theme = "light" | "dark";
-// Authenticated layouts apply the member's DB value before workspace content paints.
+// Default for the initial document; PreferencesRuntime applies the member's DB value.
 export const THEME_INIT_SCRIPT = `document.documentElement.dataset.theme="light"`;
