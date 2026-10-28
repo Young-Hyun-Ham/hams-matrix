@@ -3,6 +3,7 @@ import type { Client, Row, Transaction } from "@libsql/client";
 import { HttpError, requireWriter } from "./auth";
 import { audit } from "./audit";
 import { db } from "./db";
+import { projectHistoryEnabled } from "./plans";
 import { projectRoleSql } from "./team-permissions";
 import type { User } from "./types";
 import {
@@ -25,6 +26,7 @@ export async function projectAccess(
   projectId: string,
   write = false,
 ) {
+  if (user.accountRole === "guest") throw new HttpError(403, "게스트는 실제 프로젝트에 접근할 수 없습니다.");
   const result = await executor.execute({
     sql: `SELECT p.id,p.name,p.description,p.status,p.owner_id,${projectRoleSql} AS role FROM projects p
       JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id
@@ -86,7 +88,7 @@ export async function projectData(
           .map((e) => String(e.target_id)),
       ),
     ),
-    revisions: revisions.rows.map((row) => ({
+    revisions: (await projectHistoryEnabled(projectId, executor) ? revisions.rows : []).map((row) => ({
       id: String(row.id),
       artifactId: String(row.artifact_id),
       version: Number(row.version),
@@ -328,7 +330,7 @@ export async function mutateArtifact(
           args: [artifactId, targetId, projectId, user.workspaceId, relation],
         });
     }
-    await tx.execute({
+    if (await projectHistoryEnabled(projectId, tx)) await tx.execute({
       sql: "INSERT INTO artifact_revisions(id,artifact_id,project_id,workspace_id,version,action,actor_id,actor_name,snapshot_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
       args: [
         randomUUID(),

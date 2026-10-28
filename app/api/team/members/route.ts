@@ -3,6 +3,7 @@ import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { connection } from "next/server";
 import { projectAccess } from "@/lib/artifacts";
+import { assertProjectCapacity } from "@/lib/plans";
 import { projectRoleSql, requireProjectOwner, requireTeamOwner } from "@/lib/team-permissions";
 
 export async function GET(request: Request) {
@@ -47,15 +48,13 @@ export async function POST(request: Request) {
     try {
       const access = await projectAccess(tx, user, projectId);
       if (!["owner", "admin"].includes(String(access.role))) throw new HttpError(403, "선택한 프로젝트의 owner 또는 admin만 멤버를 추가할 수 있습니다.");
-      const target = (await tx.execute({ sql: "SELECT id FROM users WHERE email=? AND account_role='user' AND onboarding_complete=1", args: [email] })).rows[0];
-      if (!target) throw new HttpError(404, "추가할 수 있는 Free 사용자를 찾을 수 없습니다. 가입한 이메일을 확인해 주세요.");
+      const target = (await tx.execute({ sql: "SELECT id FROM users WHERE email=? AND account_role IN ('master','admin','user') AND onboarding_complete=1", args: [email] })).rows[0];
+      if (!target) throw new HttpError(404, "추가할 수 있는 회원를 찾을 수 없습니다. 가입한 이메일을 확인해 주세요.");
       const id = String(target.id);
       const exists = (await tx.execute({ sql: projectId ? "SELECT user_id FROM project_members WHERE project_id=? AND workspace_id=? AND user_id=?" : "SELECT user_id FROM workspace_members WHERE workspace_id=? AND user_id=?", args: projectId ? [projectId, user.workspaceId, id] : [user.workspaceId, id] })).rows[0];
       if (exists) throw new HttpError(409, "이미 구성원인 사용자입니다. 권한 변경을 이용해 주세요.");
       await tx.execute({ sql: "INSERT INTO workspace_members(workspace_id,user_id,role,join_source) VALUES (?,?,'viewer',?) ON CONFLICT(workspace_id,user_id) DO NOTHING", args: [user.workspaceId, id, projectId ? "project" : "direct"] });
       await tx.execute({ sql: "INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES (?,?,?,'viewer')", args: [projectId, user.workspaceId, id] });
-      await tx.execute({ sql: "UPDATE users SET active_workspace_id=?,updated_at=? WHERE id=?", args: [user.workspaceId, new Date().toISOString(), id] });
-      await tx.execute({ sql: "UPDATE sessions SET workspace_id=? WHERE user_id=? AND revoked_at IS NULL", args: [user.workspaceId, id] });
       await audit(request, { user, action: "CREATE", resource: "workspace_member", resourceId: id, after: { role: "viewer" }, metadata: { projectId, source: "direct" } }, tx);
       await tx.commit();
     } catch (error) { await tx.rollback(); throw error; } finally { tx.close(); }
@@ -78,6 +77,7 @@ export async function PATCH(request: Request) {
         if (data.confirmTransfer !== true || typeof data.expectedOwnerId !== "string" || data.expectedOwnerId !== user.id) throw new HttpError(409, "현재 소유자를 확인하고 소유권 양도를 승인해 주세요.");
         if (data.userId === user.id) throw new HttpError(400, "현재 소유자에게 다시 양도할 수 없습니다.");
         if (projectId) {
+          await assertProjectCapacity(String(data.userId), tx);
           await tx.execute({ sql: "UPDATE project_members SET role='member' WHERE project_id=? AND user_id=?", args: [projectId, user.id] });
           await tx.execute({ sql: "UPDATE projects SET owner_id=?,updated_at=? WHERE id=? AND workspace_id=? AND owner_id=?", args: [data.userId, new Date().toISOString(), projectId, user.workspaceId, user.id] });
         } else {

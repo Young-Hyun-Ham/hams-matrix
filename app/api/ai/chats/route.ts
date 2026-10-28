@@ -9,6 +9,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { projectAccess } from "@/lib/artifacts";
+import { memberPlan } from "@/lib/plans";
 import { db } from "@/lib/db";
 import { menus } from "@/lib/menus";
 import { projectTabLabels, type ProjectTab } from "@/lib/project-tabs";
@@ -27,6 +28,7 @@ import {
   requireConversation,
   conversationChats,
   conversationHistory,
+  temporaryHistory,
 } from "@/lib/ai/conversations";
 export const maxDuration = 180;
 // 화면/탭별 분기. 프롬프트 본문과 데이터 범위는 lib/ai/page-prompts.ts에서 각각 수정합니다.
@@ -79,6 +81,7 @@ export async function GET(request: Request) {
       {
         conversation,
         ...(await conversationChats(user, projectId, convId, before)),
+        historyEnabled: (await memberPlan(user.id)).historyEnabled,
       },
       { headers: { "Cache-Control": "no-store" } },
     );
@@ -95,8 +98,9 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser(),
-      input = await body(request, 9 * 1024 * 1024);
-    const images = validateAiImages(input.images);
+      input = await body(request, 15 * 1024 * 1024);
+    const plan = await memberPlan(user.id);
+    const images = validateAiImages(input.images, plan.attachmentLimit);
     const prompt =
       (typeof input.prompt === "string" ? input.prompt.trim() : "") ||
       (images.length
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
     let projectName = "",
       canWrite = false;
     if (projectId) {
-      const project = await projectAccess(db(), user, projectId);
+      const project = await projectAccess(db(), user, projectId, true);
       projectName = String(project.name);
       canWrite =
         ["owner", "admin", "member"].includes(String(project.role));
@@ -155,12 +159,12 @@ export async function POST(request: Request) {
     };
     const id = randomUUID();
     // 생성 요청 전에 암호화 키/이미지를 검증하여 저장 불가 상태의 유료 호출을 방지합니다.
-    const encrypted = encryptAiImages(images, {
+    const encrypted = plan.historyEnabled ? encryptAiImages(images, {
       chatId: id,
       workspaceId: user.workspaceId,
       userId: user.id,
       projectId,
-    });
+    }) : { statements: [], images: images.map((image,index) => ({ id: `${id}-${index}`, url: image.dataUrl, mimeType: "image/png", byteLength: image.bytes.length, width: image.width, height: image.height })) };
     const page = selectAiPage(context);
     const requestId = input.requestId === undefined ? randomUUID() : generationRequestId(input.requestId);
     await registerGeneration(user, convId, requestId);
@@ -173,7 +177,7 @@ export async function POST(request: Request) {
     };
     await db().execute({ sql: "UPDATE ai_generation_requests SET guardrail_version=? WHERE request_id=?", args: [guardrail.version, requestId] });
     await checkpoint();
-    const locked = await db().execute({
+    const locked = plan.historyEnabled ? await db().execute({
       sql: "UPDATE ai_conversations SET request_id=?,busy_until=? WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND (request_id IS NULL OR busy_until < ?) RETURNING conv_id",
       args: [
         requestId,
@@ -184,13 +188,13 @@ export async function POST(request: Request) {
         projectId || null,
         new Date().toISOString(),
       ],
-    });
-    if (!locked.rows.length)
+    }) : { rows: [] };
+    if (plan.historyEnabled && !locked.rows.length)
       throw new HttpError(
         409,
         "이 채팅방에서 답변을 생성하고 있습니다. 잠시 후 다시 전송해 주세요.",
       );
-    lease = { convId, requestId };
+    lease = plan.historyEnabled ? { convId, requestId } : undefined;
     const track = createTokenTracker({
       workspaceId: user.workspaceId, userId: user.id, projectId, projectName,
       convId, conversationTitle: conversation.title, chatId: id, requestId, model, prompt,
@@ -198,7 +202,7 @@ export async function POST(request: Request) {
     const guard = createGuardrailSession({ workspaceId: user.workspaceId, userId: user.id, requestId,
       version: guardrail.version, policy: guardrail.policy, checkpoint, track, deadline: requestDeadline });
     await guard.inspect("input", prompt, images);
-    const history = await conversationHistory(user, projectId, convId);
+    const history = plan.historyEnabled ? await conversationHistory(user, projectId, convId) : temporaryHistory(input.history);
     const pageContext = await readAiPage(user, context, page);
     const historyImages: { dataUrl: string }[] = [];
     const historyText = history.map(message => ({ ...message, content: Array.isArray(message.content)
@@ -265,7 +269,7 @@ export async function POST(request: Request) {
     try {
       committed = await agent.commit(saveTx);
       if (committed.length) result += "\n\n[서버 확인 실행 결과]\n" + committed.map(a => `${a.action} · ${a.code} · ${a.title} · 버전 ${a.version}`).join("\n");
-      const statements = [
+      const statements = plan.historyEnabled ? [
         {
           sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
           args: [
@@ -297,7 +301,7 @@ export async function POST(request: Request) {
           sql: "UPDATE ai_conversations SET updated_at=? WHERE conv_id=? AND workspace_id=? AND user_id=?",
           args: [createdAt, convId, user.workspaceId, user.id],
         },
-      ];
+      ] : [];
       for (const statement of statements) await saveTx.execute(statement);
       await checkpoint(saveTx);
       await saveTx.commit();

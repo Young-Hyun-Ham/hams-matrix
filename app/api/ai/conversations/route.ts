@@ -6,6 +6,7 @@ import {
   requireUser,
   rateLimit,
 } from "@/lib/auth";
+import { memberPlan } from "@/lib/plans";
 import { db } from "@/lib/db";
 import { projectAccess } from "@/lib/artifacts";
 import { conversationColumns, conversationInfo } from "@/lib/ai/conversations";
@@ -15,6 +16,7 @@ export async function GET(request: Request) {
     const user = await requireUser();
     const projectId = new URL(request.url).searchParams.get("projectId") || "";
     if (projectId) await projectAccess(db(), user, projectId);
+    if (!(await memberPlan(user.id)).historyEnabled) return Response.json({ conversations: [], historyEnabled: false });
     const rows = await db().execute({
       sql: `SELECT ${conversationColumns} FROM ai_conversations WHERE workspace_id=? AND user_id=? AND project_id IS ? ORDER BY is_pinned DESC,updated_at DESC,conv_id DESC`,
       args: [user.workspaceId, user.id, projectId || null],
@@ -37,7 +39,7 @@ export async function POST(request: Request) {
     if (projectId) await projectAccess(db(), user, projectId);
     await rateLimit(`ai-room:${user.workspaceId}:${user.id}`, 40);
     const conversation = {
-      convId: randomUUID(),
+      convId: ((await memberPlan(user.id)).historyEnabled ? "" : "temporary-") + randomUUID(),
       projectId,
       title: "새 채팅",
       isPinned: false,
@@ -45,7 +47,7 @@ export async function POST(request: Request) {
       updatedAt: "",
     };
     conversation.updatedAt = conversation.createdAt;
-    await db().execute({
+    if (!conversation.convId.startsWith("temporary-")) await db().execute({
       sql: "INSERT INTO ai_conversations(conv_id,workspace_id,user_id,project_id,title,created_at,updated_at) VALUES (?,?,?,?,?,?,?)",
       args: [
         conversation.convId,

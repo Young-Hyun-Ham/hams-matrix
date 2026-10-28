@@ -176,8 +176,8 @@ try {
       "CREATE TRIGGER test_no_audit_writes BEFORE INSERT ON audit_logs BEGIN SELECT RAISE(ABORT,'logging disabled'); END",
     );
     const data = {
-      role: "owner",
-      plan: "team",
+      role: "user",
+      plan: "free",
       teamId: null,
       name: "로그 비활성 테스트",
       email: "no-logs@example.test",
@@ -269,8 +269,8 @@ try {
       400,
     );
     const credentials = {
-      role: "owner",
-      plan: "team",
+      role: "user",
+      plan: "free",
       teamId: null,
       name: "테스트 사용자",
       email: "Member@Example.test",
@@ -394,6 +394,8 @@ try {
     assert.equal(second.status, 201);
     const secondCookie = sessionCookie(second),
       secondUser = (await second.json()).user;
+    // Existing artifact/history scenarios use explicit paid test subscriptions.
+    await client.execute("UPDATE user_subscriptions SET plan_code='business'");
     await checkProjects({
       request,
       client,

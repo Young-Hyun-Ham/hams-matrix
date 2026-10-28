@@ -213,8 +213,7 @@ export async function checkAiCrud({
       prompt: `화면을 등록해줘 [TOOL]${Buffer.from(JSON.stringify({ name: "save_artifact", args: { action: "CREATE", title: "권한 없음", fields: { definition: "개요", details: "상세" } } })).toString("base64")}`,
     },
   });
-  assert.equal(denied.status, 200);
-  assert.equal(JSON.parse((await denied.json()).chat.result).status, 403);
+  assert.equal(denied.status, 403, "project viewers cannot run paid AI requests");
   console.log(
     "PASS: actual AI tool CRUD, partial update preservation, revisions, optimistic concurrency, linked deletion guard, tab and role boundaries, explicit intent, staged-write rollback and page-specific data sources.",
   );

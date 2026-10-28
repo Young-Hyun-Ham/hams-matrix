@@ -80,7 +80,7 @@ export function AiConversationTitle({
       ) : (
         <div>
           <strong title={conversation.title}>{conversation.title}</strong>
-          <button
+          {!conversation.convId.startsWith("temporary-") && <button
             type="button"
             onClick={() => {
               setTitle(conversation.title);
@@ -88,7 +88,7 @@ export function AiConversationTitle({
             }}
           >
             제목 변경
-          </button>
+          </button>}
         </div>
       )}
       {error && (

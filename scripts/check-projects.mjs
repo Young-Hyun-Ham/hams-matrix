@@ -96,7 +96,7 @@ export async function checkProjects({
     sql: "UPDATE workspace_members SET role='viewer' WHERE workspace_id=? AND user_id=?",
     args: [user.workspaceId, user.id],
   });
-  assert.equal((await create(input)).status, 403);
+  assert.equal((await create(input)).status, 201, "project creation follows the member plan, not the workspace viewer role");
   await client.execute({
     sql: "UPDATE workspace_members SET role=? WHERE workspace_id=? AND user_id=?",
     args: [user.role, user.workspaceId, user.id],

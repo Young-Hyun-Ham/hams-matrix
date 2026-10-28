@@ -27,7 +27,7 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
         setChats([
           ...data.chats,
           ...appended.current
-            .slice(appendStart)
+            .slice(data.historyEnabled === false ? 0 : appendStart)
             .filter((chat) => !ids.has(chat.id)),
         ]);
         setNextCursor(data.nextCursor);

@@ -1,0 +1,133 @@
+/* Scoped to administration; personal settings and shared dialogs keep their defaults. */
+.main-content.admin-main-content { padding: 16px; }
+.admin-settings-page { min-width: 0; font-size: 12px; line-height: 1.45; }
+.admin-settings-page .admin-visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+.admin-settings-page .admin-settings-content :is(h1,h2,h3,h4,p,span,strong,small,legend,label,input,select,textarea,button,table,th,td,pre,a,li) {
+  font-size: 12px; line-height: 1.45;
+}
+.admin-settings-page :is(h2,h3,h4,legend) { font-weight: 650; }
+.admin-settings-page p { margin: 0 0 8px; }
+.admin-settings-page .button {
+  min-height: 26px; width: auto; padding: 3px 8px; border-radius: 5px;
+  font-size: 12px; line-height: 1.45; flex-shrink: 0; gap: 5px;
+}
+.admin-settings-page :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--surface); color: var(--ink); padding: 4px 8px; font: inherit;
+}
+.admin-settings-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 28px; }
+.admin-settings-page textarea { resize: vertical; }
+.admin-settings-page input:is([type=checkbox],[type=radio]) {
+  appearance: auto; width: 14px; height: 14px; min-height: 0; padding: 0;
+  margin: 2px 0 0; flex: 0 0 14px; accent-color: var(--primary);
+}
+.admin-settings-page th,.admin-settings-page td {
+  border-bottom: 1px solid var(--line); padding: 6px 8px; vertical-align: top;
+}
+.admin-settings-page .admin-settings-tabs {
+  display: flex; flex-wrap: nowrap; gap: 1px; overflow-x: auto; overflow-y: hidden;
+  position: relative; margin: 0; padding: 3px 0 0;
+  border-bottom: 1px solid var(--line); background: var(--canvas);
+  scrollbar-width: thin;
+}
+.admin-settings-page .admin-settings-tab {
+  flex: 0 0 auto; display: inline-flex; align-items: center;
+  padding: 5px 10px; min-height: 30px; margin-bottom: -1px;
+  border: 1px solid var(--line); border-radius: 5px 5px 0 0;
+  background: var(--canvas); color: var(--muted); white-space: nowrap;
+}
+.admin-settings-page .admin-settings-tab[aria-current=page] {
+  border-top: 2px solid var(--primary); border-bottom-color: var(--surface);
+  padding-top: 4px; background: var(--surface); color: var(--ink); font-weight: 650;
+}
+.admin-settings-page .admin-settings-tab:focus-visible { outline-offset: -3px; }
+.admin-settings-page .admin-settings-content {
+  min-width: 0; padding: 12px; border: 1px solid var(--line); border-top: 0;
+  border-radius: 0 0 6px 6px; background: var(--surface);
+}
+.admin-settings-page .admin-list-filters {
+  display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-bottom: 12px;
+}
+.admin-settings-page .admin-list-filters label { display: grid; gap: 4px; }
+.admin-settings-page .admin-table-scroll { overflow-x: auto; }
+.admin-settings-page .admin-list-table { width: 100%; min-width: 700px; text-align: left; border-collapse: collapse; }
+.admin-settings-page .admin-list-pagination {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px;
+}
+.admin-settings-page .admin-logging-settings { padding: 12px; margin-bottom: 12px; }
+.admin-settings-page .admin-logging-settings h2 { margin: 0 0 8px; }
+
+/* Both detail views share one header and one scrolling body, including pending/error states. */
+.admin-settings-page .admin-detail-dialog {
+  padding: 0; width: calc(100% - 40px); max-width: 520px; max-height: 85dvh;
+  overflow: hidden; background: var(--surface); border-radius: 10px;
+}
+.admin-settings-page .admin-detail-dialog[open] { display: flex; flex-direction: column; }
+.admin-settings-page .admin-detail-header {
+  position: relative; z-index: 1; flex: 0 0 auto; gap: 8px;
+  padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface);
+  box-shadow: 0 4px 8px rgb(0 0 0 / 16%);
+}
+[data-theme=dark] .admin-settings-page .admin-detail-header { box-shadow: 0 4px 8px rgb(0 0 0 / 36%); }
+.admin-settings-page .admin-detail-header h2 { margin: 0; font-size: 12px; line-height: 1.4; }
+.admin-settings-page .admin-detail-close { width: auto; min-height: 24px; padding: 2px 7px; }
+.admin-settings-page .admin-detail-body { flex: 1 1 auto; min-height: 0; padding: 16px 12px 12px; overflow: auto; overflow-wrap: anywhere; }
+.admin-settings-page .admin-detail-body > :first-child { margin-top: 0; }
+.admin-settings-page .admin-detail-body h3 { margin: 0 0 8px; }
+.admin-settings-page .admin-member-form { margin-top: 16px; }
+.admin-settings-page .admin-member-form fieldset { display: grid; min-width: 0; padding: 0; margin: 0; border: 0; gap: 10px; }
+.admin-settings-page .admin-member-form legend { padding: 0; margin-bottom: 10px; }
+.admin-settings-page .admin-member-form label { display: grid; gap: 4px; }
+.admin-settings-page .admin-member-form button { justify-self: start; }
+.admin-settings-page .admin-history-json { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.admin-settings-page .plan-admin .plan-grid { gap: 12px; margin: 12px 0 0; }
+.admin-settings-page .plan-admin .panel { padding: 12px; }
+.admin-settings-page .plan-admin fieldset { display: grid; gap: 8px; }
+.admin-settings-page .plan-admin label { display: grid; gap: 4px; margin: 0; }
+.admin-settings-page .plan-admin h2 { margin: 0 0 4px; }
+.admin-settings-page .plan-admin label.check { display: flex; align-items: flex-start; gap: 6px; }
+.admin-settings-page .plan-admin button { justify-self: start; }
+
+/* Explicit layouts prevent generic fieldset/label rules from turning toggles into columns. */
+.admin-settings-page .guardrail-admin { max-width: none; padding: 0; margin: 0; }
+.admin-settings-page .guardrail-heading { gap: 12px; margin-bottom: 12px; }
+.admin-settings-page .guardrail-heading p { margin: 0; }
+.admin-settings-page .guardrail-summary { gap: 8px 16px; padding: 10px 12px; border-radius: 6px; }
+.admin-settings-page .guardrail-summary span { gap: 6px; }
+.admin-settings-page .guardrail-tabs { gap: 4px; margin: 12px 0; overflow-x: auto; }
+.admin-settings-page .guardrail-tabs button { padding: 5px 8px; flex-shrink: 0; white-space: nowrap; }
+.admin-settings-page .guardrail-baseline { padding: 10px 12px; margin-bottom: 12px; border-radius: 6px; }
+.admin-settings-page .guardrail-baseline p { line-height: 1.5; margin-bottom: 0; }
+.admin-settings-page fieldset.guardrail-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.admin-settings-page .guardrail-grid legend { margin-bottom: 10px; }
+.admin-settings-page .guardrail-grid label,.admin-settings-page .guardrail-test label { gap: 4px; min-width: 0; }
+.admin-settings-page .guardrail-grid label.guardrail-toggle {
+  display: flex; flex-direction: row; align-items: flex-start; gap: 8px;
+  padding: 10px; border-radius: 6px; min-width: 0;
+}
+.admin-settings-page .guardrail-toggle span { min-width: 0; gap: 4px; overflow-wrap: anywhere; }
+.admin-settings-page .guardrail-grid :is(select,input[type=number],textarea),
+.admin-settings-page .guardrail-test :is(select,textarea) { padding: 4px 8px; border-radius: 5px; }
+.admin-settings-page .guardrail-actions { flex-wrap: wrap; gap: 8px 12px; margin-top: 8px; }
+.admin-settings-page .guardrail-actions label { display: flex; flex-direction: row; align-items: flex-start; gap: 6px; }
+.admin-settings-page .guardrail-footer { margin-top: 16px; padding-top: 12px; gap: 8px; }
+.admin-settings-page .guardrail-footer p { margin: 0; min-width: 180px; }
+.admin-settings-page :is(.guardrail-alert,.guardrail-notice,.guardrail-verdict) { padding: 10px 12px; }
+.admin-settings-page .guardrail-test { gap: 12px; }
+.admin-settings-page .guardrail-attachments { padding: 10px 12px; gap: 8px; }
+.admin-settings-page .guardrail-history > ul > li { gap: 8px; padding: 8px 0; }
+.admin-settings-page .guardrail-history h2 { margin: 12px 0 8px; }
+
+@media (max-width: 760px) {
+  .admin-settings-page fieldset.guardrail-grid { grid-template-columns: 1fr; }
+  .admin-settings-page .guardrail-heading { align-items: flex-start; }
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .admin-settings-page .button,.admin-settings-page .guardrail-tabs button { min-height: 32px; }
+  .admin-settings-page .admin-detail-close { min-height: 28px; }
+  .admin-settings-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 32px; }
+}

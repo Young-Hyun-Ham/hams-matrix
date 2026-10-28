@@ -21,10 +21,10 @@ export type ImageScope = {
   userId: string;
   projectId: string;
 };
-export function validateAiImages(value: unknown): ValidAiImage[] {
+export function validateAiImages(value: unknown, limit = AI_IMAGE_MAX_COUNT): ValidAiImage[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > AI_IMAGE_MAX_COUNT)
-    throw new HttpError(400, "이미지는 최대 3장까지 첨부할 수 있습니다.");
+  if (!Array.isArray(value) || value.length > Math.min(limit, AI_IMAGE_MAX_COUNT))
+    throw new HttpError(400, `현재 플랜은 이미지를 최대 ${limit}장까지 첨부할 수 있습니다.`);
   return value.map((item) => {
     if (!item || typeof item !== "object" || typeof item.dataUrl !== "string")
       throw new HttpError(400, "첨부 이미지 형식이 올바르지 않습니다.");

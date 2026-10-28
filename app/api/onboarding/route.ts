@@ -31,7 +31,7 @@ export async function POST(request: Request) {
       )
         throw new HttpError(409, "이미 가입 유형 선택이 완료된 계정입니다.");
       const name =
-        choice.role === "owner" ? `${user.name}의 팀` : `${user.name}의 Guest`;
+        `${user.name}의 워크스페이스`;
       await tx.execute({
         sql: "UPDATE users SET account_role=?,onboarding_complete=1,job_title=?,updated_at=? WHERE id=?",
         args: [choice.role, jobTitle, new Date().toISOString(), user.id],
@@ -40,16 +40,16 @@ export async function POST(request: Request) {
         sql: "UPDATE workspaces SET name=?,plan=?,subscription_plan=?,owner_id=? WHERE id=?",
         args: [
           name,
-          choice.plan === "team" ? "pro" : choice.plan,
+          "free",
           choice.plan,
-          choice.role === "owner" ? user.id : null,
+          user.id,
           user.workspaceId,
         ],
       });
       await tx.execute({
         sql: "UPDATE workspace_members SET role=? WHERE workspace_id=? AND user_id=?",
         args: [
-          choice.role === "owner" ? "owner" : "viewer",
+          "owner",
           user.workspaceId,
           user.id,
         ],

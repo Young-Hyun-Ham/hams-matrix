@@ -84,7 +84,7 @@ export async function checkAiImages({
     [{ dataUrl: "data:image/png;base64,AAAA" }],
     [{ dataUrl: `data:image/png;base64,${bad.toString("base64")}` }],
     [{ dataUrl: "https://invalid.example/private.png" }],
-    Array.from({ length: 4 }, () => ({ dataUrl })),
+    Array.from({ length: 6 }, () => ({ dataUrl })),
   ])
     assert.equal((await post({ images })).status, 400);
   const oversized = `data:image/png;base64,${Buffer.alloc(2 * 1024 * 1024 + 1).toString("base64")}`;

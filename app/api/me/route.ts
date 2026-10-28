@@ -3,9 +3,9 @@ import {
   body,
   checkOrigin,
   errorResponse,
+  HttpError,
   nameInput,
   requireUser,
-  requireWriter,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { connection } from "next/server";
@@ -31,9 +31,9 @@ export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    requireWriter(user);
     const data = await body(request),
       name = nameInput(data.name);
+    if (user.accountRole === "master" && name !== "master") throw new HttpError(403, "master 이름은 변경할 수 없습니다.");
     const tx = await db().transaction("write");
     try {
       const before = await tx.execute({

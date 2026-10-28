@@ -1,0 +1,3 @@
+- [좌측 메뉴·개인 설정·관리자설정 개편 분석 및 설계](docs/history/2026-10-28/navigation-settings-admin-design.md) - 2026-10-28
+- [회원·권한·요금제 개편 분석 및 설계](docs/history/2026-10-28/membership-roles-plans-design.md) - 2026-10-28
+- [관리자설정 화면 밀도·탭·상세 모달 개선 분석 및 설계](docs/history/2026-10-28/admin-settings-compact-design.md) - 2026-10-28

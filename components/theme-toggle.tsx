@@ -1,22 +1,12 @@
 "use client";
-import { useEffect } from "react";
+import {usePreferences} from "@/stores/preferences";
+import {toast} from "@/stores/toast";
 import { useTheme } from "@/stores/theme";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
 import { Icon } from "./icon";
 
 export function ThemeToggle() {
-  const { theme, setTheme, syncTheme } = useTheme();
-  useEffect(() => {
-    syncTheme(
-      document.documentElement.dataset.theme === "dark" ? "dark" : "light",
-    );
-    const sync = (event: StorageEvent) => {
-      if (event.key === THEME_STORAGE_KEY || event.key === null)
-        syncTheme(event.newValue === "dark" ? "dark" : "light");
-    };
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
-  }, [syncTheme]);
+  const { theme } = useTheme();
+  const {saved,save,busy,userId}=usePreferences();
   return (
     <button
       type="button"
@@ -25,7 +15,8 @@ export function ThemeToggle() {
       aria-label="다크 모드"
       aria-checked={theme === "dark"}
       title="라이트 / 다크 모드 전환"
-      onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+      disabled={busy||!userId}
+      onClick={() => void save({...saved,defaultTheme:theme === "light" ? "dark" : "light"}).catch(e=>toast(e.message,true))}
     >
       <span className="theme-sun">
         <Icon name="sun" size={16} />

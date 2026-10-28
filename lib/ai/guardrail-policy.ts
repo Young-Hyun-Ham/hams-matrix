@@ -6,7 +6,7 @@ import type { User } from "../types";
 import { defaultGuardrailPolicy, type GuardrailPolicy } from "./guardrail-types";
 
 export function isGuardrailAdmin(user: User) {
-  return user.onboardingComplete && ["owner", "admin"].includes(user.role);
+  return ["master", "admin"].includes(user.accountRole) && user.onboardingComplete && ["owner", "admin"].includes(user.role);
 }
 export function requireGuardrailAdmin(user: User) {
   if (!isGuardrailAdmin(user)) throw new HttpError(403, "워크스페이스 관리자만 가드레일을 관리할 수 있습니다.");

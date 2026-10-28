@@ -73,7 +73,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
     finally { setBusy(false); }
   }
   return <main className="guardrail-admin">
-    <header className="guardrail-heading"><div><p className="guardrail-eyebrow">WORKSPACE SECURITY</p><h1>AI 가드레일 관리</h1><p>{workspaceName}의 입력·출력과 도구 실행 정책을 관리합니다.</p></div>
+    <header className="guardrail-heading"><div><p>{workspaceName}의 입력·출력과 도구 실행 정책을 관리합니다.</p></div>
       <button className="button" disabled={busy} onClick={async () => { if (dirty && !window.confirm("저장하지 않은 초안을 버리고 새로고침하시겠습니까?")) return; try { await reload(); setError(""); } catch (e) { setError(e instanceof Error ? e.message : "새로고침하지 못했습니다."); } }}>새로고침</button>
     </header>
     {error && <p role="alert" className="guardrail-alert">{error}</p>}

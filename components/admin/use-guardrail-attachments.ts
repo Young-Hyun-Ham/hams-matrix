@@ -4,7 +4,15 @@ import { useAiImages } from "@/components/ai/use-ai-images";
 import { GUARDRAIL_FILE_EXTENSIONS, GUARDRAIL_FILE_MAX_BYTES, GUARDRAIL_FILE_MAX_COUNT, GUARDRAIL_FILE_MAX_TOTAL_BYTES, type GuardrailTestFile } from "@/lib/ai/guardrail-file-types";
 
 export function useGuardrailAttachments(disabled: boolean, invalidate: () => void) {
-  const imageState = useAiImages(disabled);
+  const [attachmentLimit,setAttachmentLimit] = useState(0);
+  const imageState = useAiImages(disabled || attachmentLimit === 0, attachmentLimit);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/me/subscription", { signal: controller.signal, cache: "no-store" }).then(async response => {
+      if (response.ok) setAttachmentLimit((await response.json()).plan.attachmentLimit);
+    }).catch(() => {});
+    return () => controller.abort();
+  }, []);
   const [files, setFiles] = useState<(GuardrailTestFile & { id: string })[]>([]);
   const [filesLoading, setFilesLoading] = useState(false), [fileError, setFileError] = useState("");
   const current = useRef(files), busy = useRef(false), mounted = useRef(true);
@@ -52,6 +60,6 @@ export function useGuardrailAttachments(disabled: boolean, invalidate: () => voi
     invalidate(); current.current = current.current.filter(file => file.id !== id); setFiles(current.current); setFileError("");
   }
   function removeImage(id: string) { invalidate(); imageState.removeImage(id); }
-  return { images: imageState.images, files, loading: filesLoading || imageState.imagesLoading,
+  return { attachmentLimit, images: imageState.images, files, loading: filesLoading || imageState.imagesLoading,
     error: fileError || imageState.attachmentError, addAttachments, handlePaste, removeFile, removeImage };
 }

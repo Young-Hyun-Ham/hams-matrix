@@ -7,7 +7,7 @@ export async function checkAiCancellation({ request, client, cookie, other, proj
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
   const records = async id => (await client.execute({ sql: "SELECT * FROM ai_token_usage WHERE request_id=? ORDER BY call_index", args: [id] })).rows;
   const until = async predicate => {
-    for (let attempt = 0; attempt < 120; attempt++) {
+    for (let attempt = 0; attempt < 300; attempt++) {
       const value = await predicate();
       if (value) return value;
       await pause(100);

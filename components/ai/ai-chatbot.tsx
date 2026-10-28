@@ -41,6 +41,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   const [modelsLoading, setModelsLoading] = useState(true),
     [modelError, setModelError] = useState(""),
     [modelVersion, setModelVersion] = useState(0);
+  const [attachmentLimit,setAttachmentLimit] = useState(0);
   const [generating, setGenerating] = useState(false),
     [error, setError] = useState("");
   const [stopping, setStopping] = useState(false), [notice, setNotice] = useState("");
@@ -59,12 +60,19 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     removeImage,
     restoreImages,
     clearImages,
-  } = useAiImages(generating);
+  } = useAiImages(generating || attachmentLimit === 0, attachmentLimit);
   const dialog = useRef<HTMLDialogElement>(null),
     promptInput = useRef<HTMLTextAreaElement>(null),
     resultSession = useRef(0),
     busyRef = useRef(false),
     generation = useRef<AbortController | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/me/subscription", { signal: controller.signal, cache: "no-store" })
+      .then(async response => { if (!response.ok) throw new Error(); const data = await response.json(); setAttachmentLimit(data.plan.attachmentLimit); })
+      .catch(() => { if (!controller.signal.aborted) setAttachmentLimit(0); });
+    return () => controller.abort();
+  }, [user?.id]);
   const scope = `${user?.workspaceId}:${user?.id}:${context.projectId}`;
   const activeScope = useRef(scope);
   useEffect(() => {
@@ -182,6 +190,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         body: JSON.stringify({
           requestId,
           convId: conversation.convId,
+          ...(conversation.convId.startsWith("temporary-") ? { history: conversationState.chats.slice(-5).flatMap(chat => [{role:"user",content:chat.prompt.slice(0,2000)},{role:"assistant",content:chat.result.slice(0,8000)}]) } : {}),
           prompt: prompt.trim(),
           images: images.map((image) => ({ dataUrl: image.dataUrl })),
           model,
@@ -315,7 +324,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             }}
           />
           <p id="matrix-ai-image-help" className="matrix-ai-image-help">
-            Ctrl/⌘+V로 캡처 이미지 붙여넣기 · 최대 3장, 장당 2MB
+            Ctrl/⌘+V로 캡처 이미지 붙여넣기 · 최대 {attachmentLimit}장, 장당 2MB
           </p>
           {imagesLoading && (
             <p role="status" className="matrix-ai-image-help">

@@ -99,10 +99,10 @@ export async function POST(
         name,
         workspaceId,
         workspaceName:
-          choice.role === "owner" ? `${name}의 팀` : `${name}의 Guest`,
-        role: choice.role === "owner" ? "owner" : "viewer",
+          `${name}의 워크스페이스`,
+        role: "owner",
         plan: choice.plan,
-        accountRole: choice.role,
+        accountRole: "user",
         onboardingComplete: true,
         jobTitle,
       };

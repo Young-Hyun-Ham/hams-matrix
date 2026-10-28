@@ -1,3 +1,4 @@
+import type { AccountRole } from "./plan-types";
 export type User = {
   id: string;
   name: string;
@@ -7,10 +8,16 @@ export type User = {
   workspaceName: string;
   role: string;
   plan: string;
-  accountRole: "owner" | "user";
+  accountRole: AccountRole;
   onboardingComplete: boolean;
 };
 export type MenuKey =
   | "dashboard"
   | "team"
   | "ai";
+
+export type NavigationMenuKey = MenuKey | 'subscription' | 'admin' | 'settings' | 'help';
+export type NavigationMenu = {
+ key: NavigationMenuKey; label: string; en: string; icon: string; description: string;
+ href: string; action: 'link' | 'ai' | 'help'; admin: boolean;
+};

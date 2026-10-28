@@ -80,10 +80,10 @@ export async function PATCH(request: Request) {
           args: [user.workspaceId, memberId],
         });
         const shared = await tx.execute({
-          sql: "INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id) SELECT id,workspace_id,? FROM projects WHERE workspace_id=?",
+          sql: "INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id,role) SELECT id,workspace_id,?,'member' FROM projects WHERE workspace_id=?",
           args: [memberId, user.workspaceId],
         });
-        await tx.execute({ sql: "UPDATE project_members SET role=NULL WHERE workspace_id=? AND user_id=? AND role='viewer'", args: [user.workspaceId, memberId] });
+        await tx.execute({ sql: "UPDATE project_members SET role='member' WHERE workspace_id=? AND user_id=? AND role='viewer'", args: [user.workspaceId, memberId] });
         await tx.execute({
           sql: "UPDATE users SET active_workspace_id=?,updated_at=? WHERE id=?",
           args: [user.workspaceId, new Date().toISOString(), memberId],

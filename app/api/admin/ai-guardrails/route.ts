@@ -8,6 +8,7 @@ import { validateAiImages } from "@/lib/ai/chat-images";
 import { extractGuardrailFiles } from "@/lib/ai/guardrail-files";
 import { createTokenTracker } from "@/lib/ai/token-usage";
 import { aiModels } from "@/lib/ai-server";
+import { memberPlan } from "@/lib/plans";
 
 const headers = { "Cache-Control": "private, no-store" };
 export async function GET() {
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
       const text = input.text === undefined ? "" : input.text;
       if (typeof text !== "string" || text.length > 10000 || !["input", "context", "tool", "tool-result", "output"].includes(String(input.stage))) throw new HttpError(400, "검사 단계와 최대 10,000자의 테스트 내용을 확인해 주세요.");
       const signal = AbortSignal.any([request.signal, AbortSignal.timeout(140000)]);
-      const images = validateAiImages(input.images);
+      const images = validateAiImages(input.images, (await memberPlan(user.id)).attachmentLimit);
       const files = await extractGuardrailFiles(input.files, signal);
       if (!text.trim() && !images.length && !files.length) throw new HttpError(400, "테스트 내용이나 첨부 파일을 추가해 주세요.");
       if (policy.classifierEnabled && !(await aiModels()).includes(policy.classifierModel)) throw new HttpError(400, "사용 가능한 검사 모델을 선택해 주세요.");

@@ -65,11 +65,13 @@ try {
     await client.executeMultiple(await readFile(join("db/migrations", name), "utf8"));
   await client.execute("PRAGMA foreign_keys=ON");
   await client.executeMultiple(`
-    INSERT INTO users(id,name,account_role) VALUES ('owner','소유자','owner'),('reader','조회자','user'),('outsider','외부 사용자','owner');
+    INSERT INTO users(id,name,account_role) VALUES ('owner','소유자','user'),('reader','조회자','user'),('outsider','외부 사용자','user');
     INSERT INTO workspaces(id,name) VALUES ('ws','워크스페이스'),('other-ws','다른 워크스페이스');
     INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','viewer'),('other-ws','outsider','owner');
+    UPDATE user_subscriptions SET plan_code='business' WHERE user_id='owner';
     INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('project','ws','검증 프로젝트','owner','owner');
     INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner'),('project','ws','reader');
+    UPDATE project_members SET role='viewer' WHERE user_id='reader';
   `);
   for (const [id, workspace] of [["owner", "ws"], ["reader", "ws"], ["outsider", "other-ws"]]) {
     await client.execute({

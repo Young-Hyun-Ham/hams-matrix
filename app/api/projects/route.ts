@@ -8,11 +8,11 @@ import {
   errorResponse,
   HttpError,
   requireUser,
-  requireWriter,
 } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import type { Project } from "@/lib/project-types";
+import { assertProjectCapacity, projectHistoryEnabled } from "@/lib/plans";
 import { projectRoleSql } from "@/lib/team-permissions";
 
 export async function GET(request: Request) {
@@ -96,7 +96,9 @@ export async function GET(request: Request) {
       sql: `SELECT r.id,r.action,r.actor_name,r.occurred_at,r.snapshot_json,p.name AS project_name,p.id AS project_id FROM artifact_revisions r JOIN projects p ON p.id=r.project_id AND p.workspace_id=r.workspace_id JOIN project_members m ON m.project_id=r.project_id AND m.workspace_id=r.workspace_id AND m.user_id=? WHERE r.workspace_id=? ORDER BY r.occurred_at DESC,r.id DESC LIMIT 10`,
       args: [user.id, user.workspaceId],
     });
-    const activities = recent.rows.map((row) => ({
+    const historyProjects = new Set<string>();
+    for (const p of projects.values()) if (await projectHistoryEnabled(p.id)) historyProjects.add(p.id);
+    const activities = recent.rows.filter(row => historyProjects.has(String(row.project_id))).map((row) => ({
       id: String(row.id),
       action: String(row.action),
       actorName: String(row.actor_name),
@@ -124,7 +126,6 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await requireUser();
-    requireWriter(user);
     const data = await body(request);
     const name = typeof data.name === "string" ? data.name.trim() : "";
     const description =
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
         400,
         "팀원 선택을 확인해 주세요. 한 번에 최대 100명을 선택할 수 있습니다.",
       );
-    let memberIds = [...new Set<string>([user.id, ...data.memberIds])];
+    const memberIds = [...new Set<string>([user.id, ...data.memberIds])];
     if (memberIds.length > 100)
       throw new HttpError(
         400,
@@ -150,23 +151,7 @@ export async function POST(request: Request) {
       );
     const tx = await db().transaction("write");
     try {
-      const actor = await tx.execute({
-        sql: "SELECT role FROM workspace_members WHERE workspace_id=? AND user_id=?",
-        args: [user.workspaceId, user.id],
-      });
-      if (!actor.rows[0] || actor.rows[0].role === "viewer")
-        throw new HttpError(403, "프로젝트를 생성할 권한이 없습니다.");
-      // Approved user accounts share every project in this team, including future projects.
-      const approved = await tx.execute({
-        sql: "SELECT m.user_id FROM workspace_members m JOIN workspaces w ON w.id=m.workspace_id WHERE m.workspace_id=? AND (m.join_source='application' OR m.user_id=w.owner_id)",
-        args: [user.workspaceId],
-      });
-      memberIds = [
-        ...new Set([
-          ...memberIds,
-          ...approved.rows.map((row) => String(row.user_id)),
-        ]),
-      ];
+      await assertProjectCapacity(user.id, tx);
       const selected = await tx.execute({
         sql: `SELECT u.id,u.name,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.user_id IN (${memberIds.map(() => "?").join(",")}) ORDER BY u.name,u.id`,
         args: [user.workspaceId, ...memberIds],
@@ -190,8 +175,8 @@ export async function POST(request: Request) {
       });
       for (const memberId of memberIds)
         await tx.execute({
-          sql: "INSERT INTO project_members(project_id,workspace_id,user_id) VALUES (?,?,?)",
-          args: [id, user.workspaceId, memberId],
+          sql: "INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES (?,?,?,?)",
+          args: [id, user.workspaceId, memberId, memberId === user.id ? "admin" : "member"],
         });
       await audit(
         request,
@@ -214,7 +199,7 @@ export async function POST(request: Request) {
         members: selected.rows.map((row) => ({
           id: String(row.id),
           name: String(row.name),
-          role: row.id === user.id ? "owner" : row.role === "owner" ? "admin" : String(row.role),
+          role: row.id === user.id ? "owner" : "member",
         })),
       };
       await tx.commit();

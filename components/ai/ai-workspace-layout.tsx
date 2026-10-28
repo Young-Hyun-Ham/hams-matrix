@@ -23,6 +23,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
   } = useWorkspace();
   const pathname = usePathname();
   const aiOpen =
+    !pathname.startsWith("/settings") && !pathname.startsWith("/admin") &&
     requestedOpen &&
     !!aiConversation &&
     aiConversation.projectId === aiContext.projectId &&

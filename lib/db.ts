@@ -6,5 +6,7 @@ export function db() {
   return (client ??= createClient({
     url: process.env.TURSO_DATABASE_URL,
     authToken: process.env.TURSO_AUTH_TOKEN,
+    // Local development/test connections may contend; remote clients ignore this option.
+    timeout: 5000,
   }));
 }

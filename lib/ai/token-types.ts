@@ -5,6 +5,7 @@ export type AiCallEvent = {
   responseId?: string;
   model?: string;
   usage?: unknown;
+  reservedTokens?: number;
   durationMs?: number;
   purpose?: "generation" | "guardrail";
 };

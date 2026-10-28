@@ -15,7 +15,8 @@ import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 const folder = await mkdtemp(join(tmpdir(), "matrix-ai-"));
 const url = pathToFileURL(join(folder, "test.db")).href,
-  client = createClient({ url });
+  client = createClient({ url, timeout: 5000 });
+await client.execute("PRAGMA journal_mode=WAL");
 for (const name of (await readdir("db/migrations"))
   .filter((n) => n.endsWith(".sql"))
   .sort())
@@ -86,8 +87,8 @@ try {
     const response = await request("/api/auth/signup", {
       method: "POST",
       data: {
-        role: "owner",
-        plan: "team",
+        role: "user",
+        plan: "free",
         name: "AI 검증",
         email,
         password: "Browserpass123!",
@@ -95,6 +96,8 @@ try {
       },
     });
     assert.equal(response.status, 201, await response.clone().text());
+    // This regression suite exercises persisted history; quota/Free policies have separate tests.
+    await client.execute({ sql: "UPDATE user_subscriptions SET plan_code='business' WHERE user_id=(SELECT id FROM users WHERE email=?)", args: [email] });
     return {
       cookie: response.headers
         .getSetCookie()

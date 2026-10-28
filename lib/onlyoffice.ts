@@ -109,7 +109,7 @@ async function scopedUser(executor: Executor, scope: Scope, write: boolean) {
     args: [scope.userId, scope.workspaceId],
   })).rows[0];
   if (!row || Number(row.onboarding_complete) !== 1) throw new HttpError(403, "문서 접근 권한이 만료되었습니다.");
-  const user: User = { id: String(row.id), name: String(row.name), email: null, workspaceId: scope.workspaceId, workspaceName: "", role: String(row.role), plan: "", accountRole: row.account_role === "owner" ? "owner" : "user", onboardingComplete: true };
+  const user: User = { id: String(row.id), name: String(row.name), email: null, workspaceId: scope.workspaceId, workspaceName: "", role: String(row.role), plan: "", accountRole: row.account_role as User["accountRole"], onboardingComplete: true };
   const access = await projectAccess(executor, user, scope.projectId, write);
   return { ...user, role: String(access.role) };
 }

@@ -13,6 +13,7 @@ export async function temporaryProjectViewer(client, user, projectId) {
     { sql: "UPDATE project_members SET role=NULL WHERE project_id=? AND user_id=?", args: [projectId, user.id] },
     { sql: "DELETE FROM project_members WHERE project_id=? AND user_id=?", args: [projectId, owner] },
     { sql: "DELETE FROM workspace_members WHERE workspace_id=? AND user_id=?", args: [user.workspaceId, owner] },
+    { sql: "DELETE FROM user_subscriptions WHERE user_id=?", args: [owner] },
     { sql: "DELETE FROM users WHERE id=?", args: [owner] },
   ], "write");
 }

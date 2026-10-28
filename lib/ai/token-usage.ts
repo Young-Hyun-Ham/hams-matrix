@@ -1,5 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import { reserveQuota, settleQuota, releaseQuota } from "@/lib/quotas";
 import { db } from "@/lib/db";
 import type { AiCallEvent } from "./token-types";
 
@@ -52,9 +53,11 @@ export function createTokenTracker(scope: {
   prompt: string;
 }) {
   return async function track(event: AiCallEvent) {
+    const quotaId = `${scope.requestId}:${event.turn}`;
     if (event.status === "started") {
+      await reserveQuota(scope.userId, quotaId, "tokens", event.reservedTokens ?? 65536);
       // Reserve durable storage before the paid call. A crash leaves an explicit unknown record.
-      await db().execute({
+      try { await db().execute({
         sql: "INSERT INTO ai_token_usage(id,workspace_id,user_id,project_id,project_name,conv_id,conversation_title,chat_id,request_id,call_index,model,prompt_characters,created_at,purpose) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(request_id,call_index) DO NOTHING",
         args: [
           randomUUID(),
@@ -72,7 +75,7 @@ export function createTokenTracker(scope: {
           new Date().toISOString(),
           event.purpose ?? "generation",
         ],
-      });
+      }); } catch (error) { await releaseQuota(quotaId); throw error; }
       return;
     }
     const usage = parseTokenUsage(event.usage);
@@ -122,6 +125,9 @@ export function createTokenTracker(scope: {
           scope.userId,
         ],
       });
+      if (duplicates.rows.length) await settleQuota(quotaId, 0, tx);
+      else if (measured && !running && (usage || previous?.usage_final)) await settleQuota(quotaId, measured.total, tx);
+      else if (!running && event.httpStatus && [400,401,403,404,429,503].includes(event.httpStatus)) await settleQuota(quotaId, 0, tx);
       await tx.commit();
     } catch (error) {
       await tx.rollback();

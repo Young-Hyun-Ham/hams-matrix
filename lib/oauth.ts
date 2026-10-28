@@ -196,11 +196,11 @@ export async function finishOAuth(request: Request, provider: string) {
         name,
         email: email ? String(email).toLowerCase() : null,
         workspaceId,
-        workspaceName: `${name}의 Guest`,
-        role: "viewer",
+        workspaceName: `${name}의 워크스페이스`,
+        role: "owner",
         plan: "free",
         accountRole: "user",
-        onboardingComplete: false,
+        onboardingComplete: true,
       };
       extra.push(
         ...newUserStatements(
@@ -210,7 +210,7 @@ export async function finishOAuth(request: Request, provider: string) {
           user.email,
           null,
           { role: "user", plan: "free", teamId: null },
-          false,
+          true,
         ),
       );
       extra.push({
@@ -224,7 +224,7 @@ export async function finishOAuth(request: Request, provider: string) {
           workspaceId,
           { workspaceName: user.workspaceName, plan: "free" },
         ],
-        ["workspace_member", id, { role: "viewer" }],
+        ["workspace_member", id, { role: "owner" }],
         ["oauth_account", id, { provider: cfg.key }],
       ] as const)
         extra.push(

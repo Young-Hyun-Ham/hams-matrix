@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const id = randomUUID();
     try {
       const access = await projectAccess(tx, user, projectId);
-      if (access.role !== "member") throw new HttpError(403, "선택한 프로젝트의 member만 공유 글을 작성할 수 있습니다.");
+      if (!["owner", "admin", "member"].includes(String(access.role))) throw new HttpError(403, "선택한 프로젝트의 owner, admin, member만 공유 글을 작성할 수 있습니다.");
       await tx.execute({ sql: "INSERT INTO team_posts(id,workspace_id,project_id,author_id,title,body,category,created_at) VALUES (?,?,?,?,?,?,?,?)", args: [id, user.workspaceId, projectId || null, user.id, title, text, String(input.category), new Date().toISOString()] });
       await audit(request, { user, action: "CREATE", resource: "team_post", resourceId: id, after: { title }, metadata: { projectId } }, tx);
       await tx.commit();

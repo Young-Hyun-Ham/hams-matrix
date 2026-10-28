@@ -8,6 +8,8 @@ import { db } from "../db";
 import { projectAccess, toArtifact } from "../artifacts";
 import { wbsImagePrompt, wbsSourceHash } from "./wbs-image-prompt";
 import { encryptImage, decryptImage, imageEncryptionKey } from "./image-crypto";
+import { createTokenTracker } from "./token-usage";
+import { reserveQuota, settleQuota, releaseQuota } from "@/lib/quotas";
 import { generateAiPng, imageModels } from "./image-generation";
 
 type Executor = Pick<Client, "execute">;
@@ -86,7 +88,23 @@ export async function createWbsImage(user: User, projectId: string, input: Recor
     if (latest && input.regenerate !== true) return { image: latest, sourceHash: source.sourceHash, reused: true };
     if (input.regenerate === true && latest?.id !== input.expectedImageId)
       throw new HttpError(409, "저장 이미지가 변경되었습니다. 최신 이미지를 다시 불러와 주세요.");
-    const generated = await generateAiPng(input.model, prompt, true);
+    const quotaId = `image:${token}`;
+    await reserveQuota(user.id, quotaId, "images", 1);
+    const track = createTokenTracker({ workspaceId: user.workspaceId, userId: user.id, projectId, projectName: "", convId: "image-generation", conversationTitle: "이미지 생성", chatId: token, requestId: `image:${token}`, model: input.model, prompt });
+    let generated;
+    let providerStarted = false;
+    try {
+      await track({ turn: 0, status: "started", reservedTokens: 65536 });
+      providerStarted = true;
+      generated = await generateAiPng(input.model, prompt, true);
+    } catch (error) {
+      // Explicit provider rejection is safe to release; transport uncertainty keeps the reservation.
+      if (!providerStarted || (error instanceof HttpError && [403,429,503].includes(error.status))) await releaseQuota(quotaId);
+      await track({ turn: 0, status: "failed", httpStatus: error instanceof HttpError ? error.status : undefined });
+      throw error;
+    }
+    await settleQuota(quotaId, 1);
+    await track({ turn: 0, status: "completed", usage: generated.usage });
     const row = { project_id: projectId, workspace_id: user.workspaceId, id: randomUUID(), source_hash: source.sourceHash,
       model: input.model, prompt: input.prompt.trim(), created_at: new Date().toISOString(), created_by: user.id,
       mime_type: "image/png", byte_length: generated.bytes.length, width: generated.width, height: generated.height };

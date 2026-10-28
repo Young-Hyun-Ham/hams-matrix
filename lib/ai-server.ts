@@ -71,7 +71,10 @@ export async function generateAi(
   for (let turn = 0; turn < 6; turn++) {
     await checkpoint?.();
     const started = Date.now();
-    await track?.({ turn, status: "started" });
+    // UTF-8 bytes conservatively bound text tokenization; reserve image budget separately.
+    const budgetText = JSON.stringify({ instructions, tools: agent?.tools, messages, responseFormat: options?.responseFormat }, (key, value) => key === "image_url" && typeof value === "string" ? "[image]" : value);
+    const imageCount = (JSON.stringify(messages).match(/"type":"input_image"/g) ?? []).length;
+    await track?.({ turn, status: "started", reservedTokens: Buffer.byteLength(budgetText, "utf8") + 6000 + 4096 + imageCount * 65536 });
     let response: Response;
     try {
       response = await fetch("https://api.openai.com/v1/responses", {

@@ -10,6 +10,8 @@ export async function checkAiGuardrails({ request, client, cookie, owner, other,
     return response.json();
   };
   const send = data => request(endpoint, { cookie, method: "POST", data });
+  assert.equal((await request(endpoint, { cookie })).status, 403, 'workspace owner is not a platform admin');
+  await client.execute({sql:"UPDATE users SET account_role='admin' WHERE id=?",args:[owner.user.id]});
   let current = await get();
   const defaults = current.draft;
   assert.equal(current.active.version, 0);
@@ -52,6 +54,8 @@ export async function checkAiGuardrails({ request, client, cookie, owner, other,
   await publish();
   const firstVersion = current.active.version;
   await client.execute({ sql: "UPDATE sessions SET workspace_id=? WHERE user_id=?", args: [other.user.workspaceId, other.user.id] });
+  assert.equal((await request(endpoint,{cookie:other.cookie})).status,403);
+  await client.execute({sql:"UPDATE users SET account_role='admin' WHERE id=?",args:[other.user.id]});
   assert.equal((await get(other.cookie)).active.version, 0, "another workspace keeps its own policy");
   await client.execute({ sql: "UPDATE sessions SET workspace_id=? WHERE user_id=?", args: [owner.user.workspaceId, other.user.id] });
   await assert.rejects(client.execute({ sql: "UPDATE ai_guardrail_policies SET config_json='{}' WHERE workspace_id=?", args: [owner.user.workspaceId] }));

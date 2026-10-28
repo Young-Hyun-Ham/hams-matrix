@@ -245,7 +245,7 @@ export function createPageAgent(
     if (!pending.length) return committed;
     const row = (await tx.execute({ sql: "SELECT u.account_role,u.onboarding_complete,m.role FROM users u JOIN workspace_members m ON m.user_id=u.id WHERE u.id=? AND m.workspace_id=?", args: [user.id, user.workspaceId] })).rows[0];
     if (!row) throw new HttpError(403, "워크스페이스 접근 권한이 변경되었습니다.");
-    const currentUser: User = { ...user, role: String(row.role), accountRole: row.account_role === "owner" ? "owner" : "user", onboardingComplete: Number(row.onboarding_complete) === 1 };
+    const currentUser: User = { ...user, role: String(row.role), accountRole: row.account_role as User["accountRole"], onboardingComplete: Number(row.onboarding_complete) === 1 };
     const access = await projectAccess(tx, currentUser, context.projectId, true);
     currentUser.role = String(access.role);
     for (const change of pending) {

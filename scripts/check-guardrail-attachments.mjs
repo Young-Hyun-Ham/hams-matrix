@@ -39,7 +39,7 @@ export async function checkGuardrailAttachments({ request, client, cookie, base,
   assert.equal(data.result.decision, "allow");
   assert.equal(data.result.imageInspection, "classified", "the actual image must reach the classifier");
   assert.equal((await post({ images: [{ dataUrl: "data:image/png;base64,broken" }] })).status, 400);
-  assert.equal((await post({ images: Array.from({ length: 4 }, () => ({ dataUrl: png })) })).status, 400);
+  assert.equal((await post({ images: Array.from({ length: 6 }, () => ({ dataUrl: png })) })).status, 400);
 
   const blocked = { ...defaults, blockedTerms: ["ATTACHMENT_DENIED"] };
   for (const extension of ["txt", "md", "csv", "json", "log", "yaml", "xml"]) {

@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import type { User } from "@/lib/types";
 import type { Project } from "@/lib/project-types";
 import type { Artifact } from "@/lib/artifact-types";
+import type { Plan } from "@/lib/plan-types";
+import { toast } from "@/stores/toast";
 import { CreateProjectDialog } from "./create-project-dialog";
 import "@/components/project-workbench.css";
 type Activity = {
@@ -21,9 +23,31 @@ export function DashboardPage({ user }: { user: User }) {
     [loading, setLoading] = useState(true),
     [error, setError] = useState(""),
     [creating, setCreating] = useState(false),
+    [checkingPlan, setCheckingPlan] = useState(false),
     [attempt, setAttempt] = useState(0);
   const canCreate =
-    ["owner", "admin", "member"].includes(user.role);
+    user.accountRole !== "guest";
+  async function openCreateDialog() {
+    if (checkingPlan) return;
+    setCheckingPlan(true);
+    try {
+      const response = await fetch("/api/me/subscription", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "요금제 정보를 확인하지 못했습니다.");
+      const plan = data.plan as Plan;
+      const count = Number(data.usage?.projects);
+      if (!Number.isFinite(count)) throw new Error("프로젝트 사용량을 확인하지 못했습니다.");
+      if (plan.projectLimit !== null && count >= plan.projectLimit) {
+        toast(`${plan.name} 플랜은 프로젝트를 ${plan.projectLimit}개까지 보유할 수 있습니다.`, true);
+        return;
+      }
+      setCreating(true);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "요금제 정보를 확인하지 못했습니다.", true);
+    } finally {
+      setCheckingPlan(false);
+    }
+  }
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -64,7 +88,7 @@ export function DashboardPage({ user }: { user: User }) {
           <p>요구사항에서 화면과 프로그램까지, 같은 맥락으로 연결하세요.</p>
         </div>
         {canCreate && (
-          <button className="button primary" onClick={() => setCreating(true)}>
+          <button className="button primary" onClick={openCreateDialog} disabled={checkingPlan}>
             새 프로젝트
           </button>
         )}

@@ -100,7 +100,7 @@ export async function rateLimit(key: string, limit = 10) {
       "시도 횟수를 초과했습니다. 15분 후 다시 시도해 주세요.",
     );
 }
-const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,COALESCE(w.subscription_plan,w.plan) AS plan FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
+const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,(SELECT s.plan_code FROM user_subscriptions s WHERE s.user_id=u.id) AS plan FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
 // libSQL Row instances carry their own prototype; React server props must be plain DTOs.
 function toUser(row: Row | undefined): User | null {
   if (!row) return null;
@@ -113,7 +113,7 @@ function toUser(row: Row | undefined): User | null {
     workspaceName: String(row.workspaceName),
     role: String(row.role),
     plan: String(row.plan),
-    accountRole: row.account_role === "user" ? "user" : "owner",
+    accountRole: row.account_role as User["accountRole"],
     onboardingComplete: Number(row.onboarding_complete) === 1,
   };
 }
@@ -138,13 +138,14 @@ export async function currentUser(): Promise<User | null> {
 export async function requireUser() {
   const user = await currentUser();
   if (!user) throw new HttpError(401, "로그인이 필요합니다.");
+  if (user.accountRole === "guest") throw new HttpError(403, "게스트는 체험 화면만 조회할 수 있습니다.");
   if (!user.onboardingComplete)
     throw new HttpError(403, "가입 유형 선택을 완료해 주세요.");
   return user;
 }
 export function requireWriter(user: User) {
   if (
-    !user.onboardingComplete ||
+    user.accountRole === "guest" || !user.onboardingComplete ||
     !["owner", "admin", "member"].includes(user.role)
   )
     throw new HttpError(403, "현재 역할에는 변경 권한이 없습니다.");
@@ -155,7 +156,7 @@ export function newUserStatements(
   name: string,
   email: string | null,
   passwordHash: string | null,
-  choice: RegistrationChoice,
+  _choice: RegistrationChoice,
   onboardingComplete = true,
   jobTitle = "",
 ): InStatement[] {
@@ -167,7 +168,7 @@ export function newUserStatements(
         email,
         name,
         passwordHash,
-        choice.role,
+        "user",
         onboardingComplete ? 1 : 0,
         jobTitle,
       ],
@@ -176,15 +177,15 @@ export function newUserStatements(
       sql: "INSERT INTO workspaces(id,name,plan,subscription_plan,owner_id) VALUES (?,?,?,?,?)",
       args: [
         workspaceId,
-        choice.role === "owner" ? `${name}의 팀` : `${name}의 Guest`,
-        choice.plan === "team" ? "pro" : choice.plan,
-        choice.plan,
-        choice.role === "owner" ? id : null,
+        `${name}의 워크스페이스`,
+        "free",
+        "free",
+        id,
       ],
     },
     {
       sql: "INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,?)",
-      args: [workspaceId, id, choice.role === "owner" ? "owner" : "viewer"],
+      args: [workspaceId, id, "owner"],
     },
     {
       sql: "UPDATE users SET active_workspace_id=? WHERE id=?",

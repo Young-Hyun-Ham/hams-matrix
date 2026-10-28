@@ -5,8 +5,6 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Brand, Icon } from "./icon";
 import { useWorkspace } from "@/stores/workspace";
-import { RegistrationChoiceDialog } from "./registration/registration-choice-dialog";
-import type { RegistrationChoice } from "@/lib/registration";
 const errors: Record<string, string> = {
   oauth_unavailable:
     "소셜 로그인 설정이 준비되지 않았습니다. 이메일로 시작해 주세요.",
@@ -27,17 +25,9 @@ export function AuthForm({
   const [showPassword, setShowPassword] = useState(false),
     [pending, setPending] = useState(false),
     [error, setError] = useState(errors[errorCode ?? ""] ?? "");
-  const [role, setRole] = useState<"owner" | "user" | null>(null);
-  const [choice, setChoice] = useState<RegistrationChoice | null>(null);
-  const [choosing, setChoosing] = useState(false);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
-    if (signup && (!role || !choice || choice.role !== role)) {
-      setError("역할을 선택하고 플랜 또는 가입 유형을 선택해 주세요.");
-      if (role) setChoosing(true);
-      return;
-    }
     setPending(true);
     const values = new FormData(event.currentTarget);
     if (signup && values.get("password") !== values.get("confirm")) {
@@ -55,7 +45,6 @@ export function AuthForm({
           name: values.get("name"),
           ...(signup ? { jobTitle: values.get("jobTitle") } : {}),
           accepted: values.get("accepted") === "on",
-          ...(signup ? choice : {}),
         }),
       });
       const result = await response.json();
@@ -146,9 +135,9 @@ export function AuthForm({
       </aside>
       <main className="auth-main">
         <div className="auth-top-link">
-          {signup ? "이미 함께하고 계신가요?" : "아직 계정이 없으신가요?"}
-          <Link href={signup ? "/login" : "/signup"}>
-            {signup ? "로그인" : "무료로 시작하기"}
+          {signup ? "이미 함께하고 계신가요?" : "화면을 먼저 둘러보세요"}
+          <Link href={signup ? "/login" : "/guest/dashboard"}>
+            {signup ? "로그인" : "게스트로 시작하기"}
             <Icon name="arrow" size={16} />
           </Link>
         </div>
@@ -160,7 +149,7 @@ export function AuthForm({
           </h2>
           <p className="auth-description">
             {signup
-              ? "팀을 운영할 owner 또는 조회 전용 user로 시작하세요."
+              ? "Free 플랜으로 프로젝트를 시작하세요."
               : "로그인하고, 팀과 함께 다음 가능성을 만들어 보세요."}
           </p>
           <div className="social-buttons">
@@ -181,48 +170,6 @@ export function AuthForm({
             <span>또는 이메일로 {signup ? "가입하기" : "로그인"}</span>
           </div>
           <form onSubmit={submit} className="auth-form">
-            {signup && (
-              <>
-                <fieldset className="registration-role" disabled={pending}>
-                  <legend>가입 역할</legend>
-                  {(["owner", "user"] as const).map((value) => (
-                    <label key={value}>
-                      <input
-                        type="radio"
-                        name="account-role"
-                        value={value}
-                        checked={role === value}
-                        required
-                        onChange={() => {
-                          setRole(value);
-                          setChoice(null);
-                          setChoosing(true);
-                        }}
-                      />
-                      {value === "owner"
-                        ? "owner · 팀 운영"
-                        : "user · Free 또는 팀 가입"}
-                    </label>
-                  ))}
-                </fieldset>
-                {choice && (
-                  <p className="registration-summary">
-                    {choice.role === "owner"
-                      ? `${choice.plan === "team" ? "Team" : "Business"} 플랜 · 결제 없음`
-                      : choice.teamId
-                        ? "팀 가입 신청 · owner 승인 필요"
-                        : "Guest · Free 플랜"}
-                    <button
-                      type="button"
-                      onClick={() => setChoosing(true)}
-                      disabled={pending}
-                    >
-                      선택 변경
-                    </button>
-                  </p>
-                )}
-              </>
-            )}
             {error && (
               <div role="alert" className="error-message">
                 {error}
@@ -323,6 +270,7 @@ export function AuthForm({
               <Icon name="arrow" size={17} />
             </button>
           </form>
+          {!signup && <Link className="button auth-submit" href="/signup">회원등록</Link>}
           <p className="auth-trust">
             <Icon name="shield" size={14} />{" "}
             {signup
@@ -334,18 +282,7 @@ export function AuthForm({
           함께 연결하고, 더 멀리 나아가세요.<span>HAMS MATRIX</span>
         </div>
       </main>
-      {signup && choosing && role && (
-        <RegistrationChoiceDialog
-          key={role}
-          role={role}
-          onClose={() => setChoosing(false)}
-          onSelect={(value) => {
-            setChoice(value);
-            setChoosing(false);
-            setError("");
-          }}
-        />
-      )}
+
     </div>
   );
 }

@@ -1,4 +1,4 @@
-﻿import type { MenuKey } from "./types";
+﻿import type { MenuKey, NavigationMenu } from "./types";
 export const menus: {
   key: MenuKey;
   label: string;
@@ -63,3 +63,14 @@ export const menus: {
     description: "AI chatbot",
   },
 ];
+
+// Keep AI-supported screens separate from navigation-only settings screens.
+export const navigationMenus: NavigationMenu[] = [
+ ...menus.map(m=>({...m,href:`/${m.key}`,action:m.key==='ai'?'ai' as const:'link' as const,admin:false})),
+ {key:'subscription',label:'요금제',en:'Subscription',icon:'settings',description:'요금제 안내',href:'/settings/subscription',action:'link',admin:false},
+ {key:'settings',label:'설정',en:'Settings',icon:'settings',description:'개인 설정',href:'/settings',action:'link',admin:false},
+ {key:'admin',label:'관리자설정',en:'Administration',icon:'lock',description:'서비스 관리자 설정',href:'/admin/settings',action:'link',admin:true},
+ {key:'help',label:'도움말',en:'Help',icon:'help',description:'서비스 안내',href:'/guest/help',action:'help',admin:false},
+];
+export const personalTabs={usage:'토큰 사용량',interface:'인터페이스 관리',account:'계정 설정'};
+export const adminTabs={plans:'요금제',members:'회원 관리',guardrails:'AI 가드레일 관리',history:'이력 관리'};

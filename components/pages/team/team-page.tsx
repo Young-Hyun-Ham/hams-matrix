@@ -22,7 +22,7 @@ export function TeamPage({ user }: { user: User }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const selected = projects.find(project => project.id === projectId);
   const selectedRole = loadedProjectId === projectId ? members.find(member => member.id === user.id)?.role : "";
-  const canWrite = (id: string | null) => id ? writable(projects.find(project => project.id === id)?.members.find(member => member.id === user.id)?.role ?? "viewer") : writable(user.role);
+  const canWrite = (id: string | null) => id ? writable(projects.find(project => project.id === id)?.members.find(member => member.id === user.id)?.role ?? "viewer") : false;
   useEffect(() => { if (composing) dialog.current?.showModal(); else dialog.current?.close(); }, [composing]);
   useEffect(() => {
     const controller = new AbortController();
@@ -40,7 +40,7 @@ export function TeamPage({ user }: { user: User }) {
     void load(); return () => controller.abort();
   }, [user.workspaceId, projectId, version]);
   async function writePost(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (busy || !projectId || selectedRole !== "member") return;
+    event.preventDefault(); if (busy || !projectId || !writable(selectedRole ?? "viewer")) return;
     const values = new FormData(event.currentTarget);
     setBusy(true); setError("");
     try {
@@ -71,7 +71,7 @@ export function TeamPage({ user }: { user: User }) {
     finally { setCommentsBusy(""); }
   }
   return <>
-    <div className="page-heading"><div><h1>팀 공유</h1><p>프로젝트를 선택하고 팀의 소식과 의견을 나누세요.</p></div><div className="page-heading-actions"><label className="project-filter"><select ref={projectPicker} value={projectId} aria-label="팀 공유 프로젝트 선택" disabled={busy} onChange={event => { setProjectId(event.target.value); setComposing(false); setAddingMember(false); }}><option value="">프로젝트 선택</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>{projectId && selectedRole === "member" && <button className="button primary" disabled={loading} onClick={() => { setError(""); setComposing(true); }}>공유 글 작성</button>}</div></div>
+    <div className="page-heading"><div><h1>팀 공유</h1><p>프로젝트를 선택하고 팀의 소식과 의견을 나누세요.</p></div><div className="page-heading-actions"><label className="project-filter"><select ref={projectPicker} value={projectId} aria-label="팀 공유 프로젝트 선택" disabled={busy} onChange={event => { setProjectId(event.target.value); setComposing(false); setAddingMember(false); }}><option value="">프로젝트 선택</option>{projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>{projectId && writable(selectedRole ?? "viewer") && <button className="button primary" disabled={loading} onClick={() => { setError(""); setComposing(true); }}>공유 글 작성</button>}</div></div>
     {!projectId ? <section className="team-project-guide" aria-labelledby="team-project-guide-title"><div className="team-guide-art" aria-hidden="true"><span className="team-guide-orbit" /><span className="team-guide-folder"><Icon name="folder" size={44} /></span><span className="team-guide-person person-one"><Icon name="team" size={22} /></span><span className="team-guide-person person-two"><Icon name="message" size={20} /></span></div><span className="team-guide-label">TEAM WORKSPACE</span><h2 id="team-project-guide-title">어떤 프로젝트의 팀과 함께할까요?</h2><p>상단에서 프로젝트를 선택하면<br />해당 프로젝트의 구성원과 팀 이야기를 확인할 수 있습니다.</p><button className="button primary" disabled={loading || !projects.length} onClick={() => projectPicker.current?.focus()}>프로젝트 선택하기</button>{!loading && !projects.length && <small>참여 중인 프로젝트가 없습니다. 프로젝트를 만들거나 소유자에게 참여를 요청해 주세요.</small>}<div className="team-guide-features"><span><Icon name="team" size={17} />프로젝트 구성원</span><span><Icon name="message" size={17} />팀 이야기</span><span><Icon name="shield" size={17} />역할별 협업</span></div></section> : <>
     {selectedRole === "owner" && <TeamMembership key={`${user.workspaceId}:${projectId}`} user={user} projectId={projectId} refreshVersion={version} onChanged={() => setVersion(value => value + 1)} />}
     {error && <p className="error-message" role="alert">{error}</p>}

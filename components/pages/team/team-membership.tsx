@@ -16,7 +16,7 @@ export function TeamMembership({ user, projectId, onChanged, refreshVersion = 0 
   const [transferTarget, setTransferTarget] = useState<TeamMember | null>(null);
   const transferDialog = useRef<HTMLDialogElement>(null);
   const mutationBusy = useRef(false);
-  const teamOwner = user.role === "owner" && (!!projectId || canManage);
+  const teamOwner = !projectId && user.role === "owner" && canManage;
   useEffect(() => {
     if (transferTarget) transferDialog.current?.showModal();
     else transferDialog.current?.close();
@@ -57,7 +57,7 @@ export function TeamMembership({ user, projectId, onChanged, refreshVersion = 0 
     <div className="panel-heading"><div><h2>{projectId ? "프로젝트 구성원" : "팀 구성원"} · {members.length}명</h2><p>{projectId ? "프로젝트 owner만 권한 변경과 소유권 양도를 할 수 있습니다." : "팀 소속 권한입니다. 프로젝트별 권한과 소유권은 프로젝트를 선택해 관리합니다."}</p></div><button className="button" disabled={loading || !!busy} onClick={() => { setAttempt(value => value + 1); onChanged(); router.refresh(); }}>새로고침</button></div>
     {error && <p className="error-message" role="alert">{error}</p>}{notice && <p role="status">{notice}</p>}
     {loading ? <p role="status">구성원을 불러오고 있습니다.</p> : <div className="team-membership-columns">
-      <div><h3>{teamOwner ? "팀 가입 신청" : "내 가입 신청"}</h3>{requests.length ? requests.map(item => <article className="team-request" key={item.id}><div><strong>{teamOwner ? item.name : item.teamName}</strong><small>{labels[item.status]} · {new Date(item.requestedAt).toLocaleDateString("ko-KR")}</small></div>{teamOwner && item.status === "pending" ? <div className="team-request-actions"><button className="button primary" disabled={!!busy} onClick={() => void mutate("/api/team/requests", "PATCH", { id: item.id, status: "approved" }, item.id)}>승인 · member</button><button className="button" disabled={!!busy} onClick={() => void mutate("/api/team/requests", "PATCH", { id: item.id, status: "rejected" }, item.id)}>거절</button></div> : <span className="badge gray">{labels[item.status]}</span>}</article>) : <p>가입 신청이 없습니다.</p>}
+      <div><h3>{teamOwner ? "팀 가입 신청" : "내 가입 신청"}</h3>{!projectId && requests.length ? requests.map(item => <article className="team-request" key={item.id}><div><strong>{teamOwner ? item.name : item.teamName}</strong><small>{labels[item.status]} · {new Date(item.requestedAt).toLocaleDateString("ko-KR")}</small></div>{teamOwner && item.status === "pending" ? <div className="team-request-actions"><button className="button primary" disabled={!!busy} onClick={() => void mutate("/api/team/requests", "PATCH", { id: item.id, status: "approved" }, item.id)}>승인 · member</button><button className="button" disabled={!!busy} onClick={() => void mutate("/api/team/requests", "PATCH", { id: item.id, status: "rejected" }, item.id)}>거절</button></div> : <span className="badge gray">{labels[item.status]}</span>}</article>) : <p>가입 신청이 없습니다.</p>}
       </div>
       <div><h3>{projectId ? "프로젝트 권한" : "팀 소속 권한"}</h3>{members.map(member => <div className="team-request" key={member.id}><div><strong>{member.name}{member.id === user.id ? " (나)" : ""}</strong><small>{member.jobTitle || "담당 역할 미등록"}</small></div>{canManage && member.role !== "owner" ? <select aria-label={`${member.name} 권한`} value={member.role} disabled={!!busy} onChange={event => changeRole(member, event.target.value)}><option value="owner">owner · 소유권 이전</option><option value="admin">admin</option><option value="member">member</option><option value="viewer">viewer · 조회 전용</option></select> : <span className="badge gray">{member.role}</span>}</div>)}</div>
     </div>}
