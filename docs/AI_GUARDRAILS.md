@@ -54,3 +54,25 @@ AI 분류는 기본 비활성입니다. 활성화할 때 사용 가능한 모델
 `pnpm build`, `pnpm typecheck`, `pnpm test:ai`를 사용합니다. 통합 테스트는 임시 SQLite DB와 모의 OpenAI를 사용하므로 실제 유료 호출은 하지 않습니다. 관리자/워크스페이스 격리, 정책 초안·적용·복원·경합, 입력/간접/출력 차단, 민감정보 기본 보호, 분류 장애, 검사 토큰, 검사 중 취소, 출력 차단과 대화 저장 실패 시 원자적 롤백을 검사합니다. 첨부 테스트는 실제 PDF/DOCX 파서로 본문·머리말 추출, 이미지 전달, 혼합 첨부 판정, 제한과 손상 파일을 확인합니다. 실제 모델의 탐지 품질은 운영 업무 예문과 별도의 공격 평가로 확인해야 합니다.
 
 참고: [OWASP 가이드](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html), [OpenAI 에이전트 안전](https://developers.openai.com/api/docs/guides/agent-builder-safety), [구조화 출력](https://developers.openai.com/api/docs/guides/structured-outputs).
+
+## 글로벌 규제 준수 컴플라이언스 베이스라인 (2026-10-29)
+
+제공된 가이드라인 이미지는 글로벌 주요 AI 및 데이터 보호 기준을 기술 통제와 연결합니다. 아래 표는 제품의 **운영 기준**이며, 각 법령이 이 서비스의 모든 사용 사례에 적용된다는 판정이나 법적 준수 인증을 뜻하지 않습니다.
+
+| 기준 | 기관 및 근거자료 | 제품의 기술 통제 |
+| --- | --- | --- |
+| EU AI Act 제14조 | [EU 인공지능법](https://eur-lex.europa.eu/eli/reg/2024/1689/oj) | 고위험 AI의 인간 감독 요구를 참고한다. 사람의 검토·개입을 배제하고 AI가 채용·대출 등 중대한 결정을 확정하라는 명시적 요청을 차단한다. 운영자는 중지 기능과 승인 절차를 별도로 관리한다. |
+| GDPR 제22조 | [EU 일반 데이터 보호 규정](https://eur-lex.europa.eu/eli/reg/2016/679/oj) | 법적 또는 이에 준하는 중대한 영향을 미치는 전적으로 자동화된 결정의 위험을 다룬다. 사람의 검토 없는 확정 요청을 차단한다. 개인정보 처리의 적법성·예외·정보주체 권리 행사는 별도 절차가 필요하다. |
+| NIST AI RMF | [미국 국립표준기술연구소 AI RMF](https://airc.nist.gov/airmf-resources/airmf/5-sec-core/) | Govern·Map·Measure·Manage의 지속적 위험 관리에 맞춰 정책 버전과 검사 단계·규칙 ID·판정·요청 ID를 기록한다. 이는 조직별 RACI 지정이나 불변 감사 보증을 자동으로 완성하지 않는다. |
+| OWASP Agentic Applications | [OWASP Agentic Applications 2026](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) 및 [프롬프트 인젝션 방어 지침](https://cheatsheetseries.owasp.org/cheatsheets/LLM_Prompt_Injection_Prevention_Cheat_Sheet.html) | 참고 문서와 도구 결과를 신뢰하지 않는 자료로 취급한다. 이 자료가 시스템·개발자 지시나 가드레일을 우회하라고 명시하면 차단한다. 기존 권한·도구 스키마 검사와 함께 적용한다. |
+
+### 검사 구현과 범위
+
+`lib/ai/global-compliance.ts`는 워크스페이스 정책과 분리한 서버 규칙 모듈이다. AI Chatbot의 입력·참고 자료·도구 결과·출력 검사와 관리자 정책 테스트가 공유하는 `createGuardrailSession.inspect`에서 실행한다. 다음 탐지는 `critical`로 판정하므로 정책이 감시 모드여도 차단한다.
+
+- `global_human_review_required`: 채용·대출·보험·의료 등 중대한 결정, 사람의 검토·승인 배제, AI의 최종 자동결정 표현이 동시에 명시된 텍스트.
+- `global_untrusted_boundary`: 참고 자료 또는 도구 결과가 시스템·개발자 지시나 보안 정책을 무시·우회·비활성화하라고 명시한 텍스트.
+
+관리자 설정의 **글로벌 규제 준수** 탭에서 기준과 통제를 확인한다. 샘플 버튼은 정책 테스트 탭에 검사 단계와 예문을 채운다. **검사 실행**을 누르면 편집 중인 초안을 사용해 서버 판정을 확인할 수 있다. 실제 AI 사용에는 활성 정책을 사용하며, 글로벌 규칙은 정책 토글과 별도로 적용된다. 판정은 기존 `ai_guardrail_events`에 규칙 ID만 기록하며 원문은 보관하지 않는다. DB 스키마 변경은 없다.
+
+문자열 패턴은 명시적 위험 요청만 다루므로 간접 표현·이미지 속 지시·맥락별 법 적용 여부를 완전히 판단하지 못한다. 법적 분류, 사람의 승인·이의제기 절차, RACI 책임자 지정, 중지 운영, 정기 평가와 감사 보존 정책은 조직 운영 절차에서 검토해야 한다. 규칙 변경 시 이 문서와 샘플 예문·회귀 검사를 함께 수정한다.

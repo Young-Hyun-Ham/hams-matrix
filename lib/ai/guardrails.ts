@@ -14,6 +14,7 @@ import type {
   GuardrailResult,
   GuardrailStage,
 } from "./guardrail-types";
+import { inspectGlobalCompliance } from "./global-compliance";
 
 export class GuardrailBlocked extends HttpError {
   constructor(public requestId: string) {
@@ -159,7 +160,10 @@ export function createGuardrailSession(scope: {
             blockedTerms: [],
             blockExternalLinks: false,
           };
-    const findings = inspectGuardrailRules(rulesPolicy, stage, text);
+    const findings = [
+      ...inspectGuardrailRules(rulesPolicy, stage, text),
+      ...inspectGlobalCompliance(stage, text),
+    ];
     let imageInspection: GuardrailResult["imageInspection"] = images.length
       ? "not-inspected"
       : undefined;

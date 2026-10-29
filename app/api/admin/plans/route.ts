@@ -28,6 +28,8 @@ export async function PATCH(request: Request) {
     const numeric = [
       "monthlyPrice",
       "yearlyPrice",
+      "monthlyDiscountPrice",
+      "yearlyDiscountPrice",
       "projectLimit",
       "tokenLimit",
       "dailyImageLimit",
@@ -67,6 +69,15 @@ export async function PATCH(request: Request) {
         400,
         "월간 가격을 입력하고 연간 가격은 월간 12개월 합계와 다르게 설정해 주세요.",
       );
+    for (const [discountKey, priceKey] of [
+      ["monthlyDiscountPrice", "monthlyPrice"],
+      ["yearlyDiscountPrice", "yearlyPrice"],
+    ] as const) {
+      if (input[discountKey] !== null &&
+        (input.priceMode !== "fixed" || input[priceKey] === null ||
+          Number(input[discountKey]) >= Number(input[priceKey])))
+        throw new HttpError(400, "할인 가격은 정액 요금의 기존 가격보다 낮게 입력해 주세요.");
+    }
     const tx = await db().transaction("write");
     try {
       const row = (
@@ -82,10 +93,16 @@ export async function PATCH(request: Request) {
           "다른 관리자가 수정했습니다. 새로고침해 주세요.",
         );
       await tx.execute({
-        sql: "UPDATE plans SET price_mode=?,monthly_price=?,yearly_price=?,project_limit=?,token_limit=?,daily_image_limit=?,attachment_limit=?,history_enabled=?,recommended=?,version=version+1,updated_by=?,updated_at=? WHERE code=?",
+        sql: "UPDATE plans SET price_mode=?,monthly_price=?,yearly_price=?,monthly_discount_price=?,yearly_discount_price=?,project_limit=?,token_limit=?,daily_image_limit=?,attachment_limit=?,history_enabled=?,recommended=?,version=version+1,updated_by=?,updated_at=? WHERE code=?",
         args: [
           String(input.priceMode),
-          ...numeric.map((key) => input[key] as number | null),
+          input.monthlyPrice as number | null,
+          input.yearlyPrice as number | null,
+          input.monthlyDiscountPrice as number | null,
+          input.yearlyDiscountPrice as number | null,
+          input.projectLimit as number | null,
+          input.tokenLimit as number | null,
+          input.dailyImageLimit as number | null,
           Number(input.attachmentLimit),
           input.historyEnabled ? 1 : 0,
           input.recommended ? 1 : 0,

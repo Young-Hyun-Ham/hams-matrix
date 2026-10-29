@@ -2,6 +2,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Plan } from "@/lib/plan-types";
+import { PlansToggle, type BillingPeriod } from "./plans-toggle";
+import styles from "./subscription-plans.module.css";
 const amount = (v: number | null) =>
   v === null ? "등록 예정" : `${v.toLocaleString("ko-KR")}원`;
 const limit = (v: number | null) =>
@@ -21,6 +23,7 @@ export function SubscriptionPlans({
     dialog = useRef<HTMLDialogElement>(null),
     submitting = useRef(false);
   const [selected, setSelected] = useState<Plan | null>(null),
+    [period, setPeriod] = useState<BillingPeriod>("month"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(""),
     [notice, setNotice] = useState("");
@@ -57,29 +60,19 @@ export function SubscriptionPlans({
   }
   return (
     <section>
-      <h1>요금제</h1>
+      <div className={styles.heading}>
+        <h1>요금제</h1>
+        {current && <span className="badge purple">{current.name} 이용 중</span>}
+      </div>
       <p>
-        {current ? `현재 ${current.name} 플랜 · ` : ""}모든 요금은 원
-        단위입니다.
-      </p>
-      {current && usage && (
-        <div
-          className="panel"
-          style={{ padding: 20, marginBottom: 20, lineHeight: 2 }}
-        >
-          프로젝트 {usage.projects} / {limit(current.projectLimit)} · 토큰{" "}
-          {usage.tokens.toLocaleString("ko-KR")} / {limit(current.tokenLimit)} ·
-          일일 이미지 {usage.images} / {limit(current.dailyImageLimit)}
-        </div>
-      )}
-      <p className="muted">
-        연간 가격은 별도로 책정됩니다. 총 토큰은 자동 갱신되지 않습니다.
+        ※ 현재 결제 시스템이 연결되어 있지 않습니다. 결재 버튼을 누르면 실제 청구 없이 요금제가 즉시 변경됩니다.
       </p>
       <p className="muted">
-        {readOnly
-          ? "게스트는 요금제를 조회만 할 수 있습니다."
-          : "현재 결제 시스템이 연결되어 있지 않습니다. 결재 버튼을 누르면 실제 청구 없이 요금제가 즉시 변경됩니다."}
+        {readOnly ? "게스트는 요금제를 조회만 할 수 있습니다." : ""}
       </p>
+      <div style={{ display: "flex", justifyContent: "center", margin: "20px 0" }}>
+        <PlansToggle period={period} onChange={setPeriod} />
+      </div>
       {notice && <p role="status">{notice}</p>}
       <div
         style={{
@@ -88,28 +81,37 @@ export function SubscriptionPlans({
           gap: 16,
         }}
       >
-        {plans.map((plan) => (
+        {plans.map((plan) => {
+          const regularPrice = period === "month" ? plan.monthlyPrice : plan.yearlyPrice;
+          const discountPrice = period === "month" ? plan.monthlyDiscountPrice : plan.yearlyDiscountPrice;
+          const showDiscount = plan.priceMode === "fixed" && regularPrice !== null && discountPrice !== null;
+          const discountRate = showDiscount && regularPrice > 0
+            ? Math.round((1 - discountPrice / regularPrice) * 100)
+            : null;
+          return (
           <article
             key={plan.code}
             className="panel"
             style={{
               padding: 24,
+              paddingTop: 9,
               borderColor: plan.recommended ? "var(--primary)" : undefined,
             }}
           >
-            {plan.recommended && <span className="badge purple">추천</span>}
-            <h2 style={{ marginTop: 12 }}>{plan.name}</h2>
-            <p>
-              월간{" "}
-              <strong>
-                {plan.priceMode === "contact"
-                  ? "협의"
-                  : amount(plan.monthlyPrice)}
-              </strong>
-            </p>
-            <p>
-              연간{" "}
-              {plan.priceMode === "contact" ? "협의" : amount(plan.yearlyPrice)}
+            <div className={styles.tagRow}>
+              {plan.recommended && <span className="badge purple">추천</span>}
+              {showDiscount && <span className="badge green">할인</span>}
+            </div>
+            <div className={styles.nameRow}>
+              <h2>{plan.name}</h2>
+              {discountRate !== null && <span className={styles.discountRate}>{discountRate}% 할인</span>}
+            </div>
+            <p className={styles.priceRow}>
+              {/* {period === "month" ? "월" : "년"}{" "} */}
+              <strong className={`${styles.price} ${showDiscount ? styles.discountPrice : ""}`}>{plan.priceMode === "contact"
+                ? "협의"
+                : amount(showDiscount ? discountPrice : regularPrice)}</strong>
+              {showDiscount && <del className={styles.originalPrice}>{amount(regularPrice)}</del>}
             </p>
             <ul style={{ paddingLeft: 18, lineHeight: 2.2 }}>
               <li>프로젝트 {limit(plan.projectLimit)}개</li>
@@ -141,7 +143,7 @@ export function SubscriptionPlans({
               )
             )}
           </article>
-        ))}
+        );})}
       </div>
       {!readOnly && (
         <button
@@ -155,6 +157,16 @@ export function SubscriptionPlans({
         >
           요금제변경
         </button>
+      )}
+      {current && usage && (
+        <div
+          className="panel"
+          style={{ padding: 20, marginTop: 20, lineHeight: 2 }}
+        >
+          프로젝트 {usage.projects} / {limit(current.projectLimit)} · 토큰{" "}
+          {usage.tokens.toLocaleString("ko-KR")} / {limit(current.tokenLimit)} ·
+          일일 이미지 {usage.images} / {limit(current.dailyImageLimit)}
+        </div>
       )}
       <dialog
         ref={dialog}

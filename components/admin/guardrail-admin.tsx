@@ -9,6 +9,7 @@ import { useGuardrailAttachments } from "./use-guardrail-attachments";
 import { GuardrailTestAttachments } from "./guardrail-test-attachments";
 import { BlockedTermsEditor } from "./blocked-terms-editor";
 import { AllowedDomainsEditor } from "./allowed-domains-editor";
+import { GlobalCompliancePanel } from "./global-compliance-panel";
 import "./guardrail-admin.css";
 
 type Snapshot = {
@@ -324,6 +325,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
           >
             {[
               ["policy", "정책 설정"],
+              ["compliance", "글로벌 규제 준수"],
               ["test", "정책 테스트"],
               ["history", "적용·검사 이력"],
             ].map(([key, label]) => (
@@ -630,6 +632,14 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
                   </div>
                 )}
               </div>
+            )}
+            {tab === "compliance" && (
+              <GlobalCompliancePanel onSample={(stage, text) => {
+                setTestStage(stage);
+                setTestText(text);
+                setTestResult(null);
+                setTab("test");
+              }} />
             )}
             {tab === "history" && (
               <div className="guardrail-history">

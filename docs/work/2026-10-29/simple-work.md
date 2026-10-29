@@ -50,3 +50,57 @@
 - DB 변경 여부: 없음.
 - 검증 결과: TypeScript·ESLint·프로덕션 빌드 통과. 격리 브라우저·DB 검사에서 검색 필터, 검색 결과에서 삭제, 초안·게시 저장 및 목록 정렬을 확인했다.
 - 미완료 사항: 없음.
+
+## 글로벌 규제 준수 베이스라인 및 관리자 탭
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: EU AI Act 제14조, GDPR 제22조, NIST AI RMF, OWASP Agentic Applications 기준과 제품 통제를 `docs/AI_GUARDRAILS.md`에 정리했다. 관리자 AI 가드레일 화면에 규약 탭과 샘플 체크 버튼을 추가했다. 별도 서버 모듈에서 명시적인 인간 검토 우회 자동결정 요청과 신뢰하지 않는 자료의 권한 우회 지시를 검사한다. 정책 테스트와 실제 AI Chatbot 경로가 같은 규칙을 사용한다.
+- 변경 파일: `docs/AI_GUARDRAILS.md`, `lib/ai/global-compliance.ts`, `lib/ai/guardrails.ts`, `components/admin/global-compliance-panel.tsx`, `components/admin/guardrail-admin.tsx`, `components/admin/guardrail-admin.css`, `scripts/check-ai-guardrails.mjs`, `scripts/test-admin-compact.mjs`, `docs/work/2026-10-29/simple-work.md`, `HISTORY.md`.
+- DB 변경 여부: 없음. 기존 검사 이벤트에 규칙 ID와 판정을 기록한다.
+- 검증 결과: TypeScript, ESLint, 프로덕션 빌드, `pnpm test:ai`, 관리자 격리 브라우저 검사 통과. 감시 모드·선택 검사 해제 상태의 차단, 일반 요청 허용, 실제 AI 요청 차단, 규약 탭과 샘플 이동을 확인했다.
+- 미완료 사항: 없음. 법령 적용 판단과 조직 승인·RACI·감사 운영 절차는 수동 검토 대상이다.
+
+## 요금제 할인 가격 및 가격표 표시 개선
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: 요금제 화면의 월간·년간 표시 금액을 두 배 크기로 확대했다. 관리자 요금제 설정에 월간·연간 할인 가격 입력란을 추가하고, 할인 가격이 있으면 선택된 기간의 할인가를 강조하고 기존 가격에는 취소선을 표시한다. 할인가는 기존 가격보다 낮은 0 이상의 정수만 허용한다.
+- 변경 파일: `db/migrations/024_plan_discount_prices.sql`, `lib/plan-types.ts`, `lib/plans.ts`, `lib/admin-history.ts`, `app/api/admin/plans/route.ts`, `components/admin/plan-admin.tsx`, `components/subscription-plans.tsx`, `components/subscription-plans.module.css`, `scripts/test-accounts-plans.mjs`, `docs/work/2026-10-29/simple-work.md`, `HISTORY.md`.
+- DB 변경 여부: 있음. `plans`에 `monthly_discount_price`, `yearly_discount_price` nullable 컬럼을 추가하는 마이그레이션을 작성했다. 기존 요금제의 할인가는 `NULL`로 유지된다. 운영 DB에는 마이그레이션을 아직 실행하지 않았다.
+- 검증 결과: TypeScript·ESLint·프로덕션 빌드 통과. 임시 DB 통합 테스트에서 마이그레이션, 할인가 저장, 기존 가격 이상 할인 거절, 기존 요금제 동작을 확인했다.
+- 미완료 사항: 배포 시 운영 DB에 `pnpm db:migrate` 적용 필요.
+
+### 요금제 페이지 렌더링 및 NaN 경고 수정
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: `/settings/subscription`의 인증·DB 조회를 `Suspense` 경계 안으로 이동해 Next.js 동적 데이터 프리렌더링 오류를 해결했다. 요금제 DB 값이 없는 경우 `null`로 변환하고, 관리자 숫자 입력에는 유한한 숫자만 `defaultValue`로 전달해 `NaN` 경고를 방지한다.
+- 변경 파일: `app/(workspace)/settings/subscription/page.tsx`, `lib/plans.ts`, `components/admin/plan-admin.tsx`, `docs/work/2026-10-29/simple-work.md`.
+- DB 변경 여부: 연결된 DB에는 할인 컬럼과 제약조건이 이미 적용되어 있었다. 누락된 `024_plan_discount_prices.sql` 적용 이력만 기록했다. 요금제 데이터는 변경하지 않았다.
+- 검증 결과: TypeScript·ESLint·프로덕션 빌드·분리 DB 요금제 통합 테스트 통과. 연결된 DB의 컬럼·제약조건과 마이그레이션 이력도 확인했다.
+- 미완료 사항: 없음.
+
+### 요금제 카드 태그 및 할인율 배치
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: 모든 요금제 카드에 같은 높이의 태그 영역을 두어 추천 태그가 있는 Plus와 다른 카드의 이름·가격 시작 위치를 맞췄다. 현재 선택한 월간·년간 가격에 할인 가격이 있으면 할인 태그를 표시하고, `(기존 가격-할인 가격)/기존 가격`을 반올림한 할인율을 요금제 이름 옆에 빨간색으로 표시한다.
+- 변경 파일: `components/subscription-plans.tsx`, `components/subscription-plans.module.css`, `docs/work/2026-10-29/simple-work.md`.
+- DB 변경 여부: 없음.
+- 검증 결과: TypeScript·ESLint·프로덕션 빌드 통과.
+- 미완료 사항: 없음.
+
+### 요금제 제목의 현재 플랜 배지 수정
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: 제목 안에 중첩된 블록 요소를 제거하고 현재 플랜 이름을 공통 배지로 요금제 제목 옆에 배치했다. 제목과 배지의 정렬·간격을 전용 스타일로 설정했다.
+- 변경 파일: `components/subscription-plans.tsx`, `components/subscription-plans.module.css`, `docs/work/2026-10-29/simple-work.md`.
+- DB 변경 여부: 없음.
+- 검증 결과: TypeScript·ESLint 통과.
+- 미완료 사항: 없음.
+
+## WBS 일정 차트 스타일 통합
+
+- 작성일: 2026-10-29 (Asia/Seoul)
+- 주요 변경사항: WBS 차트가 사용하던 독립 유틸리티 클래스에 차트 범위 전용 CSS를 추가했다. 프로젝트의 `--surface`, `--canvas`, `--ink`, `--muted`, `--line`, `--primary` 변수를 사용해 라이트·다크 테마에 맞추고, 표·타임라인·입력·버튼·스크롤 영역의 배치를 복원했다. 차트 높이를 작업 공간에 맞추고 좁은 화면은 차트 내부에서 가로 스크롤한다.
+- 변경 파일: `components/pages/wbs/wbs-schedule-chart.jsx`, `components/pages/wbs/wbs-schedule-chart.css`, `docs/work/2026-10-29/simple-work.md`.
+- DB 변경 여부: 없음.
+- 검증 결과: TypeScript·프로덕션 빌드 통과. ESLint는 기존 차트의 `useEffect` 내부 즉시 `setTasks` 호출에서 실패했으며 스타일 변경과 무관하다.
+- 미완료 사항: 기존 차트 상태 계산 로직의 ESLint 경고는 별도 개선 대상이다.

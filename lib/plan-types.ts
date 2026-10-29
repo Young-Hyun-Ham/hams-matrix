@@ -7,6 +7,8 @@ export type Plan = {
   priceMode: "fixed" | "contact";
   monthlyPrice: number | null;
   yearlyPrice: number | null;
+  monthlyDiscountPrice: number | null;
+  yearlyDiscountPrice: number | null;
   projectLimit: number | null;
   tokenLimit: number | null;
   dailyImageLimit: number | null;

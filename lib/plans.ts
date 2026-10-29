@@ -7,13 +7,15 @@ import type { User } from "./types";
 type Executor = Pick<Client, "execute">;
 export function toPlan(row: Row): Plan {
   const nullable = (key: string) =>
-    row[key] === null ? null : Number(row[key]);
+    row[key] == null ? null : Number(row[key]);
   return {
     code: String(row.code) as Plan["code"],
     name: String(row.name),
     priceMode: row.price_mode === "contact" ? "contact" : "fixed",
     monthlyPrice: nullable("monthly_price"),
     yearlyPrice: nullable("yearly_price"),
+    monthlyDiscountPrice: nullable("monthly_discount_price"),
+    yearlyDiscountPrice: nullable("yearly_discount_price"),
     projectLimit: nullable("project_limit"),
     tokenLimit: nullable("token_limit"),
     dailyImageLimit: nullable("daily_image_limit"),

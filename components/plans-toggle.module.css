@@ -1,0 +1,33 @@
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--canvas);
+  color: var(--muted);
+}
+.option {
+  min-width: 64px;
+  min-height: 26px;
+  padding: 3px 12px;
+  border: 0;
+  border-radius: 16px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+}
+.option[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 1px 4px #16132215;
+  font-weight: 700;
+}
+:global([data-theme="dark"]) .option[aria-pressed="true"] {
+  background: #48405e;
+  color: #e4d6ff;
+  box-shadow: 0 1px 4px #0004;
+}
+.option:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }

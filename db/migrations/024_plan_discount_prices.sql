@@ -1,0 +1,2 @@
+ALTER TABLE plans ADD COLUMN monthly_discount_price INTEGER CHECK(monthly_discount_price IS NULL OR (monthly_price IS NOT NULL AND monthly_discount_price >= 0 AND monthly_discount_price < monthly_price));
+ALTER TABLE plans ADD COLUMN yearly_discount_price INTEGER CHECK(yearly_discount_price IS NULL OR (yearly_price IS NOT NULL AND yearly_discount_price >= 0 AND yearly_discount_price < yearly_price));

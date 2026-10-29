@@ -1,0 +1,12 @@
+.heading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.heading h1 { margin: 0; }
+.tagRow { display: flex; align-items: center; gap: 6px; min-height: 25px; }
+.nameRow { display: flex; align-items: baseline; flex-wrap: wrap; gap: 8px; }
+.nameRow h2 { margin: 12px 0; }
+.discountRate { color: #c52d3c; font-weight: 700; white-space: nowrap; }
+:global([data-theme="dark"]) .discountRate { color: #ff8088; }
+.priceRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.price { font-size: 2em; line-height: 1.15; font-weight: 700; }
+.discountPrice { color: #087a4b; }
+:global([data-theme="dark"]) .discountPrice { color: #64dba2; }
+.originalPrice { color: var(--muted); font-size: 1em; }

@@ -45,17 +45,29 @@
 }
 .guardrail-tabs {
   display: flex;
+  overflow-x: auto;
   gap: 8px;
   border-bottom: 1px solid var(--line);
   margin: 24px 0;
 }
 .guardrail-tabs button {
+  flex: 0 0 auto;
   border: 0;
   background: transparent;
   color: var(--muted);
   padding: 14px 18px;
   cursor: pointer;
 }
+.guardrail-compliance { display: grid; gap: 12px; font-size: 12px; }
+.guardrail-compliance h2, .guardrail-compliance h3, .guardrail-compliance p { margin: 0; }
+.guardrail-compliance p { color: var(--muted); line-height: 1.7; }
+.guardrail-compliance-table { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+.guardrail-compliance-table table { width: 100%; min-width: 650px; border-collapse: collapse; }
+.guardrail-compliance-table :is(th, td) { padding: 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; line-height: 1.6; }
+.guardrail-compliance-table thead { background: var(--surface); }
+.guardrail-compliance-table tbody tr:last-child :is(th, td) { border-bottom: 0; }
+.guardrail-compliance-table a { color: var(--primary); }
+.guardrail-compliance-samples { display: flex; flex-wrap: wrap; gap: 8px; }
 .guardrail-tabs button[aria-selected="true"] {
   color: var(--ink);
   border-bottom: 2px solid currentColor;

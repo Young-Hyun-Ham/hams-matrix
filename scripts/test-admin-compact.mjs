@@ -180,6 +180,10 @@ try {
     await navigate("/admin/settings?tab=guardrails", ".guardrail-blocked-list");
     await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-terms:not(.guardrail-domain-editor) .guardrail-blocked-chip').length===1000"), "1000 saved terms reload");
     assert.ok(await evaluate("(()=>{const list=document.querySelector('.guardrail-blocked-list');return list.scrollHeight>list.clientHeight && list.getBoundingClientRect().height===111})()"), "blocked terms scroll after three rows");
+    await evaluate("document.querySelector('#guardrail-tab-compliance').click()");
+    await waitFor(() => evaluate("document.querySelectorAll('.guardrail-compliance-table tbody tr').length===4"), "global compliance tab shows four standards");
+    await evaluate("document.querySelector('.guardrail-compliance-samples button').click()");
+    await waitFor(() => evaluate("document.querySelector('#guardrail-tab-test')?.getAttribute('aria-selected')==='true' && document.querySelector('.guardrail-test textarea')?.value.includes('담당자 검토 없이')"), "compliance sample opens policy test");
     console.log("PASS: blocked term UI, 1000-item save/1001-item rejection, three-row scrolling, focus border, themed divider, responsive layout.");
   } else {
   // Client-side transitions also load personal-settings CSS; administration must remain isolated.

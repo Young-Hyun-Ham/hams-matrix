@@ -91,6 +91,8 @@ const allowed = new Set([
   "priceMode",
   "monthlyPrice",
   "yearlyPrice",
+  "monthlyDiscountPrice",
+  "yearlyDiscountPrice",
   "projectLimit",
   "tokenLimit",
   "dailyImageLimit",

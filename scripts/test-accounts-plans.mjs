@@ -39,6 +39,7 @@ try {
   assert.equal((await one("SELECT count(*) AS count FROM plans")).count,4);
   assert.equal((await one("SELECT token_limit FROM plans WHERE code='plus'")).token_limit,1000000);
   assert.equal((await one("SELECT yearly_price FROM plans WHERE code='plus'")).yearly_price,null);
+  assert.equal((await one("SELECT monthly_discount_price FROM plans WHERE code='plus'")).monthly_discount_price,null);
   assert.equal((await one("SELECT project_limit FROM plans WHERE code='business'")).project_limit,null);
   assert.equal((await db.execute("PRAGMA foreign_key_check")).rows.length,0);
   console.log("PASS: migration preserves settings, account constraints, default subscriptions, master uniqueness/immutability, bootstrap idempotency, plan defaults and foreign keys");
@@ -60,7 +61,10 @@ try {
     const project=(await createProject(first.cookie,"Project One")).data.project;assert.equal(project.ownerId,user.id);assert.equal(project.members[0].role,"owner");
     await createProject(first.cookie,"Over Limit",403);
     let catalog=(await json("/api/admin/plans",{cookie:master})).data.plans;let plus=catalog.find(plan=>plan.code==="plus");
-    await json("/api/admin/plans",{cookie:master,method:"PATCH",data:{...plus,yearlyPrice:100000}},200);
+    await json("/api/admin/plans",{cookie:master,method:"PATCH",data:{...plus,yearlyPrice:100000,monthlyDiscountPrice:7000,yearlyDiscountPrice:80000}},200);
+    assert.equal((await one("SELECT monthly_discount_price FROM plans WHERE code='plus'")).monthly_discount_price,7000);
+    assert.equal((await one("SELECT yearly_discount_price FROM plans WHERE code='plus'")).yearly_discount_price,80000);
+    await json("/api/admin/plans",{cookie:master,method:"PATCH",data:{...plus,monthlyDiscountPrice:10000}},400);
     await json("/api/admin/plans",{cookie:master,method:"PATCH",data:{...plus,yearlyPrice:90000}},409);
     await json("/api/admin/members",{cookie:master,method:"PATCH",data:{userId:user.id,plan:"plus",version:1}});
     await Promise.all([createProject(first.cookie,"Project Two"),createProject(first.cookie,"Project Three")]);
