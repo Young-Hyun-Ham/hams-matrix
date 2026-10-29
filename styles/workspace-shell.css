@@ -505,3 +505,10 @@
     width: 77px;
   }
 }
+
+#main-content.viewer-main-content {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}

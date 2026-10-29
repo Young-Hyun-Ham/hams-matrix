@@ -76,7 +76,13 @@ export function useArtifactActions(
                         ),
                       }
                     : editor.kind === "architecture"
-                      ? { topology: JSON.parse(String(form.get("topology") ?? "{\"nodes\":[],\"edges\":[]}")) }
+                      ? {
+                          topology: JSON.parse(
+                            String(
+                              form.get("topology") ?? '{"nodes":[],"edges":[]}',
+                            ),
+                          ),
+                        }
                       : {},
             confirmReview: form.get("confirmReview") === "on",
             confirmExecution: form.get("confirmExecution") === "on",

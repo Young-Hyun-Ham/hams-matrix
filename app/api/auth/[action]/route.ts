@@ -22,7 +22,11 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import type { User } from "@/lib/types";
-import { registrationChoice, joinRequestStatements, registrationJobTitle } from "@/lib/registration";
+import {
+  registrationChoice,
+  joinRequestStatements,
+  registrationJobTitle,
+} from "@/lib/registration";
 
 export async function POST(
   request: Request,
@@ -98,8 +102,7 @@ export async function POST(
         email,
         name,
         workspaceId,
-        workspaceName:
-          `${name}의 워크스페이스`,
+        workspaceName: `${name}의 워크스페이스`,
         role: "owner",
         plan: choice.plan,
         accountRole: "user",

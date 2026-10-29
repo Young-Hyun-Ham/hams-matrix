@@ -36,7 +36,8 @@ export function AiTokenStatistics() {
   const query = params.toString();
   useEffect(() => {
     const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible") setVersion(value => value + 1);
+      if (document.visibilityState === "visible")
+        setVersion((value) => value + 1);
     }, 5000);
     return () => window.clearInterval(timer);
   }, []);
@@ -241,8 +242,12 @@ export function AiTokenStatistics() {
             <div className="ai-usage-details">
               <span>캐시 입력 {number(data.totals.cached)}</span>
               <span>추론 {number(data.totals.reasoning)}</span>
-              <span>전체 중 가드레일 검사 {number(data.totals.guardrail)} tokens</span>
-              <span>최종 사용량 미확인/집계 중 {number(data.totals.unknown)}건</span>
+              <span>
+                전체 중 가드레일 검사 {number(data.totals.guardrail)} tokens
+              </span>
+              <span>
+                최종 사용량 미확인/집계 중 {number(data.totals.unknown)}건
+              </span>
             </div>
             <details>
               <summary>상세 통계 표</summary>
@@ -282,8 +287,9 @@ export function AiTokenStatistics() {
       <p className="ai-usage-note">
         입력에는 시스템 지침·이전 대화·이미지·도구 데이터가 포함됩니다.
         캐시·추론 토큰은 입력·출력의 세부 항목이며 합계에 중복 추가하지
-        않습니다. 합계에는 수신한 중간 사용량이 포함되며 최종 사용량은 갱신될 수 있습니다.
-        사용량을 받지 못한 호출과 기록 기능 도입 전 사용량은 합계에서 제외됩니다.
+        않습니다. 합계에는 수신한 중간 사용량이 포함되며 최종 사용량은 갱신될 수
+        있습니다. 사용량을 받지 못한 호출과 기록 기능 도입 전 사용량은 합계에서
+        제외됩니다.
       </p>
     </section>
   );

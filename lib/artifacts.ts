@@ -26,7 +26,8 @@ export async function projectAccess(
   projectId: string,
   write = false,
 ) {
-  if (user.accountRole === "guest") throw new HttpError(403, "게스트는 실제 프로젝트에 접근할 수 없습니다.");
+  if (user.accountRole === "guest")
+    throw new HttpError(403, "게스트는 실제 프로젝트에 접근할 수 없습니다.");
   const result = await executor.execute({
     sql: `SELECT p.id,p.name,p.description,p.status,p.owner_id,${projectRoleSql} AS role FROM projects p
       JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id
@@ -88,7 +89,10 @@ export async function projectData(
           .map((e) => String(e.target_id)),
       ),
     ),
-    revisions: (await projectHistoryEnabled(projectId, executor) ? revisions.rows : []).map((row) => ({
+    revisions: ((await projectHistoryEnabled(projectId, executor))
+      ? revisions.rows
+      : []
+    ).map((row) => ({
       id: String(row.id),
       artifactId: String(row.artifact_id),
       version: Number(row.version),
@@ -97,8 +101,7 @@ export async function projectData(
       occurredAt: String(row.occurred_at),
       snapshot: JSON.parse(String(row.snapshot_json)) as Artifact,
     })),
-    canWrite:
-      ["owner", "admin", "member"].includes(String(p.role)),
+    canWrite: ["owner", "admin", "member"].includes(String(p.role)),
   };
 }
 function validate(input: Record<string, unknown>, kind: ArtifactKind) {
@@ -171,7 +174,7 @@ export async function mutateArtifact(
   beforeCommit?: (executor: Pick<Client, "execute">) => Promise<void>,
   transaction?: Transaction,
 ) {
-  const tx = transaction ?? await db().transaction("write");
+  const tx = transaction ?? (await db().transaction("write"));
   try {
     await projectAccess(tx, user, projectId, true);
     let before: Artifact | undefined;
@@ -282,7 +285,12 @@ export async function mutateArtifact(
         ),
       );
       const candidate = [...all.filter((a) => a.id !== after.id), after];
-      after.structure = prepareStructure(after, input, candidate, before?.structure);
+      after.structure = prepareStructure(
+        after,
+        input,
+        candidate,
+        before?.structure,
+      );
       validateProjectGraph(candidate);
       if (before)
         await tx.execute({
@@ -330,21 +338,22 @@ export async function mutateArtifact(
           args: [artifactId, targetId, projectId, user.workspaceId, relation],
         });
     }
-    if (await projectHistoryEnabled(projectId, tx)) await tx.execute({
-      sql: "INSERT INTO artifact_revisions(id,artifact_id,project_id,workspace_id,version,action,actor_id,actor_name,snapshot_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-      args: [
-        randomUUID(),
-        after.id,
-        projectId,
-        user.workspaceId,
-        after.version,
-        action,
-        user.id,
-        user.name,
-        JSON.stringify(after),
-        now,
-      ],
-    });
+    if (await projectHistoryEnabled(projectId, tx))
+      await tx.execute({
+        sql: "INSERT INTO artifact_revisions(id,artifact_id,project_id,workspace_id,version,action,actor_id,actor_name,snapshot_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        args: [
+          randomUUID(),
+          after.id,
+          projectId,
+          user.workspaceId,
+          after.version,
+          action,
+          user.id,
+          user.name,
+          JSON.stringify(after),
+          now,
+        ],
+      });
     await audit(
       request,
       {

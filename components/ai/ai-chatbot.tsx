@@ -41,12 +41,19 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   const [modelsLoading, setModelsLoading] = useState(true),
     [modelError, setModelError] = useState(""),
     [modelVersion, setModelVersion] = useState(0);
-  const [attachmentLimit,setAttachmentLimit] = useState(0);
+  const [attachmentLimit, setAttachmentLimit] = useState(0);
   const [generating, setGenerating] = useState(false),
     [error, setError] = useState("");
-  const [stopping, setStopping] = useState(false), [notice, setNotice] = useState("");
+  const [stopping, setStopping] = useState(false),
+    [notice, setNotice] = useState("");
   const [stopRetry, setStopRetry] = useState<string | null>(null);
-  const [usage, setUsage] = useState<{ input: number; output: number; unknown: number; pending: number; calls: number } | null>(null);
+  const [usage, setUsage] = useState<{
+    input: number;
+    output: number;
+    unknown: number;
+    pending: number;
+    calls: number;
+  } | null>(null);
   const activeRequest = useRef<string | null>(null);
   const stopBusy = useRef(false);
   const conversationState = useAiConversation(conversation, aiOpen);
@@ -68,9 +75,18 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     generation = useRef<AbortController | null>(null);
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/me/subscription", { signal: controller.signal, cache: "no-store" })
-      .then(async response => { if (!response.ok) throw new Error(); const data = await response.json(); setAttachmentLimit(data.plan.attachmentLimit); })
-      .catch(() => { if (!controller.signal.aborted) setAttachmentLimit(0); });
+    fetch("/api/me/subscription", {
+      signal: controller.signal,
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error();
+        const data = await response.json();
+        setAttachmentLimit(data.plan.attachmentLimit);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setAttachmentLimit(0);
+      });
     return () => controller.abort();
   }, [user?.id]);
   const scope = `${user?.workspaceId}:${user?.id}:${context.projectId}`;
@@ -134,13 +150,25 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   }
   async function stopGeneration() {
     const requestId = activeRequest.current ?? stopRetry;
-    if (!requestId || stopBusy.current || !window.confirm("AI 생성을 중지하시겠습니까? 이미 반영된 변경사항은 유지됩니다.")) return;
+    if (
+      !requestId ||
+      stopBusy.current ||
+      !window.confirm(
+        "AI 생성을 중지하시겠습니까? 이미 반영된 변경사항은 유지됩니다.",
+      )
+    )
+      return;
     stopBusy.current = true;
     setStopping(true);
     try {
       const response = await fetch("/api/ai/chats/stop", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, convId: conversation.convId, projectId: conversation.projectId }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestId,
+          convId: conversation.convId,
+          projectId: conversation.projectId,
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
@@ -148,15 +176,26 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         setStopRetry(null);
         setStopping(false);
         setError("");
-        setNotice("생성이 중지되었습니다." + (data.actions?.length ? ` 이미 반영된 작업 ${data.actions.length}건은 유지됩니다.` : ""));
+        setNotice(
+          "생성이 중지되었습니다." +
+            (data.actions?.length
+              ? ` 이미 반영된 작업 ${data.actions.length}건은 유지됩니다.`
+              : ""),
+        );
       }
       // Keep awaiting the generation response: it confirms cleanup and committed actions.
     } catch (e) {
       if (activeRequest.current === requestId || stopRetry === requestId) {
         setStopping(false);
-        setError(e instanceof Error ? e.message : "중지 요청에 실패했습니다. 다시 시도해 주세요.");
+        setError(
+          e instanceof Error
+            ? e.message
+            : "중지 요청에 실패했습니다. 다시 시도해 주세요.",
+        );
       }
-    } finally { stopBusy.current = false; }
+    } finally {
+      stopBusy.current = false;
+    }
   }
   async function generate() {
     if (!ready || busyRef.current) return;
@@ -172,12 +211,23 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     activeRequest.current = requestId;
     const updateUsage = async () => {
       try {
-        const response = await fetch(`/api/ai/chats/usage?requestId=${requestId}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(5000)]) });
+        const response = await fetch(
+          `/api/ai/chats/usage?requestId=${requestId}`,
+          {
+            cache: "no-store",
+            signal: AbortSignal.any([
+              controller.signal,
+              AbortSignal.timeout(5000),
+            ]),
+          },
+        );
         if (response.ok) {
           const snapshot = await response.json();
           if (activeRequest.current === requestId) setUsage(snapshot);
         }
-      } catch { /* A statistics refresh must not interrupt generation. */ }
+      } catch {
+        /* A statistics refresh must not interrupt generation. */
+      }
     };
     const requestScope = scope,
       controller = new AbortController();
@@ -190,7 +240,14 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         body: JSON.stringify({
           requestId,
           convId: conversation.convId,
-          ...(conversation.convId.startsWith("temporary-") ? { history: conversationState.chats.slice(-5).flatMap(chat => [{role:"user",content:chat.prompt.slice(0,2000)},{role:"assistant",content:chat.result.slice(0,8000)}]) } : {}),
+          ...(conversation.convId.startsWith("temporary-")
+            ? {
+                history: conversationState.chats.slice(-5).flatMap((chat) => [
+                  { role: "user", content: chat.prompt.slice(0, 2000) },
+                  { role: "assistant", content: chat.result.slice(0, 8000) },
+                ]),
+              }
+            : {}),
           prompt: prompt.trim(),
           images: images.map((image) => ({ dataUrl: image.dataUrl })),
           model,
@@ -206,8 +263,12 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       if (!response.ok) throw new Error(data.error);
       if (data.cancelled) {
         setError("");
-        setNotice("생성이 중지되었습니다." + (data.actions?.length
-          ? ` 이미 반영된 작업: ${data.actions.map((action: { code: string; title: string }) => `${action.code} · ${action.title}`).join(", ")}` : ""));
+        setNotice(
+          "생성이 중지되었습니다." +
+            (data.actions?.length
+              ? ` 이미 반영된 작업: ${data.actions.map((action: { code: string; title: string }) => `${action.code} · ${action.title}`).join(", ")}`
+              : ""),
+        );
         return;
       }
       if (activeScope.current === requestScope) {
@@ -366,16 +427,38 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             className="matrix-ai-generate"
             disabled={generating || stopRetry ? stopping : !ready}
             aria-busy={generating}
-            onClick={() => void (generating || stopRetry ? stopGeneration() : generate())}
+            onClick={() =>
+              void (generating || stopRetry ? stopGeneration() : generate())
+            }
           >
-            {generating || stopRetry ? stopping ? "중지 중…" : stopRetry ? "중지 재시도" : "중지" : "생성하기"}
+            {generating || stopRetry
+              ? stopping
+                ? "중지 중…"
+                : stopRetry
+                  ? "중지 재시도"
+                  : "중지"
+              : "생성하기"}
             {!generating && !stopRetry && <span>Ctrl/⌘ ↵</span>}
           </button>
-          {notice && <p role="status" className="matrix-ai-hint">{notice}</p>}
-          {usage && <p role="status" className="matrix-ai-hint">
-            확인된 토큰: 입력 {usage.calls > usage.unknown ? usage.input.toLocaleString() : "미확인"} · 출력 {usage.calls > usage.unknown ? usage.output.toLocaleString() : "미확인"}
-            {(!usage.calls || usage.unknown > 0 || usage.pending > 0) && " · 사용량 미확인/집계 중 포함"}
-          </p>}
+          {notice && (
+            <p role="status" className="matrix-ai-hint">
+              {notice}
+            </p>
+          )}
+          {usage && (
+            <p role="status" className="matrix-ai-hint">
+              확인된 토큰: 입력{" "}
+              {usage.calls > usage.unknown
+                ? usage.input.toLocaleString()
+                : "미확인"}{" "}
+              · 출력{" "}
+              {usage.calls > usage.unknown
+                ? usage.output.toLocaleString()
+                : "미확인"}
+              {(!usage.calls || usage.unknown > 0 || usage.pending > 0) &&
+                " · 사용량 미확인/집계 중 포함"}
+            </p>
+          )}
           <p className="matrix-ai-hint">
             현재 화면을 조회하고, 요청한 문서 변경을 처리합니다.
           </p>

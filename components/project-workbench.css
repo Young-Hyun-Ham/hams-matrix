@@ -255,32 +255,114 @@
 }
 
 /* Match settings density only inside non-overview project tab content. */
-.matrix-tab-content { display: contents; }
+.matrix-tab-content {
+  display: contents;
+}
 .matrix-workbench .matrix-tab-content-compact {
-  display: grid; min-width: 0; gap: 12px; font-size: 12px; line-height: 1.45;
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.45;
 }
-.matrix-workbench .matrix-tab-content-compact :is(h1,h2,h3,h4,p,span,strong,small,legend,label,input,select,textarea,button,table,th,td,pre,a,li) {
-  font-size: 12px; line-height: 1.45;
+.matrix-workbench
+  .matrix-tab-content-compact
+  :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    span,
+    strong,
+    small,
+    legend,
+    label,
+    input,
+    select,
+    textarea,
+    button,
+    table,
+    th,
+    td,
+    pre,
+    a,
+    li
+  ) {
+  font-size: 12px;
+  line-height: 1.45;
 }
-.matrix-workbench .matrix-tab-content-compact :is(h2,h3,h4,legend) { font-weight: 650; }
-.matrix-workbench .matrix-tab-content-compact p { margin: 0 0 8px; }
-.matrix-workbench .matrix-tab-content-compact :is(.button,button:not(.icon-button)) {
-  min-height: 26px; padding: 3px 8px; border-radius: 5px;
-  font-size: 12px; line-height: 1.45; gap: 5px;
+.matrix-workbench .matrix-tab-content-compact :is(h2, h3, h4, legend) {
+  font-weight: 650;
 }
-.matrix-workbench .matrix-tab-content-compact .button { width: auto; flex-shrink: 0; }
+.matrix-workbench .matrix-tab-content-compact p {
+  margin: 0 0 8px;
+}
+.matrix-workbench
+  .matrix-tab-content-compact
+  :is(.button, button:not(.icon-button)) {
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+  gap: 5px;
+}
+.matrix-workbench .matrix-tab-content-compact .button {
+  width: auto;
+  flex-shrink: 0;
+}
 .matrix-workbench .matrix-tab-content-compact .icon-button {
-  width: 26px; height: 26px; min-height: 26px; padding: 4px; border-radius: 5px;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 4px;
+  border-radius: 5px;
 }
-.matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
-  min-width: 0; max-width: 100%; border: 1px solid var(--line); border-radius: 5px;
-  background-color: var(--surface); color: var(--ink); padding: 4px 8px; font: inherit;
+.matrix-workbench
+  .matrix-tab-content-compact
+  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background-color: var(--surface);
+  color: var(--ink);
+  padding: 4px 8px;
+  font: inherit;
 }
-.matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 28px; }
-.matrix-workbench .matrix-tab-content-compact :is(th,td) { padding: 6px 8px; }
-.matrix-workbench .matrix-tab-content-compact .matrix-section { padding: 12px; gap: 12px; }
+.matrix-workbench
+  .matrix-tab-content-compact
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select
+  ) {
+  min-height: 28px;
+}
+.matrix-workbench .matrix-tab-content-compact :is(th, td) {
+  padding: 6px 8px;
+}
+.matrix-workbench .matrix-tab-content-compact .matrix-section {
+  padding: 12px;
+  gap: 12px;
+}
 @media (max-width: 700px), (pointer: coarse) {
-  .matrix-workbench .matrix-tab-content-compact :is(.button,button:not(.icon-button)) { min-height: 32px; }
-  .matrix-workbench .matrix-tab-content-compact .icon-button { width: 32px; height: 32px; min-height: 32px; }
-  .matrix-workbench .matrix-tab-content-compact :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 32px; }
+  .matrix-workbench
+    .matrix-tab-content-compact
+    :is(.button, button:not(.icon-button)) {
+    min-height: 32px;
+  }
+  .matrix-workbench .matrix-tab-content-compact .icon-button {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+  .matrix-workbench
+    .matrix-tab-content-compact
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select
+    ) {
+    min-height: 32px;
+  }
 }

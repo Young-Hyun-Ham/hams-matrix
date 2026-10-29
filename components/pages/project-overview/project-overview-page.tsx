@@ -41,6 +41,7 @@ export function ProjectOverviewPage() {
           <small>완료 상태 / 전체 요구사항</small>
         </div>
       </div>
+      {/*       
       <section className="panel matrix-section">
         <h2>프로젝트 진행 순서</h2>
         <ol>
@@ -59,6 +60,7 @@ export function ProjectOverviewPage() {
             : `${user.name}님은 조회 전용 계정입니다.`}
         </p>
       </section>
+      */}
     </>
   );
 }

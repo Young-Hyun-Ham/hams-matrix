@@ -102,7 +102,9 @@ export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
     if (!files.length) return;
     if (disabled || busy.current) return;
     if (current.current.length + files.length > limit) {
-      setAttachmentError(`현재 플랜은 이미지를 최대 ${limit}장까지 첨부할 수 있습니다.`);
+      setAttachmentError(
+        `현재 플랜은 이미지를 최대 ${limit}장까지 첨부할 수 있습니다.`,
+      );
       return;
     }
     busy.current = true;

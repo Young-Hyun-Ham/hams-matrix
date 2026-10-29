@@ -189,7 +189,17 @@ export function AuthForm({
                 />
               </label>
             )}
-            {signup && <label htmlFor="jobTitle">담당 역할·직무<input id="jobTitle" name="jobTitle" maxLength={80} placeholder="예: 프로젝트 매니저, 프론트엔드 개발자" /></label>}
+            {signup && (
+              <label htmlFor="jobTitle">
+                담당 역할·직무
+                <input
+                  id="jobTitle"
+                  name="jobTitle"
+                  maxLength={80}
+                  placeholder="예: 프로젝트 매니저, 프론트엔드 개발자"
+                />
+              </label>
+            )}
             <label htmlFor="email">
               이메일 주소
               <div className="auth-input">
@@ -270,7 +280,11 @@ export function AuthForm({
               <Icon name="arrow" size={17} />
             </button>
           </form>
-          {!signup && <Link className="button auth-submit" href="/signup">회원등록</Link>}
+          {!signup && (
+            <Link className="button auth-submit" href="/signup">
+              회원등록
+            </Link>
+          )}
           <p className="auth-trust">
             <Icon name="shield" size={14} />{" "}
             {signup
@@ -282,7 +296,6 @@ export function AuthForm({
           함께 연결하고, 더 멀리 나아가세요.<span>HAMS MATRIX</span>
         </div>
       </main>
-
     </div>
   );
 }

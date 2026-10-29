@@ -104,7 +104,56 @@ try {
   }
   await resize(1440);
   await navigate("/admin/settings?tab=guardrails", ".guardrail-toggle");
-  assert.equal(await evaluate("document.querySelector('.breadcrumb strong').textContent.trim()"), "AI 가드레일 관리");
+  const enterTerm = async value => {
+    await evaluate(`(()=>{const input=document.querySelector('#guardrail-blocked-input');const setter=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;setter.call(input,${JSON.stringify(value)});input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();})()`);
+    await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+    await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  };
+  await enterTerm("씨발");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-chip').length===1"), "Enter adds a blocked term");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-blocked-input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'야발, 근데.');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await evaluate("document.querySelector('.guardrail-blocked-entry button').click()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-chip').length===2"), "button adds a blocked term");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-blocked-filter');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'씨발');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-chip').length===1"), "blocked term filter");
+  await evaluate("document.querySelector('.guardrail-blocked-chip button').click()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-chip').length===0"), "blocked term removal");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-domain-input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'EXAMPLE.COM');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();})()");
+  await cdp("Input.dispatchKeyEvent", { type: "keyDown", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await cdp("Input.dispatchKeyEvent", { type: "keyUp", key: "Enter", code: "Enter", windowsVirtualKeyCode: 13 });
+  await waitFor(() => evaluate("document.querySelector('.guardrail-domain-editor .guardrail-blocked-chip')?.textContent.includes('example.com')"), "domain Enter registration normalizes case");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-domain-input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'api.example.com');input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.guardrail-domain-editor .guardrail-blocked-entry button').click();})()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-domain-editor .guardrail-blocked-chip').length===2"), "domain button registration");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-domain-filter');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'api.');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-domain-editor .guardrail-blocked-chip').length===1 && document.querySelector('.guardrail-domain-editor .guardrail-blocked-chip')?.textContent.includes('api.example.com')"), "domain search filters registered domains");
+  await evaluate("document.querySelector('.guardrail-domain-editor .guardrail-blocked-chip button').click()");
+  await waitFor(() => evaluate("document.querySelector('.guardrail-domain-editor .guardrail-blocked-empty')?.textContent.includes('검색 결과가 없습니다.')"), "filtered domain removal");
+  await evaluate("(()=>{const input=document.querySelector('#guardrail-domain-filter');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'');input.dispatchEvent(new Event('input',{bubbles:true}));})()");
+  await waitFor(() => evaluate("document.querySelectorAll('.guardrail-domain-editor .guardrail-blocked-chip').length===1"), "domain removal");
+  const alignedLists = await evaluate("(()=>{const blocked=document.querySelector('.guardrail-blocked-terms:not(.guardrail-domain-editor) .guardrail-blocked-list'),domains=document.querySelector('.guardrail-domain-editor .guardrail-blocked-list');return Math.abs(blocked.getBoundingClientRect().top-domains.getBoundingClientRect().top)<=1})()");
+  assert.ok(alignedLists, "domain list aligns with blocked terms list");
+  await evaluate("document.querySelector('.guardrail-footer .button').click()");
+  await waitFor(async () => !!(await client.execute("SELECT draft_json FROM ai_guardrail_configs LIMIT 1")).rows[0], "blocked terms draft saved");
+  const draftTerms = JSON.parse(String((await client.execute("SELECT draft_json FROM ai_guardrail_configs LIMIT 1")).rows[0].draft_json)).blockedTerms;
+  assert.deepEqual(draftTerms, ["야발, 근데."], "draft keeps comma as part of a single term");
+  const draftDomains = JSON.parse(String((await client.execute("SELECT draft_json FROM ai_guardrail_configs LIMIT 1")).rows[0].draft_json)).allowedDomains;
+  assert.deepEqual(draftDomains, ["example.com"], "draft saves domains as an array");
+  await waitFor(() => evaluate("!document.querySelector('.guardrail-footer .button.primary').disabled"), "draft ready to publish");
+  await evaluate("window.confirm=()=>true;document.querySelector('.guardrail-footer .button.primary').click()");
+  await waitFor(async () => !!(await client.execute("SELECT config_json FROM ai_guardrail_policies LIMIT 1")).rows[0], "blocked terms published");
+  const activeTerms = JSON.parse(String((await client.execute("SELECT config_json FROM ai_guardrail_policies LIMIT 1")).rows[0].config_json)).blockedTerms;
+  assert.deepEqual(activeTerms, ["야발, 근데."], "published policy keeps the string array");
+  const activeDomains = JSON.parse(String((await client.execute("SELECT config_json FROM ai_guardrail_policies LIMIT 1")).rows[0].config_json)).allowedDomains;
+  assert.deepEqual(activeDomains, ["example.com"], "published policy keeps the domain array");
+  await waitFor(() => evaluate("document.querySelector('.guardrail-blocked-meta')?.textContent.includes('1/1000')"), "published term returns to the editor");
+  const blockedStyles = await waitFor(() => evaluate("(()=>{const input=document.querySelector('#guardrail-blocked-filter'),wrapper=input.closest('.guardrail-blocked-search'),list=document.querySelector('.guardrail-blocked-list'),hr=document.querySelector('.guardrail-grid hr');input.focus();const style=getComputedStyle(input),box=getComputedStyle(wrapper),area=getComputedStyle(list),rule=hr&&getComputedStyle(hr);return {inputBorder:style.borderWidth,inputOutline:style.outlineWidth,wrapperOutline:box.outlineWidth,height:list.getBoundingClientRect().height,overflowY:area.overflowY,ruleColor:rule?.borderTopColor,lineColor:getComputedStyle(document.querySelector('.admin-settings-content')).borderLeftColor}})()"), "guardrail styles after publish");
+  assert.equal(blockedStyles.inputBorder, "0px"); assert.equal(blockedStyles.inputOutline, "0px");
+  assert.ok(parseFloat(blockedStyles.wrapperOutline) >= 2); assert.equal(blockedStyles.height, 111);
+  assert.equal(blockedStyles.overflowY, "auto");
+  if (blockedStyles.ruleColor) assert.equal(blockedStyles.ruleColor, blockedStyles.lineColor);
+  const darkRule = await evaluate("(()=>{document.documentElement.dataset.theme='dark';const hr=document.querySelector('.guardrail-grid hr');return {rule:hr&&getComputedStyle(hr).borderTopColor,line:getComputedStyle(document.querySelector('.admin-settings-content')).borderLeftColor}})()");
+  if (darkRule.rule) { assert.equal(darkRule.rule, darkRule.line); assert.notEqual(darkRule.rule, blockedStyles.ruleColor); }
+  await evaluate("document.documentElement.dataset.theme='light'");
   assert.equal(await evaluate("document.querySelector('.admin-settings-page > h1').getBoundingClientRect().height"), 1);
   for (const width of [1440, 1024, 768, 390]) {
     await resize(width);
@@ -116,6 +165,23 @@ try {
   }
   await screenshot("guardrails-mobile");
   await resize(1440);
+  if (process.argv.includes("--guardrail-only")) {
+    const cookie = cookies.map(value => value.split(";")[0]).join("; ");
+    const latest = await (await fetch(origin + "/api/admin/ai-guardrails", { headers: { Cookie: cookie } })).json();
+    const sendPolicy = terms => fetch(origin + "/api/admin/ai-guardrails", {
+      method: "POST", headers: { Cookie: cookie, Origin: origin, "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "draft", revision: latest.revision, activeVersion: latest.active.version,
+        policy: { ...latest.draft, blockedTerms: terms } }),
+    });
+    const manyTerms = Array.from({ length: 1000 }, (_, index) => `term-${index}`);
+    assert.equal((await sendPolicy(manyTerms)).status, 200, "1000 blocked terms are valid");
+    assert.equal(JSON.parse(String((await client.execute("SELECT draft_json FROM ai_guardrail_configs LIMIT 1")).rows[0].draft_json)).blockedTerms.length, 1000);
+    assert.equal((await sendPolicy([...manyTerms, "term-over-limit"])).status, 400, "1001 blocked terms are rejected");
+    await navigate("/admin/settings?tab=guardrails", ".guardrail-blocked-list");
+    await waitFor(() => evaluate("document.querySelectorAll('.guardrail-blocked-terms:not(.guardrail-domain-editor) .guardrail-blocked-chip').length===1000"), "1000 saved terms reload");
+    assert.ok(await evaluate("(()=>{const list=document.querySelector('.guardrail-blocked-list');return list.scrollHeight>list.clientHeight && list.getBoundingClientRect().height===111})()"), "blocked terms scroll after three rows");
+    console.log("PASS: blocked term UI, 1000-item save/1001-item rejection, three-row scrolling, focus border, themed divider, responsive layout.");
+  } else {
   // Client-side transitions also load personal-settings CSS; administration must remain isolated.
   await click(".user-summary", ".settings-form");
   assert.equal(await evaluate("getComputedStyle(document.querySelector('.settings-form .button')).minHeight"), "42px");
@@ -154,6 +220,7 @@ try {
   await evaluate("history.back()");
   await waitFor(() => evaluate("location.search==='?tab=history' && !!document.querySelector('.admin-list-table')"), "browser back");
   console.log("PASS: headless browser at 1440/1024/768/390px; 12px text; two/one-column leading checkboxes; compact buttons and tabs; isolated personal settings; matching member/history headers, shadows, body scroll, Escape/focus return and browser back.");
+  }
   console.log("Screenshots (synthetic fixtures only): " + folder);
 } catch (error) {
   if(socket?.readyState===1){try{await screenshot("failure");console.error("Browser evidence: "+folder);}catch{ /* Preserve original failure. */ }}

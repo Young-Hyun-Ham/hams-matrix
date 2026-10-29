@@ -18,10 +18,14 @@ export function ArchitectureSummary({ artifact }: { artifact: Artifact }) {
     <div className="matrix-architecture-summary">
       <header className="matrix-architecture-header">
         <div>
-          <span className="matrix-architecture-eyebrow">ARCHITECTURE OVERVIEW · {artifact.code}</span>
+          <span className="matrix-architecture-eyebrow">
+            ARCHITECTURE OVERVIEW · {artifact.code}
+          </span>
           <h3>{artifact.title}</h3>
         </div>
-        <span className="matrix-architecture-status">{artifact.status} · v{artifact.version}</span>
+        <span className="matrix-architecture-status">
+          {artifact.status} · v{artifact.version}
+        </span>
       </header>
       <div className="matrix-architecture-overview">
         <h4>시스템 구성 개요</h4>
@@ -30,7 +34,9 @@ export function ArchitectureSummary({ artifact }: { artifact: Artifact }) {
       <div className="matrix-architecture-technologies">
         {technologyBlocks.map((block) => (
           <div className="matrix-architecture-block" key={block.key}>
-            <span className="matrix-architecture-symbol" aria-hidden="true">{block.symbol}</span>
+            <span className="matrix-architecture-symbol" aria-hidden="true">
+              {block.symbol}
+            </span>
             <h4>{block.label}</h4>
             <p>{artifact.fields[block.key]?.trim() || "미등록"}</p>
           </div>

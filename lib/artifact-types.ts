@@ -262,7 +262,8 @@ export type TableOperation = {
   operations: ("C" | "R" | "U" | "D")[];
 };
 export type Baseline = { artifactId: string; version: number };
-export type ArchitectureLayer = "client" | "gateway" | "frontend" | "backend" | "data" | "external";
+export type ArchitectureLayer =
+  "client" | "gateway" | "frontend" | "backend" | "data" | "external";
 export type ArchitectureNode = {
   id: string;
   name: string;

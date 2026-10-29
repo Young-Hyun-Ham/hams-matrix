@@ -15,6 +15,9 @@ async function Content() {
   const user = await currentUser();
   if (!user) redirect("/login");
   if (user.onboardingComplete) redirect("/dashboard");
-  await db().execute({ sql: "UPDATE users SET onboarding_complete=1 WHERE id=?", args: [user.id] });
+  await db().execute({
+    sql: "UPDATE users SET onboarding_complete=1 WHERE id=?",
+    args: [user.id],
+  });
   return redirect("/dashboard");
 }

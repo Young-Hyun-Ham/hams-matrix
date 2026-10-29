@@ -72,9 +72,28 @@ export async function generateAi(
     await checkpoint?.();
     const started = Date.now();
     // UTF-8 bytes conservatively bound text tokenization; reserve image budget separately.
-    const budgetText = JSON.stringify({ instructions, tools: agent?.tools, messages, responseFormat: options?.responseFormat }, (key, value) => key === "image_url" && typeof value === "string" ? "[image]" : value);
-    const imageCount = (JSON.stringify(messages).match(/"type":"input_image"/g) ?? []).length;
-    await track?.({ turn, status: "started", reservedTokens: Buffer.byteLength(budgetText, "utf8") + 6000 + 4096 + imageCount * 65536 });
+    const budgetText = JSON.stringify(
+      {
+        instructions,
+        tools: agent?.tools,
+        messages,
+        responseFormat: options?.responseFormat,
+      },
+      (key, value) =>
+        key === "image_url" && typeof value === "string" ? "[image]" : value,
+    );
+    const imageCount = (
+      JSON.stringify(messages).match(/"type":"input_image"/g) ?? []
+    ).length;
+    await track?.({
+      turn,
+      status: "started",
+      reservedTokens:
+        Buffer.byteLength(budgetText, "utf8") +
+        6000 +
+        4096 +
+        imageCount * 65536,
+    });
     let response: Response;
     try {
       response = await fetch("https://api.openai.com/v1/responses", {
@@ -90,7 +109,9 @@ export async function generateAi(
           store: false,
           background: true,
           max_output_tokens: 6000,
-          ...(options?.responseFormat ? { text: { format: options.responseFormat } } : {}),
+          ...(options?.responseFormat
+            ? { text: { format: options.responseFormat } }
+            : {}),
           ...(agent
             ? {
                 tools: agent.tools,
@@ -129,7 +150,15 @@ export async function generateAi(
     }
     let metadata =
       raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    if (response.ok) metadata = await finishBackgroundResponse(metadata, turn, started, deadline, track, checkpoint);
+    if (response.ok)
+      metadata = await finishBackgroundResponse(
+        metadata,
+        turn,
+        started,
+        deadline,
+        track,
+        checkpoint,
+      );
     await track?.({
       turn,
       status: response.ok

@@ -21,10 +21,19 @@ export type ImageScope = {
   userId: string;
   projectId: string;
 };
-export function validateAiImages(value: unknown, limit = AI_IMAGE_MAX_COUNT): ValidAiImage[] {
+export function validateAiImages(
+  value: unknown,
+  limit = AI_IMAGE_MAX_COUNT,
+): ValidAiImage[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > Math.min(limit, AI_IMAGE_MAX_COUNT))
-    throw new HttpError(400, `현재 플랜은 이미지를 최대 ${limit}장까지 첨부할 수 있습니다.`);
+  if (
+    !Array.isArray(value) ||
+    value.length > Math.min(limit, AI_IMAGE_MAX_COUNT)
+  )
+    throw new HttpError(
+      400,
+      `현재 플랜은 이미지를 최대 ${limit}장까지 첨부할 수 있습니다.`,
+    );
   return value.map((item) => {
     if (!item || typeof item !== "object" || typeof item.dataUrl !== "string")
       throw new HttpError(400, "첨부 이미지 형식이 올바르지 않습니다.");
@@ -118,7 +127,10 @@ export function encryptAiImages(
       width: image.width,
       height: image.height,
     };
-    const encrypted = encryptImage(image.bytes, associatedData(scope, metadata));
+    const encrypted = encryptImage(
+      image.bytes,
+      associatedData(scope, metadata),
+    );
     statements.push({
       sql: "INSERT INTO ai_chat_images(id,chat_id,workspace_id,user_id,position,mime_type,byte_length,width,height,key_id,iv_base64,tag_base64,ciphertext_base64) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
       args: [
@@ -147,8 +159,14 @@ export function encryptAiImages(
 export function decryptAiImage(row: Row, scope: ImageScope) {
   const { url: unusedUrl, ...info } = imageInfo(row);
   void unusedUrl;
-  return decryptImage({
-    key_id: row.key_id, encryption_version: row.encryption_version,
-    iv_base64: row.iv_base64, tag_base64: row.tag_base64, ciphertext_base64: row.ciphertext_base64,
-  }, associatedData(scope, info));
+  return decryptImage(
+    {
+      key_id: row.key_id,
+      encryption_version: row.encryption_version,
+      iv_base64: row.iv_base64,
+      tag_base64: row.tag_base64,
+      ciphertext_base64: row.ciphertext_base64,
+    },
+    associatedData(scope, info),
+  );
 }

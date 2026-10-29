@@ -33,7 +33,8 @@ export async function PATCH(request: Request) {
     const user = await requireUser();
     const data = await body(request),
       name = nameInput(data.name);
-    if (user.accountRole === "master" && name !== "master") throw new HttpError(403, "master 이름은 변경할 수 없습니다.");
+    if (user.accountRole === "master" && name !== "master")
+      throw new HttpError(403, "master 이름은 변경할 수 없습니다.");
     const tx = await db().transaction("write");
     try {
       const before = await tx.execute({

@@ -97,16 +97,19 @@ export async function GET(request: Request) {
       args: [user.id, user.workspaceId],
     });
     const historyProjects = new Set<string>();
-    for (const p of projects.values()) if (await projectHistoryEnabled(p.id)) historyProjects.add(p.id);
-    const activities = recent.rows.filter(row => historyProjects.has(String(row.project_id))).map((row) => ({
-      id: String(row.id),
-      action: String(row.action),
-      actorName: String(row.actor_name),
-      occurredAt: String(row.occurred_at),
-      projectName: String(row.project_name),
-      projectId: String(row.project_id),
-      snapshot: JSON.parse(String(row.snapshot_json)),
-    }));
+    for (const p of projects.values())
+      if (await projectHistoryEnabled(p.id)) historyProjects.add(p.id);
+    const activities = recent.rows
+      .filter((row) => historyProjects.has(String(row.project_id)))
+      .map((row) => ({
+        id: String(row.id),
+        action: String(row.action),
+        actorName: String(row.actor_name),
+        occurredAt: String(row.occurred_at),
+        projectName: String(row.project_name),
+        projectId: String(row.project_id),
+        snapshot: JSON.parse(String(row.snapshot_json)),
+      }));
     await audit(request, {
       user,
       action: "READ",
@@ -176,7 +179,12 @@ export async function POST(request: Request) {
       for (const memberId of memberIds)
         await tx.execute({
           sql: "INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES (?,?,?,?)",
-          args: [id, user.workspaceId, memberId, memberId === user.id ? "admin" : "member"],
+          args: [
+            id,
+            user.workspaceId,
+            memberId,
+            memberId === user.id ? "admin" : "member",
+          ],
         });
       await audit(
         request,

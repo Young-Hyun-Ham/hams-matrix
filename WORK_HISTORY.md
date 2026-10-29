@@ -1,3 +1,4 @@
 - [작업 기록 — 회원·권한·요금제 개편](docs/work/2026-10-28/membership-roles-plans-work.md) - 2026-10-28
 - [좌측 메뉴·개인 설정·관리자설정 개편 구현](docs/work/2026-10-28/navigation-settings-admin-work.md) - 2026-10-28
 - [관리자설정 화면 밀도·탭·상세 모달 개선](docs/work/2026-10-28/admin-settings-compact-work.md) - 2026-10-28
+- [Markdown viewer 스타일 격리·아이콘·테마 개선](docs/work/2026-10-29/viewer-style-isolate-icon-theme-improvement.md) - 2026-10-29

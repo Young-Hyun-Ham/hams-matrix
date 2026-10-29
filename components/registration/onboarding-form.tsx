@@ -97,7 +97,16 @@ export function OnboardingForm() {
           </button>
         </p>
       )}
-      <label>담당 역할·직무<input maxLength={80} value={jobTitle} disabled={pending} placeholder="예: 서비스 기획자" onChange={event => setJobTitle(event.target.value)} /></label>
+      <label>
+        담당 역할·직무
+        <input
+          maxLength={80}
+          value={jobTitle}
+          disabled={pending}
+          placeholder="예: 서비스 기획자"
+          onChange={(event) => setJobTitle(event.target.value)}
+        />
+      </label>
       {error && (
         <p className="error-message" role="alert">
           {error}

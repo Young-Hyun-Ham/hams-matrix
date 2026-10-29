@@ -11,17 +11,24 @@ export type RegistrationChoice = {
 };
 export function registrationJobTitle(value: unknown) {
   if (value === undefined) return "";
-  if (typeof value !== "string" || value.trim().length > 80) throw new HttpError(400, "담당 역할은 80자 이내로 입력해 주세요.");
+  if (typeof value !== "string" || value.trim().length > 80)
+    throw new HttpError(400, "담당 역할은 80자 이내로 입력해 주세요.");
   return value.trim();
 }
 
 export async function registrationChoice(
   data: Record<string, unknown>,
 ): Promise<RegistrationChoice> {
-  if ((data.role !== undefined && data.role !== "user") ||
-      (data.accountRole !== undefined && data.accountRole !== "user") ||
-      (data.plan !== undefined && data.plan !== "free") || data.teamId != null)
-    throw new HttpError(400, "회원가입은 user 역할과 Free 플랜으로 시작합니다.");
+  if (
+    (data.role !== undefined && data.role !== "user") ||
+    (data.accountRole !== undefined && data.accountRole !== "user") ||
+    (data.plan !== undefined && data.plan !== "free") ||
+    data.teamId != null
+  )
+    throw new HttpError(
+      400,
+      "회원가입은 user 역할과 Free 플랜으로 시작합니다.",
+    );
   return { role: "user", plan: "free", teamId: null };
 }
 

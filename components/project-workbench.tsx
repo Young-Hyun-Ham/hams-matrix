@@ -71,7 +71,9 @@ function ProjectContent({
         openDelete: actions.openDelete,
       }}
     >
-      <div className={`matrix-tab-content${tab === "overview" ? "" : " matrix-tab-content-compact"}`}>
+      <div
+        className={`matrix-tab-content${tab === "overview" ? "" : " matrix-tab-content-compact"}`}
+      >
         <Page />
         <ArtifactDialogs actions={actions} onReload={onReload} />
       </div>
@@ -90,8 +92,10 @@ export function ProjectWorkbench({
   const model = useProjectData(user, initialProjectId);
   const query = useSearchParams();
   const requestedTab = query.get("tab");
-  const tab: ProjectTab = requestedTab && Object.hasOwn(projectTabLabels, requestedTab)
-    ? requestedTab as ProjectTab : projectSections[section ?? ""] ?? "overview";
+  const tab: ProjectTab =
+    requestedTab && Object.hasOwn(projectTabLabels, requestedTab)
+      ? (requestedTab as ProjectTab)
+      : (projectSections[section ?? ""] ?? "overview");
   function setTab(nextTab: ProjectTab) {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", nextTab);

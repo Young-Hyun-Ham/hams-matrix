@@ -20,9 +20,18 @@ import { readAiPage } from "@/lib/ai/page-data";
 import { createPageAgent, type AiAction } from "@/lib/ai/page-tools";
 import { encryptAiImages, validateAiImages } from "@/lib/ai/chat-images";
 import { createTokenTracker } from "@/lib/ai/token-usage";
-import { activeGuardrailPolicy, assertAiEnabled } from "@/lib/ai/guardrail-policy";
+import {
+  activeGuardrailPolicy,
+  assertAiEnabled,
+} from "@/lib/ai/guardrail-policy";
 import { createGuardrailSession, GuardrailBlocked } from "@/lib/ai/guardrails";
-import { GenerationCancelled, GenerationStopFailed, generationRequestId, registerGeneration, generationCheckpoint } from "@/lib/ai/generation-control";
+import {
+  GenerationCancelled,
+  GenerationStopFailed,
+  generationRequestId,
+  registerGeneration,
+  generationCheckpoint,
+} from "@/lib/ai/generation-control";
 import {
   conversationId,
   requireConversation,
@@ -138,8 +147,7 @@ export async function POST(request: Request) {
     if (projectId) {
       const project = await projectAccess(db(), user, projectId, true);
       projectName = String(project.name);
-      canWrite =
-        ["owner", "admin", "member"].includes(String(project.role));
+      canWrite = ["owner", "admin", "member"].includes(String(project.role));
     }
     const convId = conversationId(input.convId);
     const conversation = await requireConversation(user, projectId, convId);
@@ -159,36 +167,57 @@ export async function POST(request: Request) {
     };
     const id = randomUUID();
     // 생성 요청 전에 암호화 키/이미지를 검증하여 저장 불가 상태의 유료 호출을 방지합니다.
-    const encrypted = plan.historyEnabled ? encryptAiImages(images, {
-      chatId: id,
-      workspaceId: user.workspaceId,
-      userId: user.id,
-      projectId,
-    }) : { statements: [], images: images.map((image,index) => ({ id: `${id}-${index}`, url: image.dataUrl, mimeType: "image/png", byteLength: image.bytes.length, width: image.width, height: image.height })) };
+    const encrypted = plan.historyEnabled
+      ? encryptAiImages(images, {
+          chatId: id,
+          workspaceId: user.workspaceId,
+          userId: user.id,
+          projectId,
+        })
+      : {
+          statements: [],
+          images: images.map((image, index) => ({
+            id: `${id}-${index}`,
+            url: image.dataUrl,
+            mimeType: "image/png",
+            byteLength: image.bytes.length,
+            width: image.width,
+            height: image.height,
+          })),
+        };
     const page = selectAiPage(context);
-    const requestId = input.requestId === undefined ? randomUUID() : generationRequestId(input.requestId);
+    const requestId =
+      input.requestId === undefined
+        ? randomUUID()
+        : generationRequestId(input.requestId);
     await registerGeneration(user, convId, requestId);
     generationId = requestId;
     const generationCheck = generationCheckpoint(requestId, request.signal);
     const checkpoint = async (executor?: Pick<Client, "execute">) => {
       await generationCheck(executor);
-      if (Date.now() >= requestDeadline) throw new HttpError(504, "AI 요청의 전체 처리 시간이 초과되었습니다.");
+      if (Date.now() >= requestDeadline)
+        throw new HttpError(504, "AI 요청의 전체 처리 시간이 초과되었습니다.");
       await assertAiEnabled(user.workspaceId, executor);
     };
-    await db().execute({ sql: "UPDATE ai_generation_requests SET guardrail_version=? WHERE request_id=?", args: [guardrail.version, requestId] });
+    await db().execute({
+      sql: "UPDATE ai_generation_requests SET guardrail_version=? WHERE request_id=?",
+      args: [guardrail.version, requestId],
+    });
     await checkpoint();
-    const locked = plan.historyEnabled ? await db().execute({
-      sql: "UPDATE ai_conversations SET request_id=?,busy_until=? WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND (request_id IS NULL OR busy_until < ?) RETURNING conv_id",
-      args: [
-        requestId,
-        new Date(Date.now() + 240000).toISOString(),
-        convId,
-        user.workspaceId,
-        user.id,
-        projectId || null,
-        new Date().toISOString(),
-      ],
-    }) : { rows: [] };
+    const locked = plan.historyEnabled
+      ? await db().execute({
+          sql: "UPDATE ai_conversations SET request_id=?,busy_until=? WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND (request_id IS NULL OR busy_until < ?) RETURNING conv_id",
+          args: [
+            requestId,
+            new Date(Date.now() + 240000).toISOString(),
+            convId,
+            user.workspaceId,
+            user.id,
+            projectId || null,
+            new Date().toISOString(),
+          ],
+        })
+      : { rows: [] };
     if (plan.historyEnabled && !locked.rows.length)
       throw new HttpError(
         409,
@@ -196,23 +225,57 @@ export async function POST(request: Request) {
       );
     lease = plan.historyEnabled ? { convId, requestId } : undefined;
     const track = createTokenTracker({
-      workspaceId: user.workspaceId, userId: user.id, projectId, projectName,
-      convId, conversationTitle: conversation.title, chatId: id, requestId, model, prompt,
+      workspaceId: user.workspaceId,
+      userId: user.id,
+      projectId,
+      projectName,
+      convId,
+      conversationTitle: conversation.title,
+      chatId: id,
+      requestId,
+      model,
+      prompt,
     });
-    const guard = createGuardrailSession({ workspaceId: user.workspaceId, userId: user.id, requestId,
-      version: guardrail.version, policy: guardrail.policy, checkpoint, track, deadline: requestDeadline });
+    const guard = createGuardrailSession({
+      workspaceId: user.workspaceId,
+      userId: user.id,
+      requestId,
+      version: guardrail.version,
+      policy: guardrail.policy,
+      checkpoint,
+      track,
+      deadline: requestDeadline,
+    });
     await guard.inspect("input", prompt, images);
-    const history = plan.historyEnabled ? await conversationHistory(user, projectId, convId) : temporaryHistory(input.history);
+    const history = plan.historyEnabled
+      ? await conversationHistory(user, projectId, convId)
+      : temporaryHistory(input.history);
     const pageContext = await readAiPage(user, context, page);
     const historyImages: { dataUrl: string }[] = [];
-    const historyText = history.map(message => ({ ...message, content: Array.isArray(message.content)
-      ? message.content.map((part: Record<string, unknown>) => {
-        if (part.type !== "input_image" || typeof part.image_url !== "string") return part;
-        historyImages.push({ dataUrl: part.image_url });
-        return { type: "input_image", source: "previous_attachment" };
-      }) : message.content }));
-    await guard.inspect("context", { projectName, history: historyText, pageContext }, historyImages);
-    if ((images.length || historyImages.length) && guardrail.policy.imageMode === "read-only") canWrite = false;
+    const historyText = history.map((message) => ({
+      ...message,
+      content: Array.isArray(message.content)
+        ? message.content.map((part: Record<string, unknown>) => {
+            if (
+              part.type !== "input_image" ||
+              typeof part.image_url !== "string"
+            )
+              return part;
+            historyImages.push({ dataUrl: part.image_url });
+            return { type: "input_image", source: "previous_attachment" };
+          })
+        : message.content,
+    }));
+    await guard.inspect(
+      "context",
+      { projectName, history: historyText, pageContext },
+      historyImages,
+    );
+    if (
+      (images.length || historyImages.length) &&
+      guardrail.policy.imageMode === "read-only"
+    )
+      canWrite = false;
     const agent = createPageAgent(
       request,
       user,
@@ -241,7 +304,10 @@ export async function POST(request: Request) {
       if (error instanceof GenerationStopFailed) throw error;
       if (error instanceof GenerationCancelled) {
         outcome = "cancelled";
-        return Response.json({ cancelled: true, actions: agent.actions, projectId }, { headers: { "Cache-Control": "no-store" } });
+        return Response.json(
+          { cancelled: true, actions: agent.actions, projectId },
+          { headers: { "Cache-Control": "no-store" } },
+        );
       }
       // Tool mutations are only previews until the final output has passed validation.
       throw error;
@@ -255,7 +321,10 @@ export async function POST(request: Request) {
     });
     if (!finalizing.rows.length) {
       outcome = "cancelled";
-      return Response.json({ cancelled: true, actions: agent.actions, projectId }, { headers: { "Cache-Control": "no-store" } });
+      return Response.json(
+        { cancelled: true, actions: agent.actions, projectId },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
     const createdAt = new Date().toISOString(),
       screenTitle = [
@@ -268,46 +337,59 @@ export async function POST(request: Request) {
     let committed: AiAction[] = [];
     try {
       committed = await agent.commit(saveTx);
-      if (committed.length) result += "\n\n[서버 확인 실행 결과]\n" + committed.map(a => `${a.action} · ${a.code} · ${a.title} · 버전 ${a.version}`).join("\n");
-      const statements = plan.historyEnabled ? [
-        {
-          sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-          args: [
-            id,
-            user.workspaceId,
-            user.id,
-            projectId || null,
-            pathname,
-            tab,
-            screenTitle,
-            prompt,
-            model,
-            result,
-            createdAt,
-            convId,
-          ],
-        },
-        ...encrypted.statements,
-        {
-          sql: "UPDATE ai_token_usage SET chat_saved=1,result_characters=? WHERE request_id=? AND workspace_id=? AND user_id=?",
-          args: [
-            Array.from(result).length,
-            requestId,
-            user.workspaceId,
-            user.id,
-          ],
-        },
-        {
-          sql: "UPDATE ai_conversations SET updated_at=? WHERE conv_id=? AND workspace_id=? AND user_id=?",
-          args: [createdAt, convId, user.workspaceId, user.id],
-        },
-      ] : [];
+      if (committed.length)
+        result +=
+          "\n\n[서버 확인 실행 결과]\n" +
+          committed
+            .map(
+              (a) => `${a.action} · ${a.code} · ${a.title} · 버전 ${a.version}`,
+            )
+            .join("\n");
+      const statements = plan.historyEnabled
+        ? [
+            {
+              sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+              args: [
+                id,
+                user.workspaceId,
+                user.id,
+                projectId || null,
+                pathname,
+                tab,
+                screenTitle,
+                prompt,
+                model,
+                result,
+                createdAt,
+                convId,
+              ],
+            },
+            ...encrypted.statements,
+            {
+              sql: "UPDATE ai_token_usage SET chat_saved=1,result_characters=? WHERE request_id=? AND workspace_id=? AND user_id=?",
+              args: [
+                Array.from(result).length,
+                requestId,
+                user.workspaceId,
+                user.id,
+              ],
+            },
+            {
+              sql: "UPDATE ai_conversations SET updated_at=? WHERE conv_id=? AND workspace_id=? AND user_id=?",
+              args: [createdAt, convId, user.workspaceId, user.id],
+            },
+          ]
+        : [];
       for (const statement of statements) await saveTx.execute(statement);
       await checkpoint(saveTx);
       await saveTx.commit();
       agent.actions.push(...committed);
-    } catch (error) { await saveTx.rollback(); throw error; }
-    finally { saveTx.close(); }
+    } catch (error) {
+      await saveTx.rollback();
+      throw error;
+    } finally {
+      saveTx.close();
+    }
     outcome = "completed";
     return Response.json(
       {
@@ -327,19 +409,35 @@ export async function POST(request: Request) {
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
-    if (error instanceof GuardrailBlocked) return Response.json({ error: error.message, requestId: error.requestId }, { status: 422, headers: { "Cache-Control": "no-store" } });
+    if (error instanceof GuardrailBlocked)
+      return Response.json(
+        { error: error.message, requestId: error.requestId },
+        { status: 422, headers: { "Cache-Control": "no-store" } },
+      );
     if (error instanceof GenerationStopFailed)
-      return Response.json({ error: error.message, stopUnconfirmed: true, actions }, { status: 502, headers: { "Cache-Control": "no-store" } });
+      return Response.json(
+        { error: error.message, stopUnconfirmed: true, actions },
+        { status: 502, headers: { "Cache-Control": "no-store" } },
+      );
     if (error instanceof GenerationCancelled) {
       outcome = "cancelled";
-      return Response.json({ cancelled: true, actions }, { headers: { "Cache-Control": "no-store" } });
+      return Response.json(
+        { cancelled: true, actions },
+        { headers: { "Cache-Control": "no-store" } },
+      );
     }
     return errorResponse(error);
   } finally {
-    if (generationId) await db().execute({
-      sql: "UPDATE ai_generation_requests SET status=?,actions_json=?,finished_at=? WHERE request_id=?",
-      args: [outcome, JSON.stringify(actions), new Date().toISOString(), generationId],
-    });
+    if (generationId)
+      await db().execute({
+        sql: "UPDATE ai_generation_requests SET status=?,actions_json=?,finished_at=? WHERE request_id=?",
+        args: [
+          outcome,
+          JSON.stringify(actions),
+          new Date().toISOString(),
+          generationId,
+        ],
+      });
     if (lease)
       await db().execute({
         sql: "UPDATE ai_conversations SET request_id=NULL,busy_until=NULL WHERE conv_id=? AND request_id=?",

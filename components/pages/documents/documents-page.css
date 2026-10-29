@@ -1,26 +1,138 @@
-.document-library h2 { margin: 0 0 8px; }
-.document-library .matrix-toolbar p { margin: 0; color: var(--muted); }
-.document-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-.document-breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
-.document-breadcrumb span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
-.document-breadcrumb button { overflow-wrap: anywhere; }
-.document-breadcrumb [aria-current] { font-weight: 700; }
-.document-help { color: var(--muted); font-size: 13px; margin: 0; }
-.document-dropzone { display: grid; gap: 8px; width: 100%; padding: 28px 16px; border: 2px dashed var(--line); border-radius: 12px; background: var(--surface); color: inherit; font: inherit; text-align: center; cursor: pointer; transition: border-color .15s, background-color .15s; }
-.document-dropzone span { color: var(--muted); font-size: 13px; }
-.document-dropzone:hover:not(:disabled), .document-dropzone:focus-visible, .document-library.is-dragging .document-dropzone { border-color: #6555d9; background: color-mix(in srgb, #6555d9 10%, var(--surface)); }
-.document-library.is-dragging { outline: 2px solid #6555d9; outline-offset: -2px; }
-.document-folder-form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; }
-.document-folder-form label { display: grid; gap: 8px; max-width: 440px; }
-.document-error { white-space: pre-wrap; overflow-wrap: anywhere; }
-.document-table-wrap { overflow-x: auto; }
-.document-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-.document-table th, .document-table td { padding: 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-.document-table th { color: var(--muted); font-weight: 500; white-space: nowrap; }
-.document-table td:first-child { min-width: 180px; max-width: 440px; overflow-wrap: anywhere; }
-.document-table td:not(:first-child) { white-space: nowrap; }
-.document-name { background: transparent; border: 0; color: inherit; cursor: pointer; text-align: left; font: inherit; padding: 6px 0; overflow-wrap: anywhere; }
-.document-name:hover { text-decoration: underline; }
-.document-table .document-empty { padding: 40px 12px; text-align: center; color: var(--muted); white-space: normal; }
-.document-library button:disabled { cursor: default; opacity: .55; }
-@media (max-width: 700px) { .document-library.matrix-section { padding: 16px; } }
+.document-library h2 {
+  margin: 0 0 8px;
+}
+.document-library .matrix-toolbar p {
+  margin: 0;
+  color: var(--muted);
+}
+.document-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.document-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.document-breadcrumb span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.document-breadcrumb button {
+  overflow-wrap: anywhere;
+}
+.document-breadcrumb [aria-current] {
+  font-weight: 700;
+}
+.document-help {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 0;
+}
+.document-dropzone {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 28px 16px;
+  border: 2px dashed var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background-color 0.15s;
+}
+.document-dropzone span {
+  color: var(--muted);
+  font-size: 13px;
+}
+.document-dropzone:hover:not(:disabled),
+.document-dropzone:focus-visible,
+.document-library.is-dragging .document-dropzone {
+  border-color: #6555d9;
+  background: color-mix(in srgb, #6555d9 10%, var(--surface));
+}
+.document-library.is-dragging {
+  outline: 2px solid #6555d9;
+  outline-offset: -2px;
+}
+.document-folder-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.document-folder-form label {
+  display: grid;
+  gap: 8px;
+  max-width: 440px;
+}
+.document-error {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.document-table-wrap {
+  overflow-x: auto;
+}
+.document-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 14px;
+}
+.document-table th,
+.document-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.document-table th {
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.document-table td:first-child {
+  min-width: 180px;
+  max-width: 440px;
+  overflow-wrap: anywhere;
+}
+.document-table td:not(:first-child) {
+  white-space: nowrap;
+}
+.document-name {
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+}
+.document-name:hover {
+  text-decoration: underline;
+}
+.document-table .document-empty {
+  padding: 40px 12px;
+  text-align: center;
+  color: var(--muted);
+  white-space: normal;
+}
+.document-library button:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+@media (max-width: 700px) {
+  .document-library.matrix-section {
+    padding: 16px;
+  }
+}

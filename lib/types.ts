@@ -11,13 +11,17 @@ export type User = {
   accountRole: AccountRole;
   onboardingComplete: boolean;
 };
-export type MenuKey =
-  | "dashboard"
-  | "team"
-  | "ai";
+export type MenuKey = "dashboard" | "team" | "ai";
 
-export type NavigationMenuKey = MenuKey | 'subscription' | 'admin' | 'settings' | 'help';
+export type NavigationMenuKey =
+  MenuKey | "subscription" | "admin" | "settings" | "help";
 export type NavigationMenu = {
- key: NavigationMenuKey; label: string; en: string; icon: string; description: string;
- href: string; action: 'link' | 'ai' | 'help'; admin: boolean;
+  key: NavigationMenuKey;
+  label: string;
+  en: string;
+  icon: string;
+  description: string;
+  href: string;
+  action: "link" | "ai" | "help";
+  admin: boolean;
 };

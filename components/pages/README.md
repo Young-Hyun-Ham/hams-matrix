@@ -2,22 +2,22 @@
 
 각 탭은 이 디렉터리의 해당 폴더에서 화면을 구성합니다. 페이지 컴포넌트는 `ProjectWorkbench`를 다시 호출하지 않습니다.
 
-| 폴더 | 화면과 전용 컴포넌트 |
-| --- | --- |
-| dashboard | 프로젝트 목록, 통계, 최근 활동, 프로젝트 생성 |
-| project-overview | 프로젝트 개요, 통합 흐름, 개요 전용 스타일 |
-| wbs | WBS 목록·간트, 부모/선행 작업 편집, 마일스톤 날짜 동기화, AI 로드맵 이미지 생성·암호화 저장·미리보기·다운로드·재생성 |
-| architecture | 아키텍처 목록·구성 요약 카드, AI 이미지 모델/프롬프트 선택·암호화 저장·미리보기·PNG 다운로드·재생성, 구성요소/연결 편집 |
-| requirements | 요구사항 목록 |
-| screens | 화면 설계 목록 |
-| database | DB 설계 목록·ERD, 테이블 컬럼·PK/FK 편집 |
-| specifications | 프로그램 목록, 개발 WBS 등록, 테이블 CRUD·기술 검토 편집 |
-| verification | 검증 결과 목록, 검증 버전 확인 편집 |
-| traceability | 요구사항 추적표 |
-| acceptance | 통합 검수 점검, 검수 전용 스타일 |
-| history | 프로젝트 버전/변경 이력 |
-| deliverables | Excel 산출물 다운로드 |
-| team | 팀 공유 및 가입 승인 |
+| 폴더             | 화면과 전용 컴포넌트                                                                                                    |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| dashboard        | 프로젝트 목록, 통계, 최근 활동, 프로젝트 생성                                                                           |
+| project-overview | 프로젝트 개요, 통합 흐름, 개요 전용 스타일                                                                              |
+| wbs              | WBS 목록·간트, 부모/선행 작업 편집, 마일스톤 날짜 동기화, AI 로드맵 이미지 생성·암호화 저장·미리보기·다운로드·재생성    |
+| architecture     | 아키텍처 목록·구성 요약 카드, AI 이미지 모델/프롬프트 선택·암호화 저장·미리보기·PNG 다운로드·재생성, 구성요소/연결 편집 |
+| requirements     | 요구사항 목록                                                                                                           |
+| screens          | 화면 설계 목록                                                                                                          |
+| database         | DB 설계 목록·ERD, 테이블 컬럼·PK/FK 편집                                                                                |
+| specifications   | 프로그램 목록, 개발 WBS 등록, 테이블 CRUD·기술 검토 편집                                                                |
+| verification     | 검증 결과 목록, 검증 버전 확인 편집                                                                                     |
+| traceability     | 요구사항 추적표                                                                                                         |
+| acceptance       | 통합 검수 점검, 검수 전용 스타일                                                                                        |
+| history          | 프로젝트 버전/변경 이력                                                                                                 |
+| deliverables     | Excel 산출물 다운로드                                                                                                   |
+| team             | 팀 공유 및 가입 승인                                                                                                    |
 
 `components/project-workbench.tsx`는 프로젝트 선택·탭 전환·페이지 연결만 담당합니다.
 `app/(workspace)/.../page.tsx`는 인증용 `WorkspaceSection`과 워크스페이스를 조합하는 진입점입니다.

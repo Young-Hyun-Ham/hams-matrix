@@ -138,14 +138,16 @@ export async function currentUser(): Promise<User | null> {
 export async function requireUser() {
   const user = await currentUser();
   if (!user) throw new HttpError(401, "로그인이 필요합니다.");
-  if (user.accountRole === "guest") throw new HttpError(403, "게스트는 체험 화면만 조회할 수 있습니다.");
+  if (user.accountRole === "guest")
+    throw new HttpError(403, "게스트는 체험 화면만 조회할 수 있습니다.");
   if (!user.onboardingComplete)
     throw new HttpError(403, "가입 유형 선택을 완료해 주세요.");
   return user;
 }
 export function requireWriter(user: User) {
   if (
-    user.accountRole === "guest" || !user.onboardingComplete ||
+    user.accountRole === "guest" ||
+    !user.onboardingComplete ||
     !["owner", "admin", "member"].includes(user.role)
   )
     throw new HttpError(403, "현재 역할에는 변경 권한이 없습니다.");
@@ -175,13 +177,7 @@ export function newUserStatements(
     },
     {
       sql: "INSERT INTO workspaces(id,name,plan,subscription_plan,owner_id) VALUES (?,?,?,?,?)",
-      args: [
-        workspaceId,
-        `${name}의 워크스페이스`,
-        "free",
-        "free",
-        id,
-      ],
+      args: [workspaceId, `${name}의 워크스페이스`, "free", "free", id],
     },
     {
       sql: "INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,?)",

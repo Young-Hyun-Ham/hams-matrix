@@ -6,7 +6,11 @@ import {
   HttpError,
   userById,
 } from "@/lib/auth";
-import { registrationChoice, joinRequestStatements, registrationJobTitle } from "@/lib/registration";
+import {
+  registrationChoice,
+  joinRequestStatements,
+  registrationJobTitle,
+} from "@/lib/registration";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 
@@ -30,29 +34,18 @@ export async function POST(request: Request) {
         row.rows[0].active_workspace_id !== user.workspaceId
       )
         throw new HttpError(409, "이미 가입 유형 선택이 완료된 계정입니다.");
-      const name =
-        `${user.name}의 워크스페이스`;
+      const name = `${user.name}의 워크스페이스`;
       await tx.execute({
         sql: "UPDATE users SET account_role=?,onboarding_complete=1,job_title=?,updated_at=? WHERE id=?",
         args: [choice.role, jobTitle, new Date().toISOString(), user.id],
       });
       await tx.execute({
         sql: "UPDATE workspaces SET name=?,plan=?,subscription_plan=?,owner_id=? WHERE id=?",
-        args: [
-          name,
-          "free",
-          choice.plan,
-          user.id,
-          user.workspaceId,
-        ],
+        args: [name, "free", choice.plan, user.id, user.workspaceId],
       });
       await tx.execute({
         sql: "UPDATE workspace_members SET role=? WHERE workspace_id=? AND user_id=?",
-        args: [
-          "owner",
-          user.workspaceId,
-          user.id,
-        ],
+        args: ["owner", user.workspaceId, user.id],
       });
       for (const statement of joinRequestStatements(request, user, choice))
         await tx.execute(statement);

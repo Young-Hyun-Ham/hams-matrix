@@ -90,10 +90,18 @@ export function prepareStructure(
     return a!;
   };
   if (after.kind === "architecture") {
-    const topology = raw.topology === undefined ? previous?.topology : raw.topology;
+    const topology =
+      raw.topology === undefined ? previous?.topology : raw.topology;
     if (topology !== undefined) {
-      try { structure.topology = validateTopology(topology); }
-      catch (error) { fail(error instanceof Error ? error.message : "아키텍처 구성도를 확인해 주세요."); }
+      try {
+        structure.topology = validateTopology(topology);
+      } catch (error) {
+        fail(
+          error instanceof Error
+            ? error.message
+            : "아키텍처 구성도를 확인해 주세요.",
+        );
+      }
     }
   }
   if (after.kind === "wbs") {

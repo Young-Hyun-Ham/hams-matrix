@@ -1,11 +1,15 @@
 "use client";
-import {HelpContent} from "./help-content";
+import { HelpContent } from "./help-content";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/stores/workspace";
 import { navigationMenus, personalTabs, adminTabs } from "@/lib/menus";
-import { projectSections, projectTabLabels, type ProjectTab } from "@/lib/project-tabs";
+import {
+  projectSections,
+  projectTabLabels,
+  type ProjectTab,
+} from "@/lib/project-tabs";
 import type { User } from "@/lib/types";
 import { Brand, Icon } from "./icon";
 import { ThemeToggle } from "./theme-toggle";
@@ -35,19 +39,40 @@ export function WorkspaceShell({
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const query=useSearchParams();
-  const menus=navigationMenus.filter(m=>!m.admin||isPlatformAdmin(activeUser.accountRole));
-  const selected=menus.find(m=>m.href===pathname)??menus[0];
-  const tabLabels:Record<string,string>|null=pathname==='/settings'?personalTabs:pathname==='/admin/settings'?adminTabs:null;
-  const tab=query.get('tab')??(pathname==='/settings'?'usage':'plans');
-  const menu={...selected,label:tabLabels?`${selected.label} · ${tabLabels[tab]??Object.values(tabLabels)[0]}`:selected.label};
-  const titleHref = pathname.startsWith("/projects/") ? pathname
-    : pathname === "/admin/settings" || pathname === "/settings" ? `${pathname}?tab=${tab}`
-    : selected.action === "link" ? selected.href : pathname;
-  const projectRoute = pathname.startsWith("/projects/") || Object.hasOwn(projectSections, pathname.slice(1));
+  const query = useSearchParams();
+  const menus = navigationMenus.filter(
+    (m) => !m.admin || isPlatformAdmin(activeUser.accountRole),
+  );
+  const selected = menus.find((m) => m.href === pathname) ?? menus[0];
+  const tabLabels: Record<string, string> | null =
+    pathname === "/settings"
+      ? personalTabs
+      : pathname === "/admin/settings"
+        ? adminTabs
+        : null;
+  const tab =
+    query.get("tab") ?? (pathname === "/settings" ? "usage" : "plans");
+  const menu = {
+    ...selected,
+    label: tabLabels
+      ? `${selected.label} · ${tabLabels[tab] ?? Object.values(tabLabels)[0]}`
+      : selected.label,
+  };
+  const titleHref = pathname.startsWith("/projects/")
+    ? pathname
+    : pathname === "/admin/settings" || pathname === "/settings"
+      ? `${pathname}?tab=${tab}`
+      : selected.action === "link"
+        ? selected.href
+        : pathname;
+  const projectRoute =
+    pathname.startsWith("/projects/") ||
+    Object.hasOwn(projectSections, pathname.slice(1));
   const requestedProjectTab = query.get("tab");
-  const projectTab: ProjectTab = requestedProjectTab && Object.hasOwn(projectTabLabels, requestedProjectTab)
-    ? requestedProjectTab as ProjectTab : projectSections[pathname.slice(1)] ?? "overview";
+  const projectTab: ProjectTab =
+    requestedProjectTab && Object.hasOwn(projectTabLabels, requestedProjectTab)
+      ? (requestedProjectTab as ProjectTab)
+      : (projectSections[pathname.slice(1)] ?? "overview");
   function tabHref(value: string) {
     const params = new URLSearchParams(query.toString());
     params.set("tab", value);
@@ -111,28 +136,43 @@ export function WorkspaceShell({
       setBusy(false);
     }
   }
-  const renderMenus = (items: typeof menus) => items.map((m) =>
-    m.key === "ai" ? (
-      <AiChatbotToggle key={`${m.key}:${activeUser.id}:${activeUser.workspaceId}`} />
-    ) : m.action === "help" ? (
-      <button className="nav-item secondary" key={m.key} onClick={() => openModal("help")}><Icon name={m.icon} size={19}/>{m.label}</button>
-    ) : (
-      <Link
-        key={m.key}
-        href={m.href}
-        className={`nav-item ${m.key === menu.key ? "active" : ""}`}
-        aria-current={m.key === menu.key ? "page" : undefined}
-        onClick={() => { setSidebarOpen(false); setSearch(""); }}
-      >
-        <Icon name={m.icon} size={19} />
-        {m.label}
-        {m.key === "dashboard" && <span className="nav-dot" />}
-        {m.key === "team" && <span className="nav-new">NEW</span>}
-      </Link>
-    ),
-  );
+  const renderMenus = (items: typeof menus) =>
+    items.map((m) =>
+      m.key === "ai" ? (
+        <AiChatbotToggle
+          key={`${m.key}:${activeUser.id}:${activeUser.workspaceId}`}
+        />
+      ) : m.action === "help" ? (
+        <button
+          className="nav-item secondary"
+          key={m.key}
+          onClick={() => openModal("help")}
+        >
+          <Icon name={m.icon} size={19} />
+          {m.label}
+        </button>
+      ) : (
+        <Link
+          key={m.key}
+          href={m.href}
+          className={`nav-item ${m.key === menu.key ? "active" : ""}`}
+          aria-current={m.key === menu.key ? "page" : undefined}
+          onClick={() => {
+            setSidebarOpen(false);
+            setSearch("");
+          }}
+        >
+          <Icon name={m.icon} size={19} />
+          {m.label}
+          {m.key === "dashboard" && <span className="nav-dot" />}
+          {m.key === "team" && <span className="nav-new">NEW</span>}
+        </Link>
+      ),
+    );
   return (
-    <div className={`workspace ${desktopSidebarOpen ? "" : "sidebar-collapsed"}`}>
+    <div
+      className={`workspace ${desktopSidebarOpen ? "" : "sidebar-collapsed"}`}
+    >
       <a className="skip-link" href="#main-content">
         본문으로 이동
       </a>
@@ -157,18 +197,37 @@ export function WorkspaceShell({
           </Link>
           <p className="nav-caption">WORKSPACE</p>
           <nav aria-label="메인 메뉴">
-            {renderMenus(menus.filter((m) => m.key !== "subscription" && m.key !== "admin" && m.key !== "settings" && m.key !== "help"))}
+            {renderMenus(
+              menus.filter(
+                (m) =>
+                  m.key !== "subscription" &&
+                  m.key !== "admin" &&
+                  m.key !== "settings" &&
+                  m.key !== "help",
+              ),
+            )}
           </nav>
           <div className="sidebar-bottom">
             <nav aria-label="계정 및 도움말 메뉴">
-              {renderMenus(menus.filter((m) => m.key === "subscription" || m.key === "admin" || m.key === "settings" || m.key === "help"))}
+              {renderMenus(
+                menus.filter(
+                  (m) =>
+                    m.key === "subscription" ||
+                    m.key === "admin" ||
+                    m.key === "settings" ||
+                    m.key === "help",
+                ),
+              )}
             </nav>
             <WorkspacePicker current={activeUser.workspaceId} />
             <div className="sidebar-user">
               <div className="user-avatar">{activeUser.name.charAt(0)}</div>
               <button
                 className="user-summary"
-                onClick={() => {router.push("/settings?tab=account");setSidebarOpen(false);}}
+                onClick={() => {
+                  router.push("/settings?tab=account");
+                  setSidebarOpen(false);
+                }}
               >
                 <strong>{activeUser.name}</strong>
                 <span>{activeUser.email ?? "소셜 계정"}</span>
@@ -195,26 +254,60 @@ export function WorkspaceShell({
           <nav className="breadcrumb" aria-label="현재 위치">
             <button
               className="icon-button menu-toggle"
-              onClick={() => isMobile ? setSidebarOpen(!sidebarOpen) : setDesktopSidebarOpen(!desktopSidebarOpen)}
-              aria-label={(isMobile ? sidebarOpen : desktopSidebarOpen) ? "메뉴 닫기" : "메뉴 열기"}
+              onClick={() =>
+                isMobile
+                  ? setSidebarOpen(!sidebarOpen)
+                  : setDesktopSidebarOpen(!desktopSidebarOpen)
+              }
+              aria-label={
+                (isMobile ? sidebarOpen : desktopSidebarOpen)
+                  ? "메뉴 닫기"
+                  : "메뉴 열기"
+              }
               aria-expanded={isMobile ? sidebarOpen : desktopSidebarOpen}
               aria-controls="workspace-navigation"
             >
               <Icon name="menu" />
             </button>
-            <Link className="breadcrumb-workspace" href="/dashboard">워크스페이스</Link>
-            <Icon name="chevron" size={13} />
-            <Link className="breadcrumb-title" href={projectRoute ? tabHref("overview") : tabLabels ? pathname : titleHref} aria-current={!projectRoute && !tabLabels ? "page" : undefined}>
-              {projectRoute
-                ? "프로젝트 작업 공간"
-                : selected.label}
+            <Link className="breadcrumb-workspace" href="/dashboard">
+              워크스페이스
             </Link>
-            {(projectRoute || tabLabels) && <>
-              <Icon name="chevron" size={13} />
-              <Link className="breadcrumb-title" href={tabHref(projectRoute ? projectTab : tabLabels && Object.hasOwn(tabLabels, tab) ? tab : pathname === "/settings" ? "usage" : "plans")} aria-current="page">
-                {projectRoute ? projectTabLabels[projectTab] : tabLabels?.[tab] ?? Object.values(tabLabels ?? {})[0]}
-              </Link>
-            </>}
+            <Icon name="chevron" size={13} />
+            <Link
+              className="breadcrumb-title"
+              href={
+                projectRoute
+                  ? tabHref("overview")
+                  : tabLabels
+                    ? pathname
+                    : titleHref
+              }
+              aria-current={!projectRoute && !tabLabels ? "page" : undefined}
+            >
+              {projectRoute ? "프로젝트 작업 공간" : selected.label}
+            </Link>
+            {(projectRoute || tabLabels) && (
+              <>
+                <Icon name="chevron" size={13} />
+                <Link
+                  className="breadcrumb-title"
+                  href={tabHref(
+                    projectRoute
+                      ? projectTab
+                      : tabLabels && Object.hasOwn(tabLabels, tab)
+                        ? tab
+                        : pathname === "/settings"
+                          ? "usage"
+                          : "plans",
+                  )}
+                  aria-current="page"
+                >
+                  {projectRoute
+                    ? projectTabLabels[projectTab]
+                    : (tabLabels?.[tab] ?? Object.values(tabLabels ?? {})[0])}
+                </Link>
+              </>
+            )}
           </nav>
           <div className="topbar-tools">
             <label className="global-search">
@@ -254,7 +347,10 @@ export function WorkspaceShell({
             </div>
             <button
               className="topbar-avatar"
-              onClick={() => {router.push("/settings?tab=account");setSidebarOpen(false);}}
+              onClick={() => {
+                router.push("/settings?tab=account");
+                setSidebarOpen(false);
+              }}
               aria-label="내 계정 설정"
             >
               {activeUser.name.charAt(0)}
@@ -274,7 +370,10 @@ export function WorkspaceShell({
                     key={m.key}
                     onClick={(e) => {
                       setSearch("");
-                      if(m.action === 'help'){e.preventDefault();openModal('help');}
+                      if (m.action === "help") {
+                        e.preventDefault();
+                        openModal("help");
+                      }
                       if (m.key === "ai") {
                         e.preventDefault();
                         setAiMenuOpen(true);
@@ -296,7 +395,10 @@ export function WorkspaceShell({
           )}
         </header>
         <AiWorkspaceLayout>
-          <main id="main-content" className={`main-content ${pathname === "/admin/settings" ? "admin-main-content" : ""}`}>
+          <main
+            id="main-content"
+            className={`main-content ${pathname === "/admin/settings" ? "admin-main-content" : ""} ${pathname === "/viewer" ? "viewer-main-content" : ""}`}
+          >
             {activeUser.role === "viewer" && (
               <p className="sample-notice">
                 {activeUser.workspaceName} · viewer 권한은 조회 전용입니다. 팀
@@ -323,9 +425,7 @@ export function WorkspaceShell({
         }}
       >
         <div className="dialog-header">
-          <h2>
-            함께 만들어 가는 HAMS Matrix
-          </h2>
+          <h2>함께 만들어 가는 HAMS Matrix</h2>
           <button
             className="icon-button"
             aria-label="닫기"
@@ -334,7 +434,7 @@ export function WorkspaceShell({
             <Icon name="close" />
           </button>
         </div>
-        <HelpContent/>
+        <HelpContent />
       </dialog>
     </div>
   );

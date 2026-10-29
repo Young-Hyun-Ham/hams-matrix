@@ -32,9 +32,17 @@ export async function requireConversation(
 ) {
   if (projectId) await projectAccess(db(), user, projectId);
   if (!(await memberPlan(user.id)).historyEnabled) {
-    if (!/^temporary-[0-9a-f-]{36}$/.test(convId)) throw new HttpError(404, "새 임시 채팅을 시작해 주세요.");
+    if (!/^temporary-[0-9a-f-]{36}$/.test(convId))
+      throw new HttpError(404, "새 임시 채팅을 시작해 주세요.");
     const now = new Date().toISOString();
-    return { convId, projectId, title: "임시 채팅 · 이력 미저장", isPinned: false, createdAt: now, updatedAt: now };
+    return {
+      convId,
+      projectId,
+      title: "임시 채팅 · 이력 미저장",
+      isPinned: false,
+      createdAt: now,
+      updatedAt: now,
+    };
   }
   const found = await db().execute({
     sql: `SELECT ${conversationColumns} FROM ai_conversations WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?`,
@@ -50,7 +58,8 @@ export async function conversationChats(
   convId: string,
   before?: string,
 ) {
-  if (!(await memberPlan(user.id)).historyEnabled) return { chats: [], nextCursor: null };
+  if (!(await memberPlan(user.id)).historyEnabled)
+    return { chats: [], nextCursor: null };
   // Stable rowid cursor also handles requests committed in the same millisecond.
   const result = await db().execute({
     sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 51`,
@@ -140,12 +149,20 @@ export async function conversationHistory(
 
 export function temporaryHistory(value: unknown): Record<string, unknown>[] {
   if (value === undefined) return [];
-  if (!Array.isArray(value) || value.length > 20) throw new HttpError(400, "임시 대화 문맥이 너무 깁니다.");
-  let size=0;
-  return value.map(message => {
-    if (!message || typeof message !== "object" || !["user","assistant"].includes(message.role) || typeof message.content !== "string") throw new HttpError(400, "임시 대화 형식이 올바르지 않습니다.");
-    size+=message.content.length;
-    if(size>60000) throw new HttpError(400, "임시 대화 문맥은 60,000자 이내여야 합니다.");
+  if (!Array.isArray(value) || value.length > 20)
+    throw new HttpError(400, "임시 대화 문맥이 너무 깁니다.");
+  let size = 0;
+  return value.map((message) => {
+    if (
+      !message ||
+      typeof message !== "object" ||
+      !["user", "assistant"].includes(message.role) ||
+      typeof message.content !== "string"
+    )
+      throw new HttpError(400, "임시 대화 형식이 올바르지 않습니다.");
+    size += message.content.length;
+    if (size > 60000)
+      throw new HttpError(400, "임시 대화 문맥은 60,000자 이내여야 합니다.");
     return { role: message.role, content: message.content };
   });
 }

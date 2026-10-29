@@ -88,7 +88,8 @@ export const WbsScheduleImage = forwardRef<
           <tbody>
             {ordered.map(({ task, depth }, index) => {
               const item = metrics[index];
-              const left = ((Date.parse(task.fields.startDate) - first) / span) * 100;
+              const left =
+                ((Date.parse(task.fields.startDate) - first) / span) * 100;
               const width =
                 ((Date.parse(task.fields.endDate) -
                   Date.parse(task.fields.startDate) +
@@ -122,7 +123,10 @@ export const WbsScheduleImage = forwardRef<
                   </td>
                   <td>
                     {task.structure?.dependencies
-                      ?.map((id) => tasks.find((candidate) => candidate.id === id)?.code)
+                      ?.map(
+                        (id) =>
+                          tasks.find((candidate) => candidate.id === id)?.code,
+                      )
                       .filter(Boolean)
                       .join(", ") || "—"}
                   </td>
@@ -130,7 +134,9 @@ export const WbsScheduleImage = forwardRef<
                     {item.plannedEffort}h / {item.actualEffort}h
                   </td>
                   <td>
-                    <strong className="wbs-image-progress">{item.progress}%</strong>
+                    <strong className="wbs-image-progress">
+                      {item.progress}%
+                    </strong>
                   </td>
                 </tr>
               );

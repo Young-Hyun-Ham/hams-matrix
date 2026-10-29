@@ -37,12 +37,15 @@ export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
     <section className="panel matrix-section">
       <div className="matrix-wbs-schedule-heading">
         <h2>WBS 일정과 공수</h2>
-        <AiImageActions key={data.project.id}
+        <AiImageActions
+          key={data.project.id}
           endpoint={`/api/projects/${encodeURIComponent(data.project.id)}/wbs/image`}
-          label="WBS 마일스톤" subject={data.project.name}
+          label="WBS 마일스톤"
+          subject={data.project.name}
           description="프로젝트의 전체 WBS 작업·계획 기간·마일스톤·선행 관계를 바탕으로 AI가 단계별 로드맵 이미지를 생성합니다."
           promptPlaceholder="예: 보라색 단계 막대와 금색 마일스톤, 분기별 타임라인으로 표현해 주세요"
-          filename={`WBS-마일스톤-${data.project.name}`} canWrite={data.canWrite}
+          filename={`WBS-마일스톤-${data.project.name}`}
+          canWrite={data.canWrite}
         />
       </div>
       <p>
