@@ -1,3 +1,4 @@
+import { requireProjectPermission } from "@/lib/project-permissions";
 import {
   requireUser,
   errorResponse,
@@ -72,7 +73,7 @@ async function mutateFolder(
     const input = await body(request),
       tx = await db().transaction("write");
     try {
-      await projectAccess(tx, user, projectId, true);
+      await requireProjectPermission(tx, user, projectId, "documents", action);
       const id = action === "CREATE" ? randomUUID() : folderId(input.id);
       if (!id) throw new HttpError(400, "변경할 폴더를 선택해 주세요.");
       let before: Record<string, unknown> | undefined;

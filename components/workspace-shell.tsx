@@ -73,6 +73,25 @@ export function WorkspaceShell({
     requestedProjectTab && Object.hasOwn(projectTabLabels, requestedProjectTab)
       ? (requestedProjectTab as ProjectTab)
       : (projectSections[pathname.slice(1)] ?? "overview");
+  const notificationRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!notifications) return;
+
+    function handleOutside(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !notificationRef.current?.contains(event.target)
+      ) {
+        setNotifications(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", handleOutside, true);
+
+    return () => {
+      document.removeEventListener("pointerdown", handleOutside, true);
+    };
+  }, [notifications]);
   function tabHref(value: string) {
     const params = new URLSearchParams(query.toString());
     params.set("tab", value);
@@ -219,7 +238,6 @@ export function WorkspaceShell({
                 ),
               )}
             </nav>
-            <WorkspacePicker current={activeUser.workspaceId} />
             <div className="sidebar-user">
               <div className="user-avatar">{activeUser.name.charAt(0)}</div>
               <button
@@ -322,12 +340,12 @@ export function WorkspaceShell({
             </label>
             <span className="topbar-divider" />
             <ThemeToggle />
-            <div className="notification-wrap">
+            <div className="notification-wrap" ref={notificationRef}>
               <button
                 className="icon-button"
                 aria-label="알림"
                 aria-expanded={notifications}
-                onClick={() => setNotifications(!notifications)}
+                onClick={() => setNotifications((open) => !open)}
               >
                 <Icon name="bell" size={19} />
               </button>
@@ -345,7 +363,7 @@ export function WorkspaceShell({
                 </div>
               )}
             </div>
-            <button
+            {/* <button
               className="topbar-avatar"
               onClick={() => {
                 router.push("/settings?tab=account");
@@ -354,7 +372,8 @@ export function WorkspaceShell({
               aria-label="내 계정 설정"
             >
               {activeUser.name.charAt(0)}
-            </button>
+            </button> */}
+            <WorkspacePicker current={activeUser.workspaceId} />
           </div>
           {search && (
             <div className="search-results">
@@ -418,23 +437,26 @@ export function WorkspaceShell({
       </div>
       <dialog
         ref={dialogRef}
-        className="workspace-dialog"
+        className="workspace-dialog admin-detail-dialog workspace-help-dialog"
+        aria-labelledby="workspace-help-title"
         onCancel={() => setModal(null)}
         onClick={(e) => {
           if (e.target === e.currentTarget) setModal(null);
         }}
       >
-        <div className="dialog-header">
-          <h2>함께 만들어 가는 HAMS Matrix</h2>
+        <div className="dialog-header admin-detail-header">
+          <h2 id="workspace-help-title">함께 만들어 가는 HAMS Matrix</h2>
           <button
-            className="icon-button"
+            type="button"
+            className="button admin-detail-close"
             aria-label="닫기"
             onClick={() => setModal(null)}
           >
-            <Icon name="close" />
+            닫기
           </button>
         </div>
-        <HelpContent />
+        <div className="admin-detail-body"><HelpContent /></div>
+        <div className="project-registration-footer"><button type="button" className="button primary" onClick={() => setModal(null)}>확인</button></div>
       </dialog>
     </div>
   );

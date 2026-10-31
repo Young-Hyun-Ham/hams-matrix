@@ -1,3 +1,4 @@
+import { initializeProjectPolicy } from "@/lib/project-permissions";
 import { toArtifact } from "@/lib/artifacts";
 import { acceptanceReport } from "@/lib/integration";
 import { randomUUID } from "node:crypto";
@@ -183,9 +184,10 @@ export async function POST(request: Request) {
             id,
             user.workspaceId,
             memberId,
-            memberId === user.id ? "admin" : "member",
+            memberId === user.id ? "admin" : "viewer",
           ],
         });
+      await initializeProjectPolicy(tx, user.workspaceId, id, user.id);
       await audit(
         request,
         {
@@ -207,7 +209,7 @@ export async function POST(request: Request) {
         members: selected.rows.map((row) => ({
           id: String(row.id),
           name: String(row.name),
-          role: row.id === user.id ? "owner" : "member",
+          role: row.id === user.id ? "owner" : "viewer",
         })),
       };
       await tx.commit();

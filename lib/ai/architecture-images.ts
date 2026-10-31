@@ -1,3 +1,4 @@
+import { requireProjectPermission } from "../project-permissions";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
@@ -24,6 +25,7 @@ export async function architectureFor(
   write = false,
 ) {
   await projectAccess(executor, user, projectId, write);
+  if(write) await requireProjectPermission(executor,user,projectId,"architecture","UPDATE");
   const result = await executor.execute({
     sql: "SELECT * FROM project_artifacts WHERE id=? AND project_id=? AND workspace_id=? AND kind='architecture' AND deleted_at IS NULL",
     args: [artifactId, projectId, user.workspaceId],

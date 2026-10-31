@@ -49,7 +49,7 @@ export function TeamMemberAddDialog({
   return (
     <dialog
       ref={dialog}
-      className="team-compose-dialog"
+      className="workspace-dialog admin-detail-dialog workspace-form-dialog"
       aria-labelledby="team-add-title"
       onCancel={(event) => {
         event.preventDefault();
@@ -57,7 +57,11 @@ export function TeamMemberAddDialog({
       }}
     >
       <form onSubmit={(event) => void add(event)}>
-        <h2 id="team-add-title">Free 사용자 추가</h2>
+        <div className="dialog-header admin-detail-header">
+          <h2 id="team-add-title">Free 사용자 추가</h2>
+          <button type="button" className="button admin-detail-close" disabled={busy} onClick={onClose}>닫기</button>
+        </div>
+        <div className="admin-detail-body project-registration-body">
         <p>
           {projectId
             ? `${projectName ?? "선택한 프로젝트"}에`
@@ -68,6 +72,7 @@ export function TeamMemberAddDialog({
           가입한 이메일
           <input
             type="email"
+            autoFocus
             required
             maxLength={254}
             value={email}
@@ -81,7 +86,8 @@ export function TeamMemberAddDialog({
             {error}
           </p>
         )}
-        <div>
+        </div>
+        <div className="project-registration-footer">
           <button
             type="button"
             className="button"

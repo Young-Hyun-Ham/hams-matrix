@@ -76,6 +76,7 @@ export function useProjectData(user: User, initialProjectId?: string) {
     return () => controller.abort();
   }, [projectId, attempt, user.workspaceId, user.id, aiDataVersion]);
   return {
+    updateData: setData,
     projects,
     projectId,
     setProjectId,

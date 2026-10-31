@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { User } from "@/lib/types";
 import type { Project, TeamMember } from "@/lib/project-types";
 import { TeamMembership } from "./team-membership";
+import { ProjectPermissionsDialog } from './project-permissions-dialog';
 import { TeamMemberAddDialog } from "./team-member-add-dialog";
 import { Icon } from "@/components/icon";
 import "./team-page.css";
@@ -29,6 +30,7 @@ const writable = (role: string) => ["owner", "admin", "member"].includes(role);
 const date = (value: string) =>
   new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 export function TeamPage({ user }: { user: User }) {
+  const [permissionsOpen,setPermissionsOpen] = useState(false);
   const [projectId, setProjectId] = useState(""),
     [projects, setProjects] = useState<Project[]>([]);
   const [members, setMembers] = useState<TeamMember[]>([]),
@@ -197,7 +199,7 @@ export function TeamPage({ user }: { user: User }) {
     <>
       <div className="page-heading">
         <div>
-          <h1>팀 공유</h1>
+          <div style={{display:'flex',alignItems:'center',gap:12}}><h1>팀 공유</h1>{projectId && selectedRole === 'owner' && <button type="button" className="button" disabled={loading} onClick={()=>setPermissionsOpen(true)}>역할별 권한 설정</button>}</div>
           <p>프로젝트를 선택하고 팀의 소식과 의견을 나누세요.</p>
         </div>
         <div className="page-heading-actions">
@@ -209,6 +211,7 @@ export function TeamPage({ user }: { user: User }) {
               disabled={busy}
               onChange={(event) => {
                 setProjectId(event.target.value);
+                setPermissionsOpen(false);
                 setComposing(false);
                 setAddingMember(false);
               }}
@@ -450,18 +453,23 @@ export function TeamPage({ user }: { user: User }) {
             )}
           <dialog
             ref={dialog}
-            className="team-compose-dialog"
+            className="workspace-dialog admin-detail-dialog workspace-form-dialog"
+            aria-labelledby="team-compose-title"
             onCancel={(event) => {
               event.preventDefault();
               if (!busy) setComposing(false);
             }}
           >
             <form onSubmit={(event) => void writePost(event)}>
-              <h2>공유 글 작성</h2>
+              <div className="dialog-header admin-detail-header">
+                <h2 id="team-compose-title">공유 글 작성</h2>
+                <button type="button" className="button admin-detail-close" disabled={busy} onClick={() => setComposing(false)}>닫기</button>
+              </div>
+              <div className="admin-detail-body project-registration-body">
               <p>{selected?.name}에 공유합니다.</p>
               <label>
                 분류
-                <select name="category" disabled={busy}>
+                <select name="category" disabled={busy} autoFocus>
                   {["공유", "공지", "질문", "진행 상황"].map((category) => (
                     <option key={category}>{category}</option>
                   ))}
@@ -486,7 +494,8 @@ export function TeamPage({ user }: { user: User }) {
                   {error}
                 </p>
               )}
-              <div>
+              </div>
+              <div className="project-registration-footer">
                 <button
                   type="button"
                   className="button"
@@ -503,6 +512,7 @@ export function TeamPage({ user }: { user: User }) {
           </dialog>
         </>
       )}
+      {permissionsOpen && projectId && selectedRole === 'owner' && <ProjectPermissionsDialog key={projectId} projectId={projectId} projectName={selected?.name??''} onClose={()=>setPermissionsOpen(false)} onChanged={()=>setVersion(v=>v+1)} />}
       {!projectId && error && (
         <p className="error-message" role="alert">
           {error}

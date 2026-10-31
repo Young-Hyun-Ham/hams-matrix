@@ -43,7 +43,7 @@
 
 ## 일관성과 접근 통제
 
-감사 이력 저장은 `app_settings`에서 `setting_key='DB_LOGGING_ENABLED'`, `value_type='boolean'`, `value_json`이 JSON boolean `true`인 경우에만 활성화됩니다. 초기값은 `false`이며 `.env` 값은 읽지 않습니다. 설정 행이 없거나 false면 이력 행을 추가하지 않습니다. SQL의 `INSERT … SELECT … WHERE EXISTS`가 같은 트랜잭션에서 설정을 확인하므로 별도 캐시나 설정 조회에 대한 재귀 이력 없이 변경 직후부터 반영됩니다. 실제 사용자·세션 데이터 처리는 계속 수행하며 기존 이력은 삭제하지 않습니다. 단독 기록은 `audit()`, 배치 기록은 `...auditStatements()`를 사용합니다. 트랜잭션 내 단독 기록은 `audit(request, input, tx)`로 같은 트랜잭션에 저장합니다.
+감사 이력 저장은 `admin_setting`에서 `setting_key='DB_LOGGING_ENABLED'`, `value_type='boolean'`, `value_json`이 JSON boolean `true`인 경우에만 활성화됩니다. 초기값은 `false`이며 `.env` 값은 읽지 않습니다. 설정 행이 없거나 false면 이력 행을 추가하지 않습니다. SQL의 `INSERT … SELECT … WHERE EXISTS`가 같은 트랜잭션에서 설정을 확인하므로 별도 캐시나 설정 조회에 대한 재귀 이력 없이 변경 직후부터 반영됩니다. 실제 사용자·세션 데이터 처리는 계속 수행하며 기존 이력은 삭제하지 않습니다. 단독 기록은 `audit()`, 배치 기록은 `...auditStatements()`를 사용합니다. 트랜잭션 내 단독 기록은 `audit(request, input, tx)`로 같은 트랜잭션에 저장합니다.
 
 - 회원가입/소셜 신규가입의 사용자·워크스페이스·소유권·세션과 모든 생성 이력을 단일 write batch로 커밋합니다.
 - 이름 변경은 write transaction 안에서 이전 이름을 읽고 수정 및 이력 INSERT를 함께 커밋합니다. 이력 기록 실패 시 변경도 롤백합니다.

@@ -33,9 +33,10 @@ function fileSize(size: number) {
 }
 
 export function DocumentsPage() {
-  const { data } = useProjectPage();
+  const { data, can, verifyPermission } = useProjectPage();
   const base = `/api/projects/${data.project.id}/documents`;
-  const canWrite = data.canWrite;
+  const canWrite = can("documents","CREATE");
+  const canUpdate = can("documents","UPDATE"), canDelete = can("documents","DELETE");
   const [current, setCurrent] = useState<string | null>(null);
   const [listing, setListing] = useState<DocumentListing>({
     folders: [],
@@ -126,6 +127,7 @@ export function DocumentsPage() {
     setLoading(true);
   }
   function openAction(next: LibraryAction) {
+    if (!can("documents", next.kind === "create" ? "CREATE" : next.kind === "rename" ? "UPDATE" : "DELETE")) return;
     setAction(next);
     setName(next.kind === "rename" ? (next.file ?? next.folder)!.name : "");
     setError("");
@@ -138,6 +140,7 @@ export function DocumentsPage() {
     setError("");
     setNotice("");
     try {
+      if(!await verifyPermission('documents', action.kind==='create'?'CREATE':action.kind==='rename'?'UPDATE':'DELETE')) throw new Error('현재 프로젝트 권한으로 문서를 변경할 수 없습니다.');
       await jsonRequest(
         action.file ? `${base}/files/${action.file.id}` : base,
         {
@@ -189,6 +192,7 @@ export function DocumentsPage() {
         `업로드 중 (${uploaded + failures.length + 1}/${files.length}): ${file.name}`,
       );
       try {
+        if(!await verifyPermission('documents','CREATE')) throw new Error('현재 프로젝트 권한으로 파일을 업로드할 수 없습니다.');
         await jsonRequest(
           `${base}/files?${new URLSearchParams({ folderId: current ?? "", name: file.name })}`,
           {
@@ -345,7 +349,7 @@ export function DocumentsPage() {
         파일명을 더블클릭하면 새 탭에서 문서를 엽니다. DOCX·XLSX·PPTX 편집 지원
         · 파일당 최대 20MB · 비어 있는 폴더만 삭제할 수 있습니다.
       </p>
-      {!canWrite && (
+      {!(canWrite || canUpdate || canDelete) && (
         <p className="document-help">
           조회 권한으로 문서 목록과 다운로드를 이용할 수 있습니다.
         </p>
@@ -370,13 +374,13 @@ export function DocumentsPage() {
                 required
                 maxLength={action.file ? 255 : 100}
                 value={name}
-                disabled={busy}
+                disabled={busy || !can('documents',action.kind==='create'?'CREATE':'UPDATE')}
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
           )}
           <div className="document-actions">
-            <button className="button primary" disabled={busy} type="submit">
+            <button className="button primary" disabled={busy || !can('documents',action.kind==='create'?'CREATE':action.kind==='rename'?'UPDATE':'DELETE')} type="submit">
               {action.kind === "delete" ? "삭제" : "저장"}
             </button>
             <button
@@ -457,11 +461,11 @@ export function DocumentsPage() {
                   <td>—</td>
                   <td>—</td>
                   <td>
-                    {canWrite && (
+                    {(canUpdate || canDelete) && (
                       <div className="document-actions">
                         <button
                           className="button"
-                          disabled={disabled}
+                          disabled={disabled || !canUpdate}
                           aria-label={`${folder.name} 이름 변경`}
                           onClick={() => openAction({ kind: "rename", folder })}
                         >
@@ -469,7 +473,7 @@ export function DocumentsPage() {
                         </button>
                         <button
                           className="button"
-                          disabled={disabled}
+                          disabled={disabled || !canDelete}
                           aria-label={`${folder.name} 삭제`}
                           onClick={() => openAction({ kind: "delete", folder })}
                         >
@@ -513,11 +517,11 @@ export function DocumentsPage() {
                       >
                         다운로드
                       </button>
-                      {canWrite && (
+                      {(canUpdate || canDelete) && (
                         <>
                           <button
                             className="button"
-                            disabled={disabled}
+                            disabled={disabled || !canUpdate}
                             aria-label={`${file.name} 이름 변경`}
                             onClick={() => openAction({ kind: "rename", file })}
                           >
@@ -525,7 +529,7 @@ export function DocumentsPage() {
                           </button>
                           <button
                             className="button"
-                            disabled={disabled}
+                            disabled={disabled || !canDelete}
                             aria-label={`${file.name} 삭제`}
                             onClick={() => openAction({ kind: "delete", file })}
                           >

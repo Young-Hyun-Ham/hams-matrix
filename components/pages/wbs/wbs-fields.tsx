@@ -8,9 +8,11 @@ import {
 export function WbsFields({
   artifact,
   isExisting,
+  calendarOnly = false,
 }: {
   artifact: Artifact | null;
   isExisting: boolean;
+  calendarOnly?: boolean;
 }) {
   const kind = "wbs";
   const [fields, setFields] = useState(() =>
@@ -43,6 +45,7 @@ export function WbsFields({
       isExisting={isExisting}
       fields={fields}
       change={change}
+      calendarOnly={calendarOnly}
     />
   );
 }

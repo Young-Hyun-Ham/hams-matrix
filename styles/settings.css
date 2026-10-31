@@ -57,6 +57,18 @@
 .settings-page .settings-form input[readonly] { background: var(--canvas); color: var(--muted); }
 .settings-page .settings-form > h2 { margin: 0; }
 .settings-page .ai-token-statistics { padding: 0; }
+.settings-page .personal-interface-form > fieldset { display: block; }
+.settings-page .personal-interface-form [role=tabpanel]:not([hidden]) { display: grid; gap: 12px; }
+.interface-subtabs { display: flex; border-bottom: 1px solid var(--line); gap: 4px; }
+.interface-subtabs button { padding: 8px 14px; border: 0; border-bottom: 2px solid transparent; background: var(--canvas); color: var(--muted); }
+.interface-subtabs button[aria-selected=true] { border-bottom-color: var(--primary); color: var(--primary); background: var(--primary-soft); font-weight: 650; }
+.personal-accent-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.settings-page .personal-accent-controls > label { flex-basis: auto; }
+.personal-accent-controls input[type=text] { width: 120px; }
+.personal-accent-sample, .personal-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.personal-settings-actions { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+.personal-accent-link { color: var(--primary); font-weight: 650; }
+.personal-accent-button { padding: 6px 12px; border-radius: 6px; background: var(--primary); color: var(--on-primary, white); }
 .settings-page .ai-token-statistics h3 { font-size: 12px; }
 .settings-page .ai-token-statistics :is(.ai-usage-summary strong, .ai-usage-summary span, .ai-usage-filters label, .ai-usage-period) { font-size: 12px; }
 .settings-page .ai-token-statistics .ai-usage-group button { padding: 3px 8px; min-height: 26px; border-radius: 5px; }

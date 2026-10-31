@@ -1,7 +1,8 @@
 "use client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
-import { useEffect, type ComponentType } from "react";
+import { useEffect, useState, type ComponentType } from "react";
+import { ConfirmationDialog } from "./shared/confirmation-dialog";
 import type { User } from "@/lib/types";
 import type { ProjectData } from "@/lib/artifact-types";
 import {
@@ -12,8 +13,10 @@ import {
 import { ProjectPageProvider } from "./shared/project-page-context";
 import { useProjectData } from "./shared/use-project-data";
 import { useArtifactActions } from "./shared/use-artifact-actions";
+import { useProjectAccess } from './shared/use-project-access';
 import { ArtifactDialogs } from "./shared/artifact-dialogs";
 import { ProjectOverviewPage } from "./pages/project-overview/project-overview-page";
+import { RfpPage } from "./pages/rfp/rfp-page";
 import { WbsPage } from "./pages/wbs/wbs-page";
 import { ArchitecturePage } from "./pages/architecture/architecture-page";
 import { RequirementsPage } from "./pages/requirements/requirements-page";
@@ -29,6 +32,7 @@ import { DocumentsPage } from "./pages/documents/documents-page";
 import "./project-workbench.css";
 const pages: Record<ProjectTab, ComponentType> = {
   overview: ProjectOverviewPage,
+  rfp: RfpPage,
   wbs: WbsPage,
   architecture: ArchitecturePage,
   requirement: RequirementsPage,
@@ -49,6 +53,8 @@ function ProjectContent({
   selectTab,
   onChanged,
   onReload,
+  updateData,
+  onDirtyChange,
 }: {
   user: User;
   data: ProjectData;
@@ -56,24 +62,37 @@ function ProjectContent({
   selectTab: (tab: ProjectTab) => void;
   onChanged: (message: string) => void;
   onReload: () => void;
+  updateData: (data: ProjectData) => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
-  const actions = useArtifactActions(data.project.id, onChanged),
+  const access = useProjectAccess(user, data.project.id, tab);
+  const actions = useArtifactActions(data.project.id, onChanged, access.verifyPermission),
     Page = pages[tab];
+  const can = access.can;
+  const right = access.access?.permissionsByTab[tab];
   return (
     <ProjectPageProvider.Provider
       value={{
         user,
-        data,
+        data: { ...data, ...access.access, canWrite: !!right && (right.CREATE || right.UPDATE || right.DELETE) },
+        tab,
+        can,
+        verifyPermission: access.verifyPermission,
         artifacts: data.artifacts,
+        savedArtifact: actions.savedArtifact,
+        updateData,
+        onDirtyChange,
         selectTab,
-        openCreate: actions.openCreate,
+        openCreate: (kind, draft) => { if (can(kind, 'CREATE')) actions.openCreate(kind, draft); },
         openEdit: actions.openEdit,
-        openDelete: actions.openDelete,
+        openDelete: (artifact) => { if (can(artifact.kind, 'DELETE')) actions.openDelete(artifact); },
       }}
     >
       <div
         className={`matrix-tab-content${tab === "overview" ? "" : " matrix-tab-content-compact"}`}
       >
+        <p className="matrix-project-role" role="status">{access.access ? `프로젝트 역할: ${access.access.projectRole}` : access.error ? '프로젝트 권한을 확인할 수 없습니다.' : '프로젝트 권한 확인 중…'}</p>
+        {access.error && <p role="alert" className="matrix-error">{access.error}</p>}
         <Page />
         <ArtifactDialogs actions={actions} onReload={onReload} />
       </div>
@@ -90,6 +109,12 @@ export function ProjectWorkbench({
   section?: string;
 }) {
   const model = useProjectData(user, initialProjectId);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  function navigate(action: () => void) {
+    if (hasUnsavedChanges) setPendingNavigation(() => action);
+    else action();
+  }
   const query = useSearchParams();
   const requestedTab = query.get("tab");
   const tab: ProjectTab =
@@ -97,9 +122,12 @@ export function ProjectWorkbench({
       ? (requestedTab as ProjectTab)
       : (projectSections[section ?? ""] ?? "overview");
   function setTab(nextTab: ProjectTab) {
+    if (nextTab === tab) return;
+    navigate(() => {
     const url = new URL(window.location.href);
     url.searchParams.set("tab", nextTab);
     window.history.pushState(null, "", url);
+    });
   }
   const pathname = usePathname(),
     setAiContext = useWorkspace((s) => s.setAiContext);
@@ -123,8 +151,8 @@ export function ProjectWorkbench({
         <select
           value={model.projectId}
           onChange={(e) => {
-            model.setProjectId(e.target.value);
-            model.setNotice("");
+            const projectId = e.target.value;
+            navigate(() => { model.setProjectId(projectId); model.setNotice(""); });
           }}
         >
           <option value="">프로젝트 선택</option>
@@ -168,7 +196,7 @@ export function ProjectWorkbench({
           대시보드에서 프로젝트를 먼저 생성해 주세요.
         </div>
       )}
-      {model.data && !model.loading && (
+      {model.data && model.data.project.id === model.projectId && (
         <ProjectContent
           key={model.projectId}
           user={user}
@@ -180,8 +208,11 @@ export function ProjectWorkbench({
             model.reload();
           }}
           onReload={model.reload}
+          updateData={model.updateData}
+          onDirtyChange={setHasUnsavedChanges}
         />
       )}
+      {pendingNavigation && <ConfirmationDialog title="미저장 변경사항" confirmLabel="변경사항 버리고 이동" onClose={() => setPendingNavigation(null)} onConfirm={() => { pendingNavigation(); setPendingNavigation(null); setHasUnsavedChanges(false); }}><p>편집 중인 내용이 저장되지 않았습니다. 변경사항을 버리고 이동하시겠습니까?</p></ConfirmationDialog>}
     </div>
   );
 }

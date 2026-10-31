@@ -1,4 +1,4 @@
-import { definitions, type Artifact } from "../artifact-types";
+import { architectureLegacyKeys, definitions, type Artifact } from "../artifact-types";
 
 const instructions = `Create one polished, production-quality SOFTWARE SYSTEM ARCHITECTURE DIAGRAM, not a dashboard, document screenshot, or collection of summary cards.
 Visual reference specification: a dense yet readable professional full-stack architecture infographic. Landscape composition, pale blue-white background, crisp navy text, fine dark orthogonal arrow connectors, restrained pastel-blue frontend boxes, pastel-purple backend boxes, cylindrical databases, small consistent technology/server icons, and dashed infrastructure/data-layer boundaries. Use flat vector-like engineering illustration, subtle shadows and a compact legend. High detail, carefully aligned components, no decorative artwork, no large empty spaces.
@@ -20,6 +20,9 @@ export function architectureImagePrompt(artifact: Artifact, extra: string) {
         label: field.label,
         value: compact(artifact.fields[field.key] ?? ""),
       })),
+      legacyFields: Object.fromEntries(architectureLegacyKeys
+        .filter((key) => artifact.fields[key])
+        .map((key) => [key, compact(artifact.fields[key])])),
       topology: artifact.structure?.topology
         ? {
             nodes: artifact.structure.topology.nodes.map((node) => ({

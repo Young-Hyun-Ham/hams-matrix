@@ -1,6 +1,6 @@
+import { requireProjectPermission } from "@/lib/project-permissions";
 import { randomUUID } from "node:crypto";
 import { requireUser, checkOrigin, errorResponse } from "@/lib/auth";
-import { projectAccess } from "@/lib/artifacts";
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import {
@@ -19,7 +19,7 @@ export async function POST(
     checkOrigin(request);
     const user = await requireUser(),
       { projectId } = await context.params;
-    await projectAccess(db(), user, projectId, true);
+    await requireProjectPermission(db(), user, projectId, "documents", "CREATE");
     const query = new URL(request.url).searchParams;
     const parent = folderId(query.get("folderId")),
       name = documentName(query.get("name"), 255);
@@ -32,7 +32,7 @@ export async function POST(
       const tx = await db().transaction("write");
       try {
         // Recheck after the network upload, including concurrent folder deletion or access changes.
-        await projectAccess(tx, user, projectId, true);
+        await requireProjectPermission(tx, user, projectId, "documents", "CREATE");
         await requireFolder(tx, user.workspaceId, projectId, parent);
         await tx.execute({
           sql: "INSERT INTO project_files(id,workspace_id,project_id,folder_id,name,object_key,byte_length,mime_type,created_by) VALUES (?,?,?,?,?,?,?,?,?)",

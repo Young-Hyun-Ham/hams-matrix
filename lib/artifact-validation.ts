@@ -6,7 +6,7 @@
   TableOperation,
 } from "./artifact-types";
 import { HttpError } from "./auth";
-import { validateTopology } from "./architecture";
+import { topologyFor, validateTopology } from "./architecture";
 const fail = (message: string): never => {
   throw new HttpError(400, message);
 };
@@ -90,8 +90,10 @@ export function prepareStructure(
     return a!;
   };
   if (after.kind === "architecture") {
+    // Generated metadata is accepted only by the server mutation orchestration.
+    if (previous?.mermaid) structure.mermaid = previous.mermaid;
     const topology =
-      raw.topology === undefined ? previous?.topology : raw.topology;
+      raw.topology === undefined ? previous?.topology ?? topologyFor(after) : raw.topology;
     if (topology !== undefined) {
       try {
         structure.topology = validateTopology(topology);

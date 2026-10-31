@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { notifyProjectAccessChange } from '@/lib/project-access-events';
 import type { User } from "@/lib/types";
 import type { TeamMember } from "@/lib/project-types";
 import "./team-membership.css";
@@ -102,6 +103,7 @@ export function TeamMembership({
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
+      if (projectId) notifyProjectAccessChange(projectId);
       if ((data as { role?: string }).role === "owner") setCanManage(false);
       setAttempt((value) => value + 1);
       setNotice("변경 내용을 반영했습니다.");

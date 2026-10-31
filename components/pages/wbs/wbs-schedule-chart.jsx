@@ -1,5 +1,13 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import './wbs-schedule-chart.css';
+import { useWbsSchedule } from './use-wbs-schedule';
+import { WbsTaskDialog } from './wbs-task-dialog';
+import { WbsOverview } from './wbs-overview';
+import { WbsPublicationActions } from './wbs-publication-actions';
+import { WbsDatePicker } from './wbs-date-picker';
+import { ConfirmationDialog } from '@/components/shared/confirmation-dialog';
+import { koreaToday } from '@/lib/wbs-schedule';
+import { taskMetrics } from '@/lib/integration';
 import { 
   ChevronRight, 
   ChevronDown, 
@@ -10,165 +18,25 @@ import {
   Filter
 } from 'lucide-react';
 
-// Initial WBS Sample Data
-const INITIAL_TASKS = [
-  {
-    id: '1',
-    wbs: '1.0',
-    title: '프로젝트 기획 및 요구사항 정의',
-    assignee: '김철수',
-    startDate: '2025-03-01',
-    endDate: '2025-03-12',
-    progress: 100,
-    status: 'completed',
-    parentId: null,
-    expanded: true,
-  },
-  {
-    id: '1-1',
-    wbs: '1.1',
-    title: '요구사항 수집 및 분석',
-    assignee: '김철수',
-    startDate: '2025-03-01',
-    endDate: '2025-03-05',
-    progress: 100,
-    status: 'completed',
-    parentId: '1',
-  },
-  {
-    id: '1-2',
-    wbs: '1.2',
-    title: '시스템 정보 구조(IA) 설계',
-    assignee: '이영희',
-    startDate: '2025-03-06',
-    endDate: '2025-03-12',
-    progress: 100,
-    status: 'completed',
-    parentId: '1',
-  },
-  {
-    id: '2',
-    wbs: '2.0',
-    title: 'UI/UX 디자인 및 시안 제작',
-    assignee: '이영희',
-    startDate: '2025-03-10',
-    endDate: '2025-03-22',
-    progress: 60,
-    status: 'in-progress',
-    parentId: null,
-    expanded: true,
-  },
-  {
-    id: '2-1',
-    wbs: '2.1',
-    title: '와이어프레임 작성',
-    assignee: '이영희',
-    startDate: '2025-03-10',
-    endDate: '2025-03-15',
-    progress: 100,
-    status: 'completed',
-    parentId: '2',
-  },
-  {
-    id: '2-2',
-    wbs: '2.2',
-    title: '메인 디자인 컴포넌트 설계',
-    assignee: '박민수',
-    startDate: '2025-03-16',
-    endDate: '2025-03-22',
-    progress: 20,
-    status: 'in-progress',
-    parentId: '2',
-  },
-  {
-    id: '3',
-    wbs: '3.0',
-    title: '프론트엔드 및 백엔드 개발',
-    assignee: '박민수',
-    startDate: '2025-03-18',
-    endDate: '2025-04-10',
-    progress: 25,
-    status: 'in-progress',
-    parentId: null,
-    expanded: true,
-  },
-  {
-    id: '3-1',
-    wbs: '3.1',
-    title: '데이터베이스 스키마 및 API 설계',
-    assignee: '정다은',
-    startDate: '2025-03-18',
-    endDate: '2025-03-25',
-    progress: 70,
-    status: 'in-progress',
-    parentId: '3',
-  },
-  {
-    id: '3-2',
-    wbs: '3.2',
-    title: 'WBS 타임라인 드래그 컴포넌트 개발',
-    assignee: '박민수',
-    startDate: '2025-03-24',
-    endDate: '2025-04-05',
-    progress: 10,
-    status: 'in-progress',
-    parentId: '3',
-  },
-  {
-    id: '3-3',
-    wbs: '3.3',
-    title: '실시간 양방향 데이터 동기화 구현',
-    assignee: '최현우',
-    startDate: '2025-03-30',
-    endDate: '2025-04-10',
-    progress: 0,
-    status: 'pending',
-    parentId: '3',
-  },
-  {
-    id: '4',
-    wbs: '4.0',
-    title: '통합 테스트 및 배포',
-    assignee: '최현우',
-    startDate: '2025-04-08',
-    endDate: '2025-04-20',
-    progress: 0,
-    status: 'pending',
-    parentId: null,
-    expanded: true,
-  }
-];
-
 // Helper functions for Date Manipulation
-const parseDate = (str) => {
-  const [y, m, d] = str.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
+const parseDate = (value) => new Date(`${value}T00:00:00Z`);
+const formatDate = (date) => date.toISOString().slice(0, 10);
+const addDays = (date, days) => new Date(date.getTime() + days * 86400000);
+const getDaysDiff = (start, end) => Math.round((parseDate(end) - parseDate(start)) / 86400000);
 
-const formatDate = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-};
-
-const addDays = (date, days) => {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-};
-
-const getDaysDiff = (start, end) => {
-  const ms = parseDate(end).getTime() - parseDate(start).getTime();
-  return Math.round(ms / (1000 * 60 * 60 * 24));
-};
+// Keep WBS + title visible; each following step restores one complete column.
+const REGISTRATION_WIDTHS = [320, 444, 568, 692, 772, 860];
+const REGISTRATION_COLUMNS = ['64px', 'minmax(180px, 1fr)', '124px', '124px', '124px', '80px', '88px'];
 
 export default function WbsComponement() {
-  const [tasks, setTasks] = useState(INITIAL_TASKS);
+  const model = useWbsSchedule();
+  const { tasks, setTasks } = model;
   const [viewMode, setViewMode] = useState('Day'); // 'Day' | 'Week' | 'Month'
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [splitPosition, setSplitPosition] = useState(45); // Left side width %
+  const [splitStep, setSplitStep] = useState(REGISTRATION_WIDTHS.length - 1);
+  const registrationWidth = REGISTRATION_WIDTHS[splitStep];
+  const visibleColumnCount = splitStep + 2;
   const [isResizingSplit, setIsResizingSplit] = useState(false);
 
   // Dragging state for Gantt Bar
@@ -176,6 +44,9 @@ export default function WbsComponement() {
   const [hoveredTask, setHoveredTask] = useState(null);
 
   // Refs for scrolling synchronization
+  const splitContainerRef = useRef(null);
+  const overviewDialogRef = useRef(null);
+  const overviewButtonRef = useRef(null);
   const tableHeaderRef = useRef(null);
   const tableBodyRef = useRef(null);
   const timelineHeaderRef = useRef(null);
@@ -194,8 +65,8 @@ export default function WbsComponement() {
   // Calculate Date Range for Timeline
   const { startDateRange, totalDays, datesHeader } = useMemo(() => {
     if (tasks.length === 0) {
-      const today = new Date();
-      return { startDateRange: today, totalDays: 30, datesHeader: [] };
+      const today = parseDate(koreaToday());
+      return { startDateRange: today, totalDays: 30, datesHeader: Array.from({ length: 30 }, (_, index) => addDays(today, index)) };
     }
 
     let minDate = parseDate(tasks[0].startDate);
@@ -209,7 +80,8 @@ export default function WbsComponement() {
     });
 
     // Add padding around date bounds
-    const start = addDays(minDate, -5);
+    // Leave just one empty timeline column before the earliest task in every view.
+    const start = addDays(minDate, -1);
     const end = addDays(maxDate, 15);
     const days = Math.max(30, getDaysDiff(formatDate(start), formatDate(end)) + 1);
 
@@ -218,53 +90,10 @@ export default function WbsComponement() {
     let curr = new Date(start);
     for (let i = 0; i < days; i++) {
       dates.push(new Date(curr));
-      curr.setDate(curr.getDate() + 1);
+      curr.setUTCDate(curr.getUTCDate() + 1);
     }
 
     return { startDateRange: start, totalDays: days, datesHeader: dates };
-  }, [tasks]);
-
-  // Handle Parent-Child Task calculation (Auto aggregate parent start/end/progress)
-  useEffect(() => {
-    setTasks(prevTasks => {
-      const updated = [...prevTasks];
-      let hasChanges = false;
-
-      // Group subtasks by parent
-      const parentIds = [...new Set(updated.filter(t => t.parentId).map(t => t.parentId))];
-
-      parentIds.forEach(pId => {
-        const subtasks = updated.filter(t => t.parentId === pId);
-        const parentIndex = updated.findIndex(t => t.id === pId);
-
-        if (parentIndex !== -1 && subtasks.length > 0) {
-          let minStart = subtasks[0].startDate;
-          let maxEnd = subtasks[0].endDate;
-          let totalProgress = 0;
-
-          subtasks.forEach(st => {
-            if (st.startDate < minStart) minStart = st.startDate;
-            if (st.endDate > maxEnd) maxEnd = st.endDate;
-            totalProgress += st.progress;
-          });
-
-          const avgProgress = Math.round(totalProgress / subtasks.length);
-
-          const parent = updated[parentIndex];
-          if (parent.startDate !== minStart || parent.endDate !== maxEnd || parent.progress !== avgProgress) {
-            updated[parentIndex] = {
-              ...parent,
-              startDate: minStart,
-              endDate: maxEnd,
-              progress: avgProgress
-            };
-            hasChanges = true;
-          }
-        }
-      });
-
-      return hasChanges ? updated : prevTasks;
-    });
   }, [tasks]);
 
   // Synchronize Vertical Scroll between Table and Timeline Body
@@ -284,9 +113,7 @@ export default function WbsComponement() {
   };
 
   // Toggle Parent Collapse/Expand
-  const toggleExpand = (taskId) => {
-    setTasks(tasks.map(t => t.id === taskId ? { ...t, expanded: !t.expanded } : t));
-  };
+  const toggleExpand = model.toggleExpand;
 
   // Inline Cell Edit Handler
   const handleTaskChange = (id, field, value) => {
@@ -306,38 +133,7 @@ export default function WbsComponement() {
     }));
   };
 
-  // Add Task
-  const handleAddTask = (parentId = null) => {
-    const todayStr = formatDate(new Date());
-    const nextWeekStr = formatDate(addDays(new Date(), 5));
-    
-    let newWbs = `${tasks.length + 1}.0`;
-    if (parentId) {
-      const parent = tasks.find(t => t.id === parentId);
-      const siblingCount = tasks.filter(t => t.parentId === parentId).length;
-      newWbs = `${parent.wbs}.${siblingCount + 1}`;
-    }
-
-    const newTask = {
-      id: Date.now().toString(),
-      wbs: newWbs,
-      title: parentId ? '신규 하위 작업' : '신규 모듈 작업',
-      assignee: '담당자 미정',
-      startDate: todayStr,
-      endDate: nextWeekStr,
-      progress: 0,
-      status: 'pending',
-      parentId: parentId,
-      expanded: true
-    };
-
-    if (parentId) {
-      // Expand parent if adding subtask
-      setTasks(prev => prev.map(t => t.id === parentId ? { ...t, expanded: true } : t).concat(newTask));
-    } else {
-      setTasks(prev => [...prev, newTask]);
-    }
-  };
+  const handleAddTask = model.openTask;
 
   // Delete Task
   const handleDeleteTask = (id) => {
@@ -356,6 +152,7 @@ export default function WbsComponement() {
 
   // Timeline Mouse Interaction Handlers for Dragging/Resizing
   const handleBarMouseDown = (e, task, type) => {
+    if (!model.canEdit || task.artifact.fields.taskType === "요약") return;
     e.stopPropagation();
     e.preventDefault();
     setDragState({
@@ -374,7 +171,6 @@ export default function WbsComponement() {
       const deltaPixels = e.clientX - dragState.startX;
       const daysShift = Math.round(deltaPixels / columnWidth);
 
-      if (daysShift === 0) return;
 
       setTasks(prevTasks => prevTasks.map(t => {
         if (t.id !== dragState.taskId) return t;
@@ -416,16 +212,20 @@ export default function WbsComponement() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [dragState, columnWidth]);
+  }, [dragState, columnWidth, setTasks]);
 
   // Splitter Resizing
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (!isResizingSplit) return;
-      const newWidthPercent = (e.clientX / window.innerWidth) * 100;
-      if (newWidthPercent > 20 && newWidthPercent < 75) {
-        setSplitPosition(newWidthPercent);
-      }
+      const bounds = splitContainerRef.current?.getBoundingClientRect();
+      if (!bounds) return;
+      const requestedWidth = e.clientX - bounds.left;
+      const nextStep = REGISTRATION_WIDTHS.reduce((closest, width, index) => (
+        Math.abs(width - requestedWidth) < Math.abs(REGISTRATION_WIDTHS[closest] - requestedWidth)
+          ? index : closest
+      ), 0);
+      setSplitStep(nextStep);
     };
 
     const handleMouseUp = () => {
@@ -471,12 +271,14 @@ export default function WbsComponement() {
     return { left, width };
   };
 
+  const renderOverview = (expanded = false) => <WbsOverview tasks={visibleTasks} start={formatDate(startDateRange)} days={totalDays} expanded={expanded} />;
+
   // Quick stats calculation
   const stats = useMemo(() => {
     const total = tasks.length;
     const completed = tasks.filter(t => t.progress === 100).length;
     const inProgress = tasks.filter(t => t.progress > 0 && t.progress < 100).length;
-    const avgProgress = Math.round(tasks.reduce((acc, curr) => acc + curr.progress, 0) / (total || 1));
+    const avgProgress = taskMetrics(tasks.map(task => task.artifact)).progress;
     return { total, completed, inProgress, avgProgress };
   }, [tasks]);
 
@@ -491,7 +293,7 @@ export default function WbsComponement() {
           </div>
           <div>
             <h1 className="text-lg font-bold text-slate-100 flex items-center gap-2">
-              WBS & Gantt Chart System
+              WBS System
               <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
                 Live Edit
               </span>
@@ -549,6 +351,7 @@ export default function WbsComponement() {
           </div>
 
           <button
+            disabled={!model.canCreate}
             onClick={() => handleAddTask(null)}
             className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg transition-all shadow-lg shadow-indigo-600/20 active:scale-95"
           >
@@ -559,12 +362,13 @@ export default function WbsComponement() {
       </header>
 
       {/* FILTER & SEARCH BAR */}
-      <div className="px-6 py-2 bg-slate-800/40 border-b border-slate-700/40 flex items-center justify-between text-xs">
+      <div className="wbs-filter-toolbar px-6 py-2 bg-slate-800/40 border-b border-slate-700/40 flex items-center justify-between text-xs">
         <div className="flex items-center space-x-3">
-          <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 transform -translate-y-1/2" />
+          <div className="wbs-search">
+            <Search size={14} aria-hidden="true" />
             <input
-              type="text"
+              type="search"
+              aria-label="작업명, 담당자, WBS 검색"
               placeholder="작업명, 담당자 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -581,11 +385,17 @@ export default function WbsComponement() {
               className="bg-slate-900 border border-slate-700 rounded-md px-2 py-1 text-slate-200 focus:outline-none focus:border-indigo-500"
             >
               <option value="all">전체 상태</option>
-              <option value="completed">완료</option>
-              <option value="in-progress">진행 중</option>
-              <option value="pending">대기 중</option>
+              <option value="초안">초안</option>
+              <option value="검토 중">검토 중</option>
+              <option value="승인">승인</option>
+              <option value="진행 중">진행 중</option>
+              <option value="완료">완료</option>
+              <option value="보류">보류</option>
             </select>
           </div>
+          <button type="button" className="button" disabled={model.busy} onClick={model.query}>조회</button>
+          <button type="button" className="button primary" disabled={!(model.canEdit || model.canCreate || model.canDelete) || !model.dirty} onClick={model.save}>저장</button>
+          <WbsPublicationActions data={model.baseline} dirty={model.dirty} disabled={model.busy || model.remoteChanged} />
         </div>
 
         <div className="text-slate-400 text-[11px] flex items-center gap-2">
@@ -595,18 +405,55 @@ export default function WbsComponement() {
         </div>
       </div>
 
+      <div className="wbs-save-status" role="status">{model.busy ? '처리 중…' : model.dirty ? `미저장 변경 ${model.dirtyCount}건` : '저장본과 동일'} {model.message}</div>
+      {model.remoteChanged && <p className="wbs-save-status" role="status">서버 일정이 변경되었습니다. 조회 버튼으로 최신 내용을 확인해 주세요. 편집 중인 내용은 유지됩니다.</p>}
+      {model.error && <p role="alert" className="matrix-error">{model.error}</p>}
+      {model.editing && <WbsTaskDialog artifact={model.editing} artifacts={model.otherArtifacts} error={model.error} onSave={model.applyTask} onClose={() => model.setEditing(null)} />}
+      {model.confirmReload && <ConfirmationDialog title="일정 다시 조회" confirmLabel="변경사항 버리고 조회" onConfirm={model.load} onClose={() => model.setConfirmReload(false)}><p>미저장 변경사항을 버리고 서버의 최신 일정을 조회하시겠습니까?</p></ConfirmationDialog>}
+      <button
+        ref={overviewButtonRef}
+        type="button"
+        className="wbs-overview-thumbnail"
+        aria-haspopup="dialog"
+        onClick={() => overviewDialogRef.current?.showModal()}
+      >
+        <span className="wbs-overview-caption"><strong>전체 일정 미리보기</strong><span>클릭하여 크게 보기 ↗</span></span>
+        {renderOverview()}
+      </button>
+      <dialog
+        ref={overviewDialogRef}
+        className="wbs-overview-dialog"
+        aria-labelledby="wbs-overview-title"
+        onClick={(event) => { if (event.target === event.currentTarget) event.currentTarget.close(); }}
+        onClose={() => overviewButtonRef.current?.focus()}
+      >
+        <div className="wbs-overview-modal">
+          <div className="wbs-overview-heading">
+            <div><h2 id="wbs-overview-title">전체 일정</h2><p>현재 표시된 작업 {visibleTasks.length}개 · 긴 일정은 좌우로 스크롤하세요.</p></div>
+            <button type="button" autoFocus onClick={() => overviewDialogRef.current?.close()} aria-label="전체 일정 닫기">닫기 ×</button>
+          </div>
+          <div className="wbs-overview-scroll" >
+            {renderOverview(true)}
+          </div>
+        </div>
+      </dialog>
+
       {/* MAIN SPLIT-VIEW CONTENT AREA */}
-      <div className="flex-1 flex overflow-hidden relative">
+      <div ref={splitContainerRef} style={{ minWidth: registrationWidth + 246 }} className="wbs-split-content flex-1 flex overflow-hidden relative">
         
         {/* LEFT PANEL: TREE TABLE GRID */}
         <div 
-          style={{ width: `${splitPosition}%` }} 
-          className="flex flex-col bg-slate-900/90 border-r border-slate-700/80 overflow-hidden"
+          data-visible-columns={visibleColumnCount}
+          style={{
+            width: registrationWidth,
+            '--registration-columns': REGISTRATION_COLUMNS.slice(0, visibleColumnCount).join(' '),
+          }}
+          className="wbs-registration-panel flex flex-col bg-slate-900/90 border-r border-slate-700/80 overflow-hidden"
         >
           {/* Table Header */}
           <div 
             ref={tableHeaderRef}
-            className="flex items-center bg-slate-800/90 border-b border-slate-700 font-semibold text-xs text-slate-300 min-h-[40px] px-2 uppercase tracking-wider"
+            className="wbs-registration-grid wbs-registration-header flex items-center bg-slate-800/90 border-b border-slate-700 font-semibold text-xs text-slate-300 min-h-[40px] px-2 uppercase tracking-wider"
           >
             <div className="w-16 px-2 text-center text-slate-400">WBS</div>
             <div className="flex-1 px-3">작업명</div>
@@ -621,10 +468,10 @@ export default function WbsComponement() {
           <div 
             ref={tableBodyRef}
             onScroll={handleTableScroll}
-            className="flex-1 overflow-y-auto overflow-x-hidden divide-y divide-slate-800/60"
+            className="wbs-registration-body flex-1 overflow-y-auto overflow-x-hidden divide-y divide-slate-800/60"
           >
             {visibleTasks.map((task) => {
-              const hasChildren = tasks.some(t => t.parentId === task.id);
+              const hasChildren = task.artifact.fields.taskType === '요약';
               const isParent = !task.parentId;
 
               return (
@@ -632,13 +479,13 @@ export default function WbsComponement() {
                   key={task.id}
                   onMouseEnter={() => setHoveredTask(task.id)}
                   onMouseLeave={() => setHoveredTask(null)}
-                  className={`flex items-center min-h-[44px] text-xs transition-colors hover:bg-slate-800/50 ${
+                  className={`wbs-registration-grid flex items-center min-h-[44px] text-xs transition-colors hover:bg-slate-800/50 ${
                     hoveredTask === task.id ? 'bg-slate-800/40' : ''
                   } ${isParent ? 'font-semibold bg-slate-800/20' : ''}`}
                 >
                   {/* WBS Code */}
                   <div className="w-16 px-2 text-center text-indigo-400 font-mono text-[11px] truncate">
-                    {task.wbs}
+                    <button type="button" className="wbs-task-detail" disabled={!model.canEdit} title="작업 상세 편집" onClick={() => model.openTask(null, task.id)}>{task.wbs}</button>
                   </div>
 
                   {/* Task Title (Editable) */}
@@ -657,6 +504,8 @@ export default function WbsComponement() {
                       
                       <input
                         type="text"
+                        disabled={!model.canEdit}
+                        maxLength={200}
                         value={task.title}
                         onChange={(e) => handleTaskChange(task.id, 'title', e.target.value)}
                         className={`bg-transparent w-full focus:bg-slate-800 px-1 py-0.5 rounded border border-transparent focus:border-slate-600 focus:outline-none truncate ${
@@ -669,6 +518,7 @@ export default function WbsComponement() {
                   {/* Assignee */}
                   <div className="w-24 px-2">
                     <input
+                      disabled={!model.canEdit}
                       type="text"
                       value={task.assignee}
                       onChange={(e) => handleTaskChange(task.id, 'assignee', e.target.value)}
@@ -676,27 +526,8 @@ export default function WbsComponement() {
                     />
                   </div>
 
-                  {/* Start Date */}
-                  <div className="w-24 px-1">
-                    <input
-                      type="date"
-                      value={task.startDate}
-                      disabled={hasChildren}
-                      onChange={(e) => handleTaskChange(task.id, 'startDate', e.target.value)}
-                      className="bg-transparent text-center w-full focus:bg-slate-800 px-0.5 py-0.5 rounded border border-transparent focus:border-slate-600 focus:outline-none text-slate-300 text-[11px] disabled:opacity-50"
-                    />
-                  </div>
-
-                  {/* End Date */}
-                  <div className="w-24 px-1">
-                    <input
-                      type="date"
-                      value={task.endDate}
-                      disabled={hasChildren}
-                      onChange={(e) => handleTaskChange(task.id, 'endDate', e.target.value)}
-                      className="bg-transparent text-center w-full focus:bg-slate-800 px-0.5 py-0.5 rounded border border-transparent focus:border-slate-600 focus:outline-none text-slate-300 text-[11px] disabled:opacity-50"
-                    />
-                  </div>
+                  <div className="w-24 px-1"><WbsDatePicker label={`${task.title} 시작일`} value={task.startDate} disabled={!model.canEdit || hasChildren} required onChange={(value) => handleTaskChange(task.id, 'startDate', value)} /></div>
+                  <div className="w-24 px-1"><WbsDatePicker label={`${task.title} 종료일`} value={task.endDate} disabled={!model.canEdit || hasChildren} required onChange={(value) => handleTaskChange(task.id, 'endDate', value)} /></div>
 
                   {/* Progress % */}
                   <div className="w-16 px-1 flex items-center justify-center">
@@ -705,7 +536,7 @@ export default function WbsComponement() {
                       min="0"
                       max="100"
                       value={task.progress}
-                      disabled={hasChildren}
+                      disabled={!model.canEdit || hasChildren}
                       onChange={(e) => handleTaskChange(task.id, 'progress', Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
                       className="bg-transparent text-center w-10 focus:bg-slate-800 px-0.5 py-0.5 rounded border border-transparent focus:border-slate-600 focus:outline-none text-slate-300 text-[11px] disabled:opacity-50"
                     />
@@ -713,10 +544,11 @@ export default function WbsComponement() {
                   </div>
 
                   {/* Actions */}
-                  <div className="w-12 px-1 flex items-center justify-center space-x-1">
-                    {isParent && (
+                  <div className="wbs-registration-actions w-12 px-1 flex items-center justify-center space-x-1">
+                    {hasChildren && (
                       <button
-                        onClick={() => handleAddTask(task.id)}
+                        disabled={!model.canCreate}
+                          onClick={() => handleAddTask(task.id)}
                         title="하위 작업 추가"
                         className="p-1 hover:bg-indigo-600/30 text-indigo-400 rounded transition-colors"
                       >
@@ -724,6 +556,7 @@ export default function WbsComponement() {
                       </button>
                     )}
                     <button
+                      disabled={!model.canDelete}
                       onClick={() => handleDeleteTask(task.id)}
                       title="작업 삭제"
                       className="p-1 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 rounded transition-colors"
@@ -739,7 +572,21 @@ export default function WbsComponement() {
 
         {/* DRAGGABLE RESIZER HANDLE */}
         <div
-          onMouseDown={() => setIsResizingSplit(true)}
+          role="separator"
+          aria-label="Registration panel width"
+          aria-orientation="vertical"
+          aria-valuemin={REGISTRATION_WIDTHS[0]}
+          aria-valuemax={REGISTRATION_WIDTHS[REGISTRATION_WIDTHS.length - 1]}
+          aria-valuenow={registrationWidth}
+          tabIndex={0}
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+              event.preventDefault();
+              setSplitStep(step => Math.max(0, Math.min(REGISTRATION_WIDTHS.length - 1,
+                step + (event.key === 'ArrowLeft' ? -1 : 1))));
+            }
+          }}
+          onMouseDown={(event) => { event.preventDefault(); setIsResizingSplit(true); }}
           className={`w-1.5 hover:w-2 bg-slate-800 hover:bg-indigo-500 cursor-col-resize z-30 transition-all ${
             isResizingSplit ? 'bg-indigo-500 w-2' : ''
           }`}
@@ -755,9 +602,9 @@ export default function WbsComponement() {
           >
             <div className="flex" style={{ width: `${totalDays * columnWidth}px` }}>
               {datesHeader.map((d, index) => {
-                const dayNum = d.getDate();
-                const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                const isToday = formatDate(d) === formatDate(new Date());
+                const dayNum = d.getUTCDate();
+                const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+                const isToday = formatDate(d) === koreaToday();
 
                 return (
                   <div
@@ -767,9 +614,9 @@ export default function WbsComponement() {
                       isWeekend ? 'bg-slate-900/40 text-slate-500' : ''
                     } ${isToday ? 'bg-indigo-900/30 font-bold text-indigo-400' : ''}`}
                   >
-                    <span>{d.getMonth() + 1}/{dayNum}</span>
+                    <span>{d.getUTCMonth() + 1}/{dayNum}</span>
                     <span className="text-[9px] opacity-60">
-                      {['일', '월', '화', '수', '목', '금', '토'][d.getDay()]}
+                      {['일', '월', '화', '수', '목', '금', '토'][d.getUTCDay()]}
                     </span>
                   </div>
                 );
@@ -793,8 +640,8 @@ export default function WbsComponement() {
               {/* Background Grid Columns */}
               <div className="absolute inset-0 flex pointer-events-none">
                 {datesHeader.map((d, index) => {
-                  const isWeekend = d.getDay() === 0 || d.getDay() === 6;
-                  const isToday = formatDate(d) === formatDate(new Date());
+                  const isWeekend = d.getUTCDay() === 0 || d.getUTCDay() === 6;
+                  const isToday = formatDate(d) === koreaToday();
 
                   return (
                     <div
@@ -823,7 +670,7 @@ export default function WbsComponement() {
               {/* Task Gantt Bars Container */}
               {visibleTasks.map((task, index) => {
                 const { left, width } = getTaskBarPosition(task);
-                const hasChildren = tasks.some(t => t.parentId === task.id);
+                const hasChildren = task.artifact.fields.taskType === '요약';
                 const isHovered = hoveredTask === task.id;
 
                 return (

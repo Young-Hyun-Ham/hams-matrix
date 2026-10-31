@@ -56,40 +56,24 @@ select :is(option, optgroup):disabled {
   color: var(--muted);
 }
 
-/* Header switch: both icons remain present for a stable, accessible hydration. */
+/* Single header switch showing the active theme. */
 .theme-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
   padding: 3px;
   border: 1px solid var(--line);
   border-radius: 20px;
   background: var(--canvas);
-  color: var(--muted);
+  color: #b37b26;
   flex-shrink: 0;
   min-height: 34px;
+  width: 34px;
+  height: 34px;
 }
-.theme-toggle span {
-  width: 27px;
-  height: 26px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-}
-.theme-toggle .theme-sun {
-  background: var(--surface);
-  color: #b37b26;
-  box-shadow: 0 1px 4px #16132215;
-}
-[data-theme="dark"] .theme-toggle .theme-sun {
-  background: transparent;
-  box-shadow: none;
-  color: var(--muted);
-}
-[data-theme="dark"] .theme-toggle .theme-moon {
+[data-theme="dark"] .theme-toggle {
   background: #48405e;
   color: #e4d6ff;
-  box-shadow: 0 1px 4px #0004;
 }
 
 /* Main surfaces, text and controls */
@@ -519,13 +503,6 @@ select :is(option, optgroup):disabled {
   }
 }
 @media (max-width: 420px) {
-  .theme-toggle {
-    gap: 0;
-    padding: 2px;
-  }
-  .theme-toggle span {
-    width: 24px;
-  }
   .workspace .topbar-tools {
     gap: 5px;
   }

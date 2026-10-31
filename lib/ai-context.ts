@@ -34,6 +34,7 @@ export const emptyAiContext: AiContext = {
   projectName: "",
 };
 const examples: Partial<Record<ProjectTab, string>> = {
+  rfp: "제안요청서의 사업 배경과 구축 범위 초안을 작성해줘",
   wbs: "6개월 프로젝트의 분석·설계·개발 일정과 마일스톤을 만들어줘",
   architecture: "Spring과 React 기반 시스템의 아키텍처를 정의해줘",
   requirement: "회원 가입 기능의 요구사항과 검수 기준을 작성해줘",

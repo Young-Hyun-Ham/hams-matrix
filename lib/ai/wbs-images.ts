@@ -1,3 +1,4 @@
+import { requireProjectPermission } from "../project-permissions";
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
@@ -23,6 +24,7 @@ export async function wbsFor(
   write = false,
 ) {
   const project = await projectAccess(executor, user, projectId, write);
+  if(write) await requireProjectPermission(executor,user,projectId,"wbs","UPDATE");
   const result = await executor.execute({
     sql: "SELECT * FROM project_artifacts WHERE project_id=? AND workspace_id=? AND kind='wbs' AND deleted_at IS NULL ORDER BY id",
     args: [projectId, user.workspaceId],

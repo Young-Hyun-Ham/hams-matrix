@@ -1,0 +1,40 @@
+.matrix-tabs {
+  display: flex;
+  gap: 1px;
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+  position: relative;
+  margin: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 3px 0 0;
+  background: var(--canvas);
+}
+.matrix-tabs button {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  padding: 5px 10px;
+  min-height: 30px;
+  margin-bottom: -1px;
+  border: 1px solid var(--line);
+  border-radius: 5px 5px 0 0;
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  cursor: pointer;
+}
+.matrix-tabs button[aria-current="page"],
+.matrix-tabs button[aria-selected="true"] {
+  border-top: 2px solid var(--primary);
+  border-bottom-color: var(--surface);
+  padding-top: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+}
+.matrix-tabs button:focus-visible {
+  outline-offset: -3px;
+}

@@ -1,0 +1,24 @@
+/* Authenticated personal accents only. Public branding, state colors and
+   user-authored diagram classes keep their original meanings. */
+:root[data-custom-accent] .button.primary,
+:root[data-custom-accent] .matrix-ai-generate {
+  background: var(--primary); border-color: var(--primary); color: var(--on-primary);
+}
+:root[data-custom-accent] :is(.workspace-avatar, .user-avatar, .topbar-avatar, .nav-new, .nav-item.active, .badge.purple, .stat-icon.purple, .project-symbol.purple, .quick-icon.purple, .activity-avatar.purple, .document-icon.purple) {
+  background: var(--primary-soft); color: var(--primary);
+}
+:root[data-custom-accent] .nav-item.active svg { color: var(--primary); }
+:root[data-custom-accent] :is(.nav-item:hover, .icon-button:hover, .settings-info, .detail-diff > div) { background: var(--primary-soft); }
+:root[data-custom-accent] :is(.settings-info, .detail-diff strong) { color: var(--primary); }
+:root[data-custom-accent] .wbs-chart :is([class~="bg-indigo-600"], [class~="bg-indigo-600/90"], [class~="bg-indigo-500"]) { color: var(--on-primary); }
+:root[data-custom-accent] .wbs-chart :is([class~="bg-indigo-600"], [class~="bg-indigo-600/90"], [class~="bg-indigo-500"]) [class~="text-white"] { color: var(--on-primary); }
+:root[data-custom-accent] :is(.welcome-banner, .ai-card) {
+  background: linear-gradient(115deg, var(--primary-soft), var(--surface)); border-color: var(--primary-soft);
+}
+:root[data-custom-accent] :is(.welcome-banner h2, .ai-card h3) { color: var(--ink); }
+:root[data-custom-accent] :is(.welcome-banner p, .ai-card p) { color: var(--muted); }
+:root[data-custom-accent] :is(.welcome-banner a, .welcome-banner h2 > span, .welcome-eyebrow, .art-star, .art-tile, .ai-icon, .ai-card button) { color: var(--primary); }
+:root[data-custom-accent] :is(.welcome-ring, .art-tile, .art-center) { border-color: var(--primary-soft); }
+:root[data-custom-accent] .art-center { background: var(--primary); color: var(--on-primary); box-shadow: 0 12px 20px color-mix(in srgb, var(--primary) 15%, transparent); }
+:root[data-custom-accent] :is(.art-tile, .ai-card .badge) { background: var(--primary-soft); color: var(--primary); }
+:root[data-custom-accent] :is(.live-dot, .progress-track i:not(.blue):not(.green), .ai-token-statistics .is-input) { background: var(--primary); }

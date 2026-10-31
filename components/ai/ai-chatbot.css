@@ -171,38 +171,6 @@
 [data-theme="dark"] .matrix-ai-room-menu .is-destructive {
   color: #ff9caa;
 }
-.matrix-ai-room-dialog {
-  width: min(420px, calc(100vw - 32px));
-  padding: 0;
-  color: var(--ink);
-  background: var(--surface);
-}
-.matrix-ai-room-dialog form {
-  padding: 10px 22px 22px;
-}
-.matrix-ai-room-dialog p,
-.matrix-ai-room-dialog label {
-  font-size: 13px;
-  line-height: 1.8;
-  overflow-wrap: anywhere;
-}
-.matrix-ai-room-dialog input {
-  display: block;
-  width: 100%;
-  margin-top: 8px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  padding: 10px;
-  font: inherit;
-  background: var(--surface);
-  color: var(--ink);
-}
-.matrix-ai-room-dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 24px;
-}
 .matrix-ai-room-dialog-actions .matrix-ai-delete-confirm {
   background: #b53043;
   color: #fff;

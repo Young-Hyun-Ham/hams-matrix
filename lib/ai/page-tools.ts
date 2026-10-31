@@ -1,6 +1,8 @@
 import "server-only";
+import { createRfpAgent } from './rfp-tools';
+import { requireProjectPermission } from '../project-permissions';
 import { HttpError } from "../auth";
-import { mutateArtifact, projectAccess, toArtifact } from "../artifacts";
+import { mutateArtifact, prepareArtifactMermaid, projectAccess, toArtifact } from "../artifacts";
 import { db } from "../db";
 import type { User } from "../types";
 import type { AiContext } from "../ai-context";
@@ -12,6 +14,7 @@ import { GenerationCancelled } from "./generation-control";
 import { GuardrailBlocked } from "./guardrails";
 import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
 export type AiAction = {
+  target?: 'artifact' | 'rfp';
   action: string;
   id: string;
   code: string;
@@ -38,6 +41,7 @@ export function createPageAgent(
     inspect: (stage: GuardrailStage, value: unknown) => Promise<unknown>;
   },
 ) {
+  if (page.key === 'rfp') return createRfpAgent(request,user,context,canWrite,prompt,checkpoint,guard);
   const actions: AiAction[] = [],
     seen = new Set<string>();
   const pending: {
@@ -116,6 +120,7 @@ export function createPageAgent(
       const action = input.action;
       if (action !== "CREATE" && action !== "UPDATE" && action !== "DELETE")
         throw new HttpError(400, "작업 유형을 확인해 주세요.");
+      await requireProjectPermission(db(),user,context.projectId,page.kind,action);
       if (guard && !guard.policy.allowedActions.includes(action))
         throw new HttpError(
           403,
@@ -244,11 +249,13 @@ export function createPageAgent(
           before?.id,
           checkpoint,
           previewTx,
+          true,
         );
       } finally {
         await previewTx.rollback();
         previewTx.close();
       }
+      if (action !== "DELETE") await prepareArtifactMermaid(change, saved, user, checkpoint);
       pending.push({ input: change, action, id: before?.id });
       seen.add(signature);
       const result = {

@@ -77,7 +77,7 @@ function auditStatement(request: Request, input: AuditInput): InStatement {
     (key) => JSON.stringify(before?.[key]) !== JSON.stringify(after?.[key]),
   );
   return {
-    sql: `INSERT INTO audit_logs (id,occurred_at,request_id,workspace_id,actor_id,actor_name,actor_type,action,resource_type,resource_id,outcome,source,http_method,route,changed_fields_json,before_json,after_json,metadata_json,error_code) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM app_settings WHERE setting_key='DB_LOGGING_ENABLED' AND value_type='boolean' AND json_type(value_json)='true')`,
+    sql: `INSERT INTO audit_logs (id,occurred_at,request_id,workspace_id,actor_id,actor_name,actor_type,action,resource_type,resource_id,outcome,source,http_method,route,changed_fields_json,before_json,after_json,metadata_json,error_code) SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM admin_setting WHERE setting_key='DB_LOGGING_ENABLED' AND value_type='boolean' AND json_type(value_json)='true')`,
     args: [
       randomUUID(),
       new Date().toISOString(),

@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { AiConversation } from "@/lib/ai-context";
-import { Icon } from "@/components/icon";
 import { useWorkspace } from "@/stores/workspace";
 
 export function AiConversationDialog({
@@ -71,7 +70,7 @@ export function AiConversationDialog({
   return (
     <dialog
       ref={dialog}
-      className="workspace-dialog matrix-ai-room-dialog"
+      className="workspace-dialog admin-detail-dialog workspace-form-dialog matrix-ai-room-dialog"
       aria-labelledby="matrix-ai-room-dialog-title"
       onCancel={(event) => {
         event.preventDefault();
@@ -81,21 +80,22 @@ export function AiConversationDialog({
         if (event.target === event.currentTarget && !busy.current) onClose();
       }}
     >
-      <div className="dialog-header">
+      <div className="dialog-header admin-detail-header">
         <h2 id="matrix-ai-room-dialog-title">
           {kind === "rename" ? "채팅방 제목 변경" : "채팅방 삭제"}
         </h2>
         <button
           type="button"
-          className="icon-button"
+          className="button admin-detail-close"
           aria-label="채팅방 설정 닫기"
           disabled={pending}
           onClick={onClose}
         >
-          <Icon name="close" />
+          닫기
         </button>
       </div>
       <form onSubmit={submit}>
+        <div className="admin-detail-body project-registration-body">
         {kind === "rename" ? (
           <label>
             채팅방 제목
@@ -122,7 +122,8 @@ export function AiConversationDialog({
             {error}
           </p>
         )}
-        <div className="matrix-ai-room-dialog-actions">
+        </div>
+        <div className="matrix-ai-room-dialog-actions project-registration-footer">
           <button
             autoFocus={kind === "delete"}
             type="button"

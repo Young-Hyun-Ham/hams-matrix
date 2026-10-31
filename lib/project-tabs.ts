@@ -2,6 +2,7 @@
 export type ProjectTab =
   | ArtifactKind
   | "overview"
+  | "rfp"
   | "trace"
   | "history"
   | "export"
@@ -16,6 +17,7 @@ export const projectSections: Record<string, ProjectTab> = {
 };
 export const projectTabLabels: Record<ProjectTab, string> = {
   overview: "개요",
+  rfp: "제안요청서",
   wbs: "WBS 일정",
   architecture: "아키텍처",
   requirement: "요구사항",

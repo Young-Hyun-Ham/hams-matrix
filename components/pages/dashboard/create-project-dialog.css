@@ -7,12 +7,12 @@
   gap: 12px;
   padding: 24px;
 }
-.create-project-form > label,
+.create-project-form .project-registration-body > label,
 .create-project-form legend {
   font-size: 13px;
   font-weight: 600;
 }
-.create-project-form > label span,
+.create-project-form .project-registration-body > label span,
 .create-project-form legend span {
   color: var(--muted);
   font-size: 11px;

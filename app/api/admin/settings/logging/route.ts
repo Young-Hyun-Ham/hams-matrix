@@ -40,7 +40,7 @@ export async function PATCH(request: Request) {
           "다른 관리자가 변경했습니다. 새로고침해 주세요.",
         );
       await tx.execute({
-        sql: "UPDATE app_settings SET value_json=?,version=version+1,updated_by=?,updated_at=? WHERE setting_key='DB_LOGGING_ENABLED'",
+        sql: "UPDATE admin_setting SET value_json=?,version=version+1,updated_by=?,updated_at=? WHERE setting_key='DB_LOGGING_ENABLED'",
         args: [JSON.stringify(input.value), user.id, new Date().toISOString()],
       });
       await tx.execute({

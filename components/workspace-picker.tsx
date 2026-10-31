@@ -33,22 +33,13 @@ export function WorkspacePicker({ current }: { current: string }) {
   }
   if (spaces.length < 2) return null;
   return (
-    <div style={{ padding: "8px 16px" }}>
-      <label style={{ fontSize: 11, color: "var(--muted)" }}>
-        워크스페이스
+    <div className="workspace-picker">
+      <label>
+        {/* 워크스페이스 */}
         <select
           value={current}
           disabled={busy}
           onChange={(event) => void change(event.target.value)}
-          style={{
-            width: "100%",
-            marginTop: 6,
-            padding: 8,
-            border: "1px solid var(--line)",
-            borderRadius: 8,
-            background: "var(--surface)",
-            color: "var(--ink)",
-          }}
         >
           {spaces.map((space) => (
             <option key={space.id} value={space.id}>

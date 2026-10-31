@@ -1,5 +1,5 @@
 "use client";
-import { useLayoutEffect } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { usePreferences, type Preferences } from "@/stores/preferences";
 import { useToasts } from "@/stores/toast";
 export function PreferencesRuntime({
@@ -11,9 +11,14 @@ export function PreferencesRuntime({
 }) {
   const { position, current, initialize } = usePreferences();
   const { items, remove } = useToasts();
+  const owner = useRef(Symbol("preferences-runtime"));
   useLayoutEffect(() => {
-    initialize(userId, initial);
+    initialize(userId, initial, owner.current);
   }, [userId, initial, initialize]);
+  useLayoutEffect(() => {
+    const token = owner.current;
+    return () => { if (usePreferences.getState().reset(userId, token)) useToasts.setState({ items: [] }); };
+  }, [userId]);
   return (
     <div
       style={{
@@ -43,9 +48,10 @@ export function PreferencesRuntime({
         >
           {item.text}
           <button
+            type="button"
             aria-label="알림 닫기"
             onClick={() => remove(item.id)}
-            style={{ float: "right", color: "inherit" }}
+            style={{ float: "right", color: current.toastCloseButtonColor ?? "inherit", backgroundColor: current.toastCloseButtonBackgroundColor ?? "ButtonFace" }}
           >
             ×
           </button>

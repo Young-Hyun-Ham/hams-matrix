@@ -1,3 +1,4 @@
+import { projectPermissionAccess } from "@/lib/project-permissions";
 import { randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
 import {
@@ -59,6 +60,8 @@ function selectAiPage(context: AiContext): AiPage {
       return aiPages.test;
     case "overview":
       return aiPages.overview;
+    case "rfp":
+      return aiPages.rfp;
     case "trace":
       return aiPages.trace;
     case "acceptance":
@@ -145,9 +148,11 @@ export async function POST(request: Request) {
     let projectName = "",
       canWrite = false;
     if (projectId) {
-      const project = await projectAccess(db(), user, projectId, true);
+      const project = await projectAccess(db(), user, projectId);
       projectName = String(project.name);
-      canWrite = ["owner", "admin", "member"].includes(String(project.role));
+      const access = await projectPermissionAccess(db(),user,projectId);
+      const rights = tab ? access.permissionsByTab[tab] : undefined;
+      canWrite = !!rights && (rights.CREATE || rights.UPDATE || rights.DELETE);
     }
     const convId = conversationId(input.convId);
     const conversation = await requireConversation(user, projectId, convId);

@@ -1,16 +1,12 @@
 "use client";
-import { ArtifactList } from "@/components/shared/artifact-list";
 import { useProjectPage } from "@/components/shared/project-page-context";
-import { WbsSchedule } from "./wbs-schedule";
 import WbsComponement from "./wbs-schedule-chart.jsx";
 import "./wbs-page.css";
 export function WbsPage() {
-  const { artifacts } = useProjectPage();
+  const { data } = useProjectPage();
   return (
     <>
-      {/* <WbsSchedule artifacts={artifacts} /> */}
-      {/* <ArtifactList kind="wbs" /> */}
-      <WbsComponement />
+      <WbsComponement key={data.project.id} />
     </>
   );
 }

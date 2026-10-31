@@ -77,6 +77,17 @@ export async function checkOnlyoffice({ load, client, file, setToken, setFailSto
     assert.equal((await callback(payload)).status, 404);
     await client.execute("INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner')");
     await restoreProjectOwner();
+    await client.execute("INSERT INTO users(id,name) VALUES ('policy-admin','Policy admin')");
+    await client.execute("INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','policy-admin','member')");
+    await client.execute("INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES ('project','ws','policy-admin','admin')");
+    await client.execute("UPDATE project_members SET role='admin' WHERE project_id='project' AND user_id='owner'");
+    await client.execute("UPDATE projects SET owner_id='policy-admin' WHERE id='project'");
+    await client.execute("INSERT OR IGNORE INTO project_permission_policies(project_id,workspace_id,updated_by) VALUES ('project','ws','policy-admin')");
+    await client.execute("INSERT INTO project_role_tab_permissions(project_id,workspace_id,role,tab_key,can_create,can_read,can_update,can_delete) VALUES ('project','ws','admin','documents',1,1,0,1)");
+    assert.equal((await callback(payload)).status,403,'an existing editor callback cannot save after document UPDATE permission is revoked');
+    setToken('owner-token');
+    assert.equal((await (await getConfig()).json()).canEdit,false);
+    await client.execute("UPDATE projects SET owner_id='owner' WHERE id='project'");
     assert.deepEqual(await (await callback(payload, { unsigned: { url: "https://evil.example/bad", status: 2 } })).json(), { error: 0 });
     assert.equal(objects.size, count);
     assert.equal(objects.get((await stored()).object_key).toString(), savedBytes);

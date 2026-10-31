@@ -7,6 +7,7 @@ import {
   type ArtifactKind,
 } from "@/lib/artifact-types";
 import { DateInput } from "./date-input";
+import { WbsDatePicker } from "@/components/pages/wbs/wbs-date-picker";
 export function initialArtifactFields(
   kind: ArtifactKind,
   artifact: Artifact | null,
@@ -23,11 +24,13 @@ export function ArtifactFieldInputs({
   isExisting,
   fields,
   change,
+  calendarOnly = false,
 }: {
   kind: ArtifactKind;
   isExisting: boolean;
   fields: Record<string, string>;
   change: (key: string, value: string) => void;
+  calendarOnly?: boolean;
 }) {
   const prefix = useId();
   return (
@@ -57,6 +60,10 @@ export function ArtifactFieldInputs({
                   </option>
                 ))}
               </select>
+            ) : kind === "architecture" && f.key === "owner" ? (
+              <input id={id} name={f.key} maxLength={3000} value={fields[f.key]} onChange={(e) => change(f.key, e.target.value)} />
+            ) : f.type === "date" && calendarOnly ? (
+              <WbsDatePicker label={f.label} name={f.key} value={fields[f.key]} required={f.required} onChange={(value) => change(f.key, value)} />
             ) : f.type === "date" ? (
               <DateInput
                 id={id}

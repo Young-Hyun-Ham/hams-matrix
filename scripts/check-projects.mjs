@@ -102,7 +102,7 @@ export async function checkProjects({
     args: [user.role, user.workspaceId, user.id],
   });
   await client.execute(
-    "UPDATE app_settings SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
+    "UPDATE admin_setting SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
   );
   const disabled = await create({ ...input, name: "로그 없는 프로젝트" });
   assert.equal(disabled.status, 201);
@@ -119,7 +119,7 @@ export async function checkProjects({
     0,
   );
   await client.execute(
-    "UPDATE app_settings SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
+    "UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
   );
   console.log(
     "PASS: project creation, multiple team members, persistence, validation, permissions, tenant isolation, atomic audit rollback and DB logging toggle.",

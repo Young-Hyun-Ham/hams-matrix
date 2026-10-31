@@ -1,3 +1,4 @@
+import { readRfp } from "../rfp-server";
 import "server-only";
 import type { User } from "../types";
 import type { AiContext } from "../ai-context";
@@ -7,6 +8,7 @@ import { projectAccess, toArtifact } from "../artifacts";
 import { acceptanceReport } from "../integration";
 
 export async function readAiPage(user: User, context: AiContext, page: AiPage) {
+  if(page.key === "rfp") return readRfp(db(),user,context.projectId);
   if (page.source === "dashboard") {
     const projects = await db().execute({
       sql: "SELECT p.id,p.name,p.description,p.status FROM projects p JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id WHERE p.workspace_id=? AND m.user_id=? ORDER BY p.updated_at DESC LIMIT 100",

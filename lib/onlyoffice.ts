@@ -1,3 +1,4 @@
+import { projectPermissionAccess, requireProjectPermission } from "./project-permissions";
 import "server-only";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import type { Client, Row } from "@libsql/client";
@@ -163,7 +164,7 @@ export async function onlyofficeConfiguration(
   const { fileType, documentType } = onlyofficeFileType(String(row.name));
   const { serverUrl, appUrl, secret } = onlyofficeSettings();
   const key = onlyofficeKey(row),
-    canEdit = writer({ ...user, role: String(access.role) });
+    canEdit = writer({ ...user, role: String(access.role) }) && (await projectPermissionAccess(db(),user,projectId)).permissionsByTab.documents.UPDATE;
   const scope = {
     projectId,
     fileId,
@@ -253,6 +254,7 @@ async function scopedUser(executor: Executor, scope: Scope, write: boolean) {
     onboardingComplete: true,
   };
   const access = await projectAccess(executor, user, scope.projectId, write);
+  if(write) await requireProjectPermission(executor,user,scope.projectId,"documents","UPDATE");
   return { ...user, role: String(access.role) };
 }
 export async function onlyofficeContent(scope: Scope) {

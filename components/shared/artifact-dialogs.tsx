@@ -13,12 +13,13 @@ export function ArtifactDialogs({
   actions: ArtifactActions;
   onReload: () => void;
 }) {
-  const { data, artifacts } = useProjectPage();
+  const { artifacts, can } = useProjectPage();
   const { editor: editing, deleting, busy, error: formError } = actions;
   const selected = editing?.artifact ?? null,
     draft = editing?.draft ?? null,
     defaults = selected ?? draft,
     editorKind = editing?.kind;
+  const editable = !!editorKind && can(editorKind,selected ? 'UPDATE' : 'CREATE');
   const dialog = useRef<HTMLDialogElement>(null),
     deleteDialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -43,7 +44,7 @@ export function ArtifactDialogs({
       {" "}
       <dialog
         ref={dialog}
-        className="matrix-dialog"
+        className={`matrix-dialog workspace-dialog admin-detail-dialog project-registration-dialog${editorKind === "architecture" ? " project-registration-dialog-wide" : ""}`}
         onCancel={(e) => {
           e.preventDefault();
           if (!busy) actions.closeEditor();
@@ -51,26 +52,27 @@ export function ArtifactDialogs({
       >
         {editing && editorKind && (
           <form key={selected?.id ?? "new"} onSubmit={actions.save}>
-            <div className="matrix-toolbar">
+            <div className="dialog-header admin-detail-header">
               <h2>
                 {selected
-                  ? `${selected.code} · ${data?.canWrite ? "수정" : "상세"}`
+                  ? `${selected.code} · ${editable ? "수정" : "상세"}`
                   : `${definitions[editorKind].label} 등록`}
               </h2>
               <button
                 type="button"
-                className="button"
+                className="button admin-detail-close"
                 disabled={busy}
                 onClick={() => actions.closeEditor()}
               >
                 닫기
               </button>
             </div>
+            <div className="admin-detail-body project-registration-body">
             <p>
               관리번호는 자동 발급되며 변경되지 않습니다.
               {selected ? ` 현재 v${selected.version}` : ""}
             </p>
-            <fieldset disabled={busy || !data?.canWrite}>
+            <fieldset disabled={busy || !editable}>
               <label>
                 명칭 *
                 <input
@@ -137,14 +139,15 @@ export function ArtifactDialogs({
                 {formError}
               </p>
             )}
-            <div className="matrix-toolbar">
-              {data?.canWrite && (
+            </div>
+            <div className="matrix-toolbar project-registration-footer">
+              {editable && (
                 <button
                   className="button primary"
                   disabled={busy}
                   type="submit"
                 >
-                  {busy ? "저장 중…" : "저장"}
+                  {busy ? editorKind === "architecture" ? "구성도 생성 및 저장 중…" : "저장 중…" : "저장"}
                 </button>
               )}
               {selected && (
@@ -195,7 +198,7 @@ export function ArtifactDialogs({
           </button>
           <button
             className="button primary"
-            disabled={busy}
+            disabled={busy || !deleting || !can(deleting.kind,'DELETE')}
             onClick={actions.remove}
           >
             {busy ? "처리 중…" : "삭제"}

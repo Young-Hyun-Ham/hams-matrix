@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { Icon } from "@/components/icon";
 import type { Project, TeamMember } from "@/lib/project-types";
 import type { User } from "@/lib/types";
 import "./create-project-dialog.css";
@@ -91,7 +90,7 @@ export function CreateProjectDialog({
   return (
     <dialog
       ref={dialog}
-      className="workspace-dialog create-project-dialog"
+      className="workspace-dialog admin-detail-dialog project-registration-dialog create-project-dialog"
       aria-labelledby="create-project-title"
       onCancel={(event) => {
         event.preventDefault();
@@ -101,16 +100,16 @@ export function CreateProjectDialog({
         if (event.target === event.currentTarget) close();
       }}
     >
-      <div className="dialog-header">
+      <div className="dialog-header admin-detail-header">
         <h2 id="create-project-title">새 프로젝트 만들기</h2>
         <button
           type="button"
-          className="icon-button"
+          className="button admin-detail-close"
           onClick={close}
           disabled={saving}
           aria-label="닫기"
         >
-          <Icon name="close" />
+          &#45803;&#44592;
         </button>
       </div>
       <form
@@ -118,6 +117,7 @@ export function CreateProjectDialog({
         onSubmit={submit}
         aria-busy={saving}
       >
+        <div className="admin-detail-body project-registration-body">
         <label htmlFor="project-name">
           프로젝트 이름 <span>필수</span>
         </label>
@@ -227,7 +227,8 @@ export function CreateProjectDialog({
             {error}
           </p>
         )}
-        <div className="project-form-actions">
+        </div>
+        <div className="project-form-actions project-registration-footer">
           <button
             className="button"
             type="button"

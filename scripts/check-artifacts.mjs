@@ -259,7 +259,7 @@ export async function checkArtifacts({
     beforeRows,
   );
   await client.execute(
-    "UPDATE app_settings SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
+    "UPDATE admin_setting SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
   );
   const noLogs = await create(input("requirement"));
   assert.equal(noLogs.code, "SFR-003");
@@ -275,7 +275,7 @@ export async function checkArtifacts({
     1,
   );
   await client.execute(
-    "UPDATE app_settings SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
+    "UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
   );
   await assert.rejects(
     client.execute({

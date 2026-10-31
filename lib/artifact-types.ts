@@ -1,3 +1,5 @@
+import type { ProjectPermissions } from "./project-permission-model";
+import type { ProjectRole } from "./plan-types";
 ﻿export const kinds = [
   "wbs",
   "architecture",
@@ -96,18 +98,6 @@ export const definitions: Record<
     prefix: "ARC",
     fields: [
       { key: "definition", label: "시스템 구성 개요", required: true },
-      { key: "languages", label: "개발 언어" },
-      { key: "frameworks", label: "프레임워크 / 버전", required: true },
-      { key: "database", label: "DBMS / 버전", required: true },
-      { key: "servers", label: "서버 / WAS / 인프라", required: true },
-      { key: "deployment", label: "배포 / 네트워크 구성" },
-      { key: "security", label: "보안 기준", required: true },
-      { key: "performance", label: "성능 기준", required: true },
-      {
-        key: "standards",
-        label: "개발 표준 / 인터페이스 / 예외 기준",
-        required: true,
-      },
       owner,
       notes,
     ],
@@ -281,7 +271,24 @@ export type ArchitectureTopology = {
   nodes: ArchitectureNode[];
   edges: ArchitectureEdge[];
 };
+export type ArchitectureMermaid = {
+  code: string;
+  sourceHash: string;
+  generatedAt: string;
+  generatorVersion: string;
+};
+export const architectureLegacyKeys = ["languages", "frameworks", "database", "servers", "deployment", "security", "performance", "standards"] as const;
+// Retain the existing workbook columns even though the registration form is smaller.
+export const architectureDocumentFields: FieldDefinition[] = [
+  definitions.architecture.fields[0],
+  ...architectureLegacyKeys.map((key, index) => ({ key, label: [
+    "개발 언어", "프레임워크 / 버전", "DBMS / 버전", "서버 / WAS / 인프라",
+    "배포 / 네트워크 구성", "보안 기준", "성능 기준", "개발 표준 / 인터페이스 / 예외 기준",
+  ][index] })),
+  ...definitions.architecture.fields.slice(1),
+];
 export type ArtifactStructure = {
+  mermaid?: ArchitectureMermaid;
   topology?: ArchitectureTopology;
   parentId?: string;
   dependencies?: string[];
@@ -313,6 +320,10 @@ export type Revision = {
   snapshot: Artifact;
 };
 export type ProjectData = {
+  projectRole: ProjectRole;
+  ownerId: string;
+  permissionVersion: number;
+  permissionsByTab: ProjectPermissions;
   project: { id: string; name: string; description: string; status: string };
   artifacts: Artifact[];
   revisions: Revision[];

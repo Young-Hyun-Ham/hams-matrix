@@ -195,3 +195,84 @@
   .wbs-chart > header, .wbs-chart > header + div { min-width: 840px; }
   .wbs-chart > div:last-child { min-width: 840px; }
 }
+/* Reserve enough space for every registration input before sharing the rest. */
+.wbs-chart .wbs-split-content { min-width: 566px; }
+.wbs-chart .wbs-registration-panel { min-width: 320px; flex-shrink: 0; }
+.wbs-registration-panel > div:first-child,
+.wbs-registration-panel > div:nth-child(2) > div { box-sizing: border-box; padding-inline: 8px; }
+.wbs-chart .wbs-registration-panel [class~="w-24"] { width: 124px; flex-basis: 124px; box-sizing: border-box; }
+.wbs-chart .wbs-registration-panel [class~="flex-1"] { min-width: 180px; }
+.wbs-chart .wbs-overview-thumbnail { flex: 0 0 auto; display: block; width: 100%; padding: 8px 16px; text-align: left; color: var(--ink); background: var(--surface); border-bottom: 1px solid var(--line); }
+.wbs-overview-caption { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; font-size: 11px; }
+.wbs-overview-caption > span { color: var(--muted); }
+.wbs-overview-thumbnail svg { display: block; width: 100%; height: 70px; border: 1px solid var(--line); border-radius: 4px; }
+.wbs-chart .wbs-overview-dialog { width: calc(100vw - 48px); max-width: 1800px; max-height: calc(100dvh - 48px); min-width: 0; padding: 0; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--surface); box-shadow: 0 24px 80px #0005; }
+.wbs-overview-dialog::backdrop { background: #0f172a99; backdrop-filter: blur(3px); }
+.wbs-overview-modal { padding: 16px; }
+.wbs-overview-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.wbs-overview-heading h2 { margin: 0 0 5px; font-size: 17px; }
+.wbs-overview-heading p { font-size: 12px; color: var(--muted); }
+.wbs-chart .wbs-overview-heading button { flex-shrink: 0; padding: 7px 12px; border-radius: 6px; color: var(--ink); background: var(--primary-soft); }
+.wbs-overview-scroll { overflow: auto; max-height: calc(100dvh - 180px); padding-bottom: 16px; box-sizing: border-box; }
+.wbs-overview-scroll svg { display: block; max-width: none; }
+@media (max-width: 1106px) { .wbs-chart { overflow-x: auto; } }
+
+/* A shared grid keeps header and editable rows on identical column boundaries. */
+.wbs-chart .wbs-registration-grid {
+  display: grid;
+  grid-template-columns: var(--registration-columns);
+  align-items: center;
+}
+.wbs-chart .wbs-registration-header,
+.wbs-chart .wbs-registration-body {
+  scrollbar-gutter: stable;
+}
+.wbs-chart .wbs-registration-header { overflow-y: hidden; flex-shrink: 0; }
+.wbs-chart .wbs-registration-panel .wbs-registration-grid > div {
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  padding-inline: 4px;
+}
+.wbs-chart .wbs-registration-grid input { box-sizing: border-box; max-width: 100%; }
+.wbs-chart .wbs-registration-grid input[type="number"] { width: 52px; flex-shrink: 0; }
+.wbs-chart .wbs-registration-actions { gap: 4px; flex-wrap: nowrap; }
+.wbs-chart .wbs-registration-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 30px;
+  min-width: 30px;
+  height: 28px;
+  padding: 4px;
+  flex-shrink: 0;
+}
+
+/* Remove whole columns together in the header and every body row. */
+.wbs-chart .wbs-registration-panel[data-visible-columns="2"] .wbs-registration-grid > :nth-child(n + 3) { display: none; }
+.wbs-chart .wbs-registration-panel[data-visible-columns="3"] .wbs-registration-grid > :nth-child(n + 4) { display: none; }
+.wbs-chart .wbs-registration-panel[data-visible-columns="4"] .wbs-registration-grid > :nth-child(n + 5) { display: none; }
+.wbs-chart .wbs-registration-panel[data-visible-columns="5"] .wbs-registration-grid > :nth-child(n + 6) { display: none; }
+.wbs-chart .wbs-registration-panel[data-visible-columns="6"] .wbs-registration-grid > :nth-child(n + 7) { display: none; }
+
+.wbs-chart .wbs-search { display: flex; align-items: center; gap: 4px; padding-left: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.wbs-chart .wbs-search > svg { flex: 0 0 14px; color: var(--muted); pointer-events: none; }
+.matrix-workbench .wbs-chart .wbs-search > input { border: 0; padding: 5px 8px; width: 210px; background: transparent; }
+.wbs-chart .wbs-filter-toolbar, .wbs-chart .wbs-filter-toolbar > div:first-child { flex-wrap: wrap; gap: 8px; }
+.wbs-save-status { padding: 6px 16px; color: var(--muted); font-size: 12px; }
+.wbs-chart button:disabled { cursor: default; opacity: .5; }
+.wbs-task-detail { color: var(--primary); background: transparent; text-decoration: underline; }
+.wbs-date-picker { display: flex; align-items: center; min-width: 0; gap: 2px; }
+.matrix-workbench .wbs-date-picker > input[type="text"] { width: 88px; min-width: 0; padding: 4px 0; border: 0; background: transparent; font-size: 11px; }
+.wbs-date-picker > button { flex-shrink: 0; padding: 3px; background: transparent; color: var(--primary); }
+.workspace-dialog.wbs-calendar-dialog { max-width: 320px; }
+.wbs-calendar-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.wbs-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-bottom: 12px; text-align: center; }
+.wbs-calendar-grid button { border: 1px solid var(--line); border-radius: 4px; background: var(--surface); color: var(--ink); padding: 7px 2px; }
+.wbs-calendar-grid button[aria-selected="true"] { background: var(--primary); color: white; }
+.wbs-calendar-grid button:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; }
+.workspace-dialog.admin-detail-dialog.wbs-publication-dialog { width: min(1400px, calc(100vw - 32px)); max-width: 1400px; }
+.wbs-publication-graph { overflow: auto; max-height: 50dvh; margin: 12px 0; border: 1px solid var(--line); }
+.wbs-publication-graph svg { display: block; max-width: none; }
+.wbs-publication-status { color: var(--muted); font-size: 11px; }

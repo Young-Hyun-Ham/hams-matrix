@@ -1,6 +1,8 @@
 "use client";
 import { useId, type Ref } from "react";
 import type { Artifact } from "@/lib/artifact-types";
+import { useTheme } from "@/stores/theme";
+import { architectureTheme } from "./architecture-theme";
 import { architectureLayout } from "./architecture-layout";
 
 function Lines({
@@ -9,7 +11,7 @@ function Lines({
   y,
   size = 14,
   weight = 400,
-  color = "#24364b",
+  color,
   anchor = "start",
 }: {
   lines: string[];
@@ -49,6 +51,9 @@ export function ArchitectureDiagramSvg({
   const markerId = `architecture-arrow-${id}`;
   const titleId = `architecture-title-${id}`;
   const layout = architectureLayout(artifact);
+  const theme = useTheme((state) => state.theme);
+  const accentColor = useTheme((state) => state.accentColor);
+  const palette = architectureTheme(theme, accentColor);
   return (
     <svg
       ref={svgRef}
@@ -58,6 +63,7 @@ export function ArchitectureDiagramSvg({
       viewBox={`0 0 ${layout.width} ${layout.height}`}
       role="img"
       aria-labelledby={titleId}
+      fill={palette.text}
       fontFamily="Arial, 'Malgun Gothic', sans-serif"
       className="matrix-architecture-svg"
     >
@@ -76,10 +82,10 @@ export function ArchitectureDiagramSvg({
           markerHeight="7"
           orient="auto-start-reverse"
         >
-          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3c526b" />
+          <path d="M 0 0 L 10 5 L 0 10 z" fill={palette.line} />
         </marker>
       </defs>
-      <rect width={layout.width} height={layout.height} fill="#f1f6fc" />
+      <rect width={layout.width} height={layout.height} fill={palette.background} />
       <Lines
         lines={[
           `${artifact.code} · SYSTEM ARCHITECTURE · ${artifact.status} · v${artifact.version}`,
@@ -87,7 +93,7 @@ export function ArchitectureDiagramSvg({
         x={52}
         y={35}
         size={13}
-        color="#526a85"
+        color={palette.muted}
       />
       <Lines
         lines={layout.title}
@@ -95,7 +101,7 @@ export function ArchitectureDiagramSvg({
         y={77}
         size={25}
         weight={700}
-        color="#10283f"
+        color={palette.text}
       />
       <Lines
         lines={layout.overview}
@@ -111,8 +117,8 @@ export function ArchitectureDiagramSvg({
             width={1116}
             height={layout.infrastructureBottom - layout.infrastructureTop + 44}
             rx={12}
-            fill="#e7eef7"
-            stroke="#8196ac"
+            fill={palette.infrastructure}
+            stroke={palette.border}
             strokeDasharray="7 5"
           />
           <text
@@ -120,7 +126,7 @@ export function ArchitectureDiagramSvg({
             y={layout.infrastructureTop - 10}
             fontSize={12}
             fontWeight={700}
-            fill="#48617a"
+            fill={palette.muted}
           >
             INFRASTRUCTURE
           </text>
@@ -134,9 +140,9 @@ export function ArchitectureDiagramSvg({
             width={1018}
             height={group.height}
             rx={10}
-            fill="#ffffff"
+            fill={palette.group}
             fillOpacity={0.45}
-            stroke="#b2c1d1"
+            stroke={palette.border}
             strokeDasharray="4 4"
           />
           <text
@@ -144,7 +150,7 @@ export function ArchitectureDiagramSvg({
             y={group.y + 24}
             fontSize={14}
             fontWeight={700}
-            fill="#3c526b"
+            fill={palette.line}
           >
             {group.label}
           </text>
@@ -155,7 +161,7 @@ export function ArchitectureDiagramSvg({
           key={edge.id}
           d={edge.path}
           fill="none"
-          stroke="#3c526b"
+          stroke={palette.line}
           strokeWidth={1.6}
           markerEnd={`url(#${markerId})`}
         />
@@ -167,8 +173,8 @@ export function ArchitectureDiagramSvg({
             <>
               <path
                 d={`M ${node.x} ${node.y + 16} a 150 16 0 0 1 300 0 v ${node.height - 32} a 150 16 0 0 1 -300 0 Z`}
-                fill={node.color}
-                stroke="#637b95"
+                fill={palette.layers[node.layer]}
+                stroke={palette.border}
                 strokeWidth={1.4}
               />
               <ellipse
@@ -176,8 +182,8 @@ export function ArchitectureDiagramSvg({
                 cy={node.y + 16}
                 rx={150}
                 ry={16}
-                fill={node.color}
-                stroke="#637b95"
+                fill={palette.layers[node.layer]}
+                stroke={palette.border}
                 strokeWidth={1.4}
               />
             </>
@@ -189,7 +195,7 @@ export function ArchitectureDiagramSvg({
                 width={node.width}
                 height={node.height}
                 rx={9}
-                fill="#b7c8dc"
+                fill={palette.shadow}
                 opacity={0.3}
               />
               <rect
@@ -198,8 +204,8 @@ export function ArchitectureDiagramSvg({
                 width={node.width}
                 height={node.height}
                 rx={9}
-                fill={node.color}
-                stroke="#637b95"
+                fill={palette.layers[node.layer]}
+                stroke={palette.border}
                 strokeWidth={1.4}
               />
               <rect
@@ -208,12 +214,12 @@ export function ArchitectureDiagramSvg({
                 width={24}
                 height={17}
                 rx={3}
-                fill="#ffffff"
-                stroke="#637b95"
+                fill={palette.group}
+                stroke={palette.border}
               />
               <path
                 d={`M ${node.x + 16} ${node.y + 19} h 16 M ${node.x + 16} ${node.y + 24} h 10`}
-                stroke="#637b95"
+                stroke={palette.border}
               />
             </>
           )}
@@ -244,7 +250,7 @@ export function ArchitectureDiagramSvg({
               width={edge.labelWidth}
               height={edge.labelLines.length * 17 + 4}
               rx={4}
-              fill="#f1f6fc"
+              fill={palette.background}
             />
             <Lines
               lines={edge.labelLines}
@@ -271,7 +277,7 @@ export function ArchitectureDiagramSvg({
         x={52}
         y={layout.height - 24}
         size={12}
-        color="#526a85"
+        color={palette.muted}
       />
     </svg>
   );

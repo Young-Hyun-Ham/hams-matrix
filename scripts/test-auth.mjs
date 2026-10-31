@@ -37,24 +37,26 @@ const port = Number(process.env.TEST_PORT ?? 3107),
 const development = process.argv.includes("--dev");
 const loggingDisabled = process.argv.includes("--logging-disabled");
 await client.execute({
-  sql: "UPDATE app_settings SET value_json=? WHERE setting_key='DB_LOGGING_ENABLED'",
+  sql: "UPDATE admin_setting SET value_json=? WHERE setting_key='DB_LOGGING_ENABLED'",
   args: [loggingDisabled ? "false" : "true"],
 });
-// Reapplying the migration must preserve the configured value.
+// Reseeding the renamed table must preserve the configured value.
 await client.executeMultiple(
-  await readFile(new URL("002_app_settings.sql", migrationsDirectory), "utf8"),
+  `INSERT INTO admin_setting(setting_key,value_json,value_type,category,label,description)
+   VALUES ('DB_LOGGING_ENABLED','false','boolean','logging','DB audit logging','Default setting')
+   ON CONFLICT(setting_key) DO NOTHING;`,
 );
 assert.equal(
   (
     await client.execute(
-      "SELECT value_json FROM app_settings WHERE setting_key='DB_LOGGING_ENABLED'",
+      "SELECT value_json FROM admin_setting WHERE setting_key='DB_LOGGING_ENABLED'",
     )
   ).rows[0].value_json,
   loggingDisabled ? "false" : "true",
 );
 await assert.rejects(
   client.execute(
-    "UPDATE app_settings SET value_json='\"true\"' WHERE setting_key='DB_LOGGING_ENABLED'",
+    "UPDATE admin_setting SET value_json='\"true\"' WHERE setting_key='DB_LOGGING_ENABLED'",
   ),
 );
 const sourceRoot = process.cwd();
@@ -528,7 +530,7 @@ try {
       (await client.execute("SELECT count(*) AS n FROM audit_logs")).rows[0].n,
     );
     await client.execute(
-      "UPDATE app_settings SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
+      "UPDATE admin_setting SET value_json='false' WHERE setting_key='DB_LOGGING_ENABLED'",
     );
     assert.equal(
       (await request("/api/me", { cookie: secondCookie })).status,
@@ -552,7 +554,7 @@ try {
       beforeToggle,
     );
     await client.execute(
-      "UPDATE app_settings SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
+      "UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED'",
     );
     assert.equal(
       (await request("/api/me", { cookie: secondCookie })).status,

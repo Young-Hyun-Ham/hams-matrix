@@ -5,7 +5,7 @@ import type { WbsScheduleItem } from "./wbs-schedule-image";
 import { AiImageActions } from "@/components/shared/ai-image-actions";
 import { useProjectPage } from "@/components/shared/project-page-context";
 export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
-  const { data } = useProjectPage();
+  const { can, data } = useProjectPage();
   const tasks = artifacts.filter((a) => a.kind === "wbs"),
     ordered: WbsScheduleItem[] = [],
     seen = new Set<string>();
@@ -45,7 +45,7 @@ export function WbsSchedule({ artifacts }: { artifacts: Artifact[] }) {
           description="프로젝트의 전체 WBS 작업·계획 기간·마일스톤·선행 관계를 바탕으로 AI가 단계별 로드맵 이미지를 생성합니다."
           promptPlaceholder="예: 보라색 단계 막대와 금색 마일스톤, 분기별 타임라인으로 표현해 주세요"
           filename={`WBS-마일스톤-${data.project.name}`}
-          canWrite={data.canWrite}
+          canWrite={can('wbs','UPDATE')}
         />
       </div>
       <p>

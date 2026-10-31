@@ -24,7 +24,7 @@ try {
   for (const name of files.filter(name=>name>"020_accounts_and_plans.sql")) await db.executeMultiple(await readFile(join("db/migrations",name),"utf8"));
   assert.equal((await one("SELECT account_role FROM users WHERE id='legacy'")).account_role,"user");
   assert.equal((await one("SELECT plan_code FROM user_subscriptions WHERE user_id='legacy'")).plan_code,"free");
-  assert.equal(JSON.stringify((await db.execute("SELECT * FROM app_settings")).rows),settings);
+  assert.equal(JSON.stringify((await db.execute("SELECT * FROM admin_setting")).rows),settings);
   await assert.rejects(db.execute("UPDATE users SET account_role='owner' WHERE id='legacy'"));
   const password="TestMaster123!";
   assert.equal((await bootstrapMaster(db,password)).created,true);

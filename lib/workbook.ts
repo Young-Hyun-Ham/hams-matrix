@@ -1,6 +1,7 @@
 import { acceptanceReport, taskMetrics, referencesFor } from "./integration";
 import { traceRows, relatedCodes } from "./traceability";
 import {
+  architectureDocumentFields,
   definitions,
   kinds,
   type Artifact,
@@ -113,7 +114,7 @@ export function exportSheets(data: ProjectData): Sheet[] {
         `${definitions[kind].label} ID`,
         `${definitions[kind].label}명`,
         "상태",
-        ...definitions[kind].fields.map((f) => f.label),
+        ...(kind === "architecture" ? architectureDocumentFields : definitions[kind].fields).map((f) => f.label),
         ...kinds.map((k) => `관련 ${definitions[k].label} ID`),
         "버전",
         "최종 수정 (UTC)",
@@ -125,7 +126,7 @@ export function exportSheets(data: ProjectData): Sheet[] {
           a.code,
           a.title,
           a.status,
-          ...definitions[kind].fields.map((f) => a.fields[f.key] ?? ""),
+          ...(kind === "architecture" ? architectureDocumentFields : definitions[kind].fields).map((f) => a.fields[f.key] ?? ""),
           ...kinds.map((k) => relatedCodes(artifacts, a, k, traces)),
           String(a.version),
           a.updatedAt,

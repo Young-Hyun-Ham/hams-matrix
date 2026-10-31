@@ -76,17 +76,10 @@ export async function PATCH(request: Request) {
         )
           throw new HttpError(409, "승인 가능한 user 계정이 아닙니다.");
         await tx.execute({
-          sql: "INSERT INTO workspace_members(workspace_id,user_id,role,join_source) VALUES (?,?,'member','application') ON CONFLICT(workspace_id,user_id) DO UPDATE SET role=CASE WHEN workspace_members.role='viewer' THEN 'member' ELSE workspace_members.role END,join_source='application'",
+          sql: "INSERT INTO workspace_members(workspace_id,user_id,role,join_source) VALUES (?,?,'viewer','application') ON CONFLICT(workspace_id,user_id) DO UPDATE SET join_source='application'",
           args: [user.workspaceId, memberId],
         });
-        const shared = await tx.execute({
-          sql: "INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id,role) SELECT id,workspace_id,?,'member' FROM projects WHERE workspace_id=?",
-          args: [memberId, user.workspaceId],
-        });
-        await tx.execute({
-          sql: "UPDATE project_members SET role='member' WHERE workspace_id=? AND user_id=? AND role='viewer'",
-          args: [user.workspaceId, memberId],
-        });
+        const shared = { rowsAffected: 0 };
         await tx.execute({
           sql: "UPDATE users SET active_workspace_id=?,updated_at=? WHERE id=?",
           args: [user.workspaceId, new Date().toISOString(), memberId],
@@ -102,7 +95,7 @@ export async function PATCH(request: Request) {
             action: "CREATE",
             resource: "workspace_member",
             resourceId: memberId,
-            after: { role: "member" },
+            after: { role: "viewer" },
             metadata: { sharedProjects: shared.rowsAffected },
           },
           tx,

@@ -79,16 +79,16 @@ AI Chatbot의 관리자 보안 정책은 [AI 가드레일 운영](docs/AI_GUARDR
 
 ## 이력과 후속 확장
 
-`app_settings` 테이블의 `DB_LOGGING_ENABLED` 설정이 JSON boolean `true`일 때만 DB 감사 이력을 저장합니다. 기본값은 현재 설정과 동일한 `false`이며, `.env` 값은 사용하지 않습니다. DB 값을 바꾸면 재시작 없이 다음 요청부터 반영됩니다. 기존 이력은 삭제하지 않습니다. 관리자의 설정 화면/API는 추후 구현 범위이며 현재 설정 변경 API는 공개하지 않습니다.
+`admin_setting` 테이블의 `DB_LOGGING_ENABLED` 설정이 JSON boolean `true`일 때만 DB 감사 이력을 저장합니다. 기본값은 현재 설정과 동일한 `false`이며, `.env` 값은 사용하지 않습니다. DB 값을 바꾸면 재시작 없이 다음 요청부터 반영됩니다. 기존 이력은 삭제하지 않습니다. 관리자의 설정 화면/API는 추후 구현 범위이며 현재 설정 변경 API는 공개하지 않습니다.
 
 ```sql
-UPDATE app_settings
+UPDATE admin_setting
 SET value_json = 'true', version = version + 1,
     updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
 WHERE setting_key = 'DB_LOGGING_ENABLED';
 ```
 
-`app_settings`는 키, JSON 값, 자료형(boolean/number/string/json), 분류, 화면 표시명, 설명, 버전, 수정자, 생성·수정 시각을 저장합니다. 신규 마이그레이션을 실행해도 기존 설정은 덮어쓰지 않습니다. 서버 조회는 `lib/settings.ts`의 `getAppSetting()` / `getBooleanSetting()`을 사용합니다. 이 테이블에는 일반 운영 설정을 보관하며 OAuth 앱 비밀키 같은 자격증명은 기존 환경변수에서 관리합니다.
+`admin_setting`는 키, JSON 값, 자료형(boolean/number/string/json), 분류, 화면 표시명, 설명, 버전, 수정자, 생성·수정 시각을 저장합니다. 신규 마이그레이션을 실행해도 기존 설정은 덮어쓰지 않습니다. 서버 조회는 `lib/settings.ts`의 `getAppSetting()` / `getBooleanSetting()`을 사용합니다. 이 테이블에는 일반 운영 설정을 보관하며 OAuth 앱 비밀키 같은 자격증명은 기존 환경변수에서 관리합니다.
 
 상단 헤더의 알림 왼쪽에 라이트/다크 모드 토글이 있습니다. Zustand로 테마 상태를 관리하고 브라우저 localStorage에 선택을 저장합니다. 로그인·회원가입을 포함한 모든 화면에 동일한 테마가 적용되며 새로고침 시 초기 스크립트로 먼저 적용합니다. 스타일은 `styles/themes.css`에 분리했습니다.
 

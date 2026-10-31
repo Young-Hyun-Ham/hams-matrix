@@ -1,3 +1,4 @@
+import { requireProjectPermission } from "@/lib/project-permissions";
 import {
   requireUser,
   errorResponse,
@@ -33,7 +34,7 @@ async function mutateFile(
     const input = action === "UPDATE" ? await body(request) : null;
     const tx = await db().transaction("write");
     try {
-      await projectAccess(tx, user, projectId, true);
+      await requireProjectPermission(tx, user, projectId, "documents", request.method === "DELETE" ? "DELETE" : "UPDATE");
       const row = (
         await tx.execute({
           sql: "SELECT name,object_key FROM project_files WHERE id=? AND workspace_id=? AND project_id=?",

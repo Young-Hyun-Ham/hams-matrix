@@ -275,7 +275,7 @@ export function AiImageActions({
           >
             <p>{subject}</p>
             <p className="matrix-image-hint">{description}</p>
-            <fieldset disabled={busy}>
+            <fieldset disabled={busy || !canWrite}>
               <label>
                 AI 이미지 모델 *
                 <select
@@ -327,7 +327,7 @@ export function AiImageActions({
               <button
                 type="submit"
                 className="button primary"
-                disabled={busy || !model}
+                disabled={busy || !model || !canWrite}
               >
                 {generating
                   ? "생성 중..."

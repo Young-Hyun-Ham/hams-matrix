@@ -17,7 +17,7 @@
 .matrix-architecture-canvas {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: #f1f6fc;
+  background: var(--surface);
   overflow: auto;
 }
 .matrix-architecture-svg {
@@ -161,3 +161,29 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.matrix-architecture-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin: 12px 0; }
+.matrix-architecture-tabs button { padding: 8px 14px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--ink); cursor: pointer; }
+.matrix-architecture-tabs button[aria-selected="true"] { border-bottom-color: var(--primary); font-weight: 700; background: var(--primary-soft); }
+.matrix-architecture-description { white-space: pre-wrap; overflow-wrap: anywhere; }
+.matrix-architecture-mermaid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.matrix-architecture-mermaid > section { min-width: 0; }
+.architecture-code-panel, .architecture-preview-panel { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--surface); }
+.architecture-editor-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-height: 54px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--primary-soft); }
+.architecture-editor-toolbar h3 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.architecture-editor-toolbar > div { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.architecture-editor-toolbar .button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 7px; font-size: 12px; }
+.architecture-code-editor { display: flex; height: clamp(340px, 62dvh, 720px); background: var(--canvas); }
+.architecture-code-lines { flex: 0 0 46px; padding: 14px 8px; box-sizing: border-box; overflow: hidden; text-align: right; border-right: 1px solid var(--line); color: var(--muted); user-select: none; font: 13px/22px Consolas, 'Courier New', monospace; }
+.matrix-workbench .architecture-code-editor > textarea { display: block; flex: 1; width: 0; min-width: 0; min-height: 0; resize: none; box-sizing: border-box; margin: 0; padding: 14px 12px; border: 0; border-radius: 0; background: transparent; color: var(--ink); font: 13px/22px Consolas, 'Courier New', monospace; tab-size: 2; white-space: pre; overflow: auto; }
+.architecture-code-editor > textarea:focus { outline: 2px solid var(--primary); outline-offset: -2px; }
+.architecture-editor-status, .architecture-editor-note { padding: 8px 12px; margin: 0; color: var(--muted); font-size: 11px; overflow-wrap: anywhere; }
+.matrix-architecture-mermaid-preview { position: relative; overflow: auto; height: clamp(340px, 62dvh, 720px); background-color: var(--canvas); background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px); background-size: 20px 20px; color: var(--ink); cursor: grab; touch-action: none; user-select: none; }
+.matrix-architecture-mermaid-preview:active { cursor: grabbing; }
+.matrix-architecture-mermaid-preview:fullscreen { height: 100dvh; width: 100vw; }
+.architecture-preview-space { position: relative; min-width: 100%; min-height: 100%; }
+.architecture-preview-canvas { position: absolute; left: 24px; top: 24px; transform-origin: top left; }
+.matrix-workbench .architecture-preview-canvas svg { display: block; max-width: none; min-width: 0; width: auto; height: auto; }
+.architecture-preview-message { padding: 24px; margin: 0; color: var(--muted); }
+.architecture-preview-error { padding: 16px; margin: 0; font-size: 12px; white-space: pre-wrap; color: var(--ink); background: var(--surface); border-left: 3px solid #d64f69; overflow-wrap: anywhere; }
+@media (max-width: 700px) { .matrix-architecture-mermaid { grid-template-columns: minmax(0, 1fr); } }

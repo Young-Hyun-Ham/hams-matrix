@@ -213,7 +213,24 @@ export async function checkAiCrud({
       prompt: `화면을 등록해줘 [TOOL]${Buffer.from(JSON.stringify({ name: "save_artifact", args: { action: "CREATE", title: "권한 없음", fields: { definition: "개요", details: "상세" } } })).toString("base64")}`,
     },
   });
-  assert.equal(denied.status, 403, "project viewers cannot run paid AI requests");
+  assert.equal(denied.status, 200, 'project viewers may ask AI to read or explain');
+  const deniedResult = await denied.json();
+  assert.equal(JSON.parse(deniedResult.chat.result).success, false);
+  assert.equal(JSON.parse(deniedResult.chat.result).status, 403);
+  assert.deepEqual(deniedResult.actions, []);
+  const rfp = {schemaVersion:1,projectId:project.id,title:'AI RFP',basic:{organization:'',startDate:'',endDate:'',budget:'',background:'AI draft background',objectives:''},scope:{currentState:'',targetUsers:'',included:'',excluded:'',expectedEffects:''},requirements:[],delivery:{schedule:[],organization:'',quality:'',security:'',risks:'',support:''},proposalGuide:{documents:'',method:'',deadline:'',contact:'',outline:''},evaluation:[],appendix:{glossary:'',references:'',notes:''}};
+  const rfpResult=await tool({action:'CREATE',draft:rfp},'제안요청서를 작성해줘',{tab:'rfp',pathname:`/projects/${project.id}`},'save_rfp_document');
+  assert.equal(rfpResult.actions.length,1);
+  assert.equal(rfpResult.actions[0].target,'rfp');
+  const rfpGet=await request(`/api/projects/${project.id}/rfp`,{cookie});
+  assert.equal(rfpGet.status,200);
+  const rfpDoc=(await rfpGet.json()).document;
+  assert.equal(rfpDoc.draft.basic.background,'AI draft background');
+  const rfpUpdate=await tool({action:'UPDATE',id:rfpDoc.id,expectedVersion:rfpDoc.version,patch:{scope:{included:'Updated scope'}}},'구축 범위만 수정해줘',{tab:'rfp',pathname:`/projects/${project.id}`},'save_rfp_document');
+  assert.equal(rfpUpdate.actions[0].version,2);
+  const updatedRfp=(await (await request(`/api/projects/${project.id}/rfp`,{cookie})).json()).document;
+  assert.equal(updatedRfp.draft.basic.background,'AI draft background');
+  assert.equal(updatedRfp.draft.scope.included,'Updated scope');
   console.log(
     "PASS: actual AI tool CRUD, partial update preservation, revisions, optimistic concurrency, linked deletion guard, tab and role boundaries, explicit intent, staged-write rollback and page-specific data sources.",
   );

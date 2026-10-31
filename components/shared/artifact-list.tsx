@@ -14,7 +14,7 @@ export function ArtifactList({
   kind: ArtifactKind;
   renderActions?: (artifact: Artifact) => ReactNode;
 }) {
-  const { data, artifacts, openCreate, openEdit, openDelete } =
+  const { can, artifacts, openCreate, openEdit, openDelete } =
     useProjectPage();
   const [query, setQuery] = useState(""),
     [status, setStatus] = useState("");
@@ -37,7 +37,7 @@ export function ArtifactList({
         <h2>
           {definitions[kind].document} <small>{filtered.length}건</small>
         </h2>
-        {data.canWrite && (
+        {can(kind,'CREATE') && (
           <button className="button primary" onClick={() => openCreate(kind)}>
             {definitions[kind].label} 등록
           </button>
@@ -94,15 +94,15 @@ export function ArtifactList({
                   })}
                 </td>
                 <td>
-                  {data.canWrite ? (
+                  {can(kind,'UPDATE') || can(kind,'DELETE') ? (
                     <>
                       <button className="button" onClick={() => openEdit(a)}>
-                        수정
+                        {can(kind,'UPDATE') ? '수정' : '상세'}
                       </button>{" "}
                       {renderActions?.(a)}
-                      <button className="button" onClick={() => openDelete(a)}>
+                      {can(kind,'DELETE') && <button className="button" onClick={() => openDelete(a)}>
                         삭제
-                      </button>
+                      </button>}
                     </>
                   ) : (
                     <button className="button" onClick={() => openEdit(a)}>

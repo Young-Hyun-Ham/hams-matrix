@@ -6,7 +6,7 @@ import { Icon } from "./icon";
 
 export function ThemeToggle() {
   const { theme } = useTheme();
-  const { saved, save, busy, userId } = usePreferences();
+  const { saved, current, save, busy, userId } = usePreferences();
   return (
     <button
       type="button"
@@ -14,21 +14,16 @@ export function ThemeToggle() {
       role="switch"
       aria-label="다크 모드"
       aria-checked={theme === "dark"}
-      title="라이트 / 다크 모드 전환"
-      disabled={busy || !userId}
+      title={current.defaultTheme !== saved.defaultTheme ? "편집 중인 기본 테마를 먼저 저장하거나 취소해 주세요." : theme === "dark" ? "라이트 모드로 변경" : "다크 모드로 변경"}
+      disabled={busy || !userId || current.defaultTheme !== saved.defaultTheme}
       onClick={() =>
         void save({
-          ...saved,
+          version: saved.version,
           defaultTheme: theme === "light" ? "dark" : "light",
         }).catch((e) => toast(e.message, true))
       }
     >
-      <span className="theme-sun">
-        <Icon name="sun" size={16} />
-      </span>
-      <span className="theme-moon">
-        <Icon name="moon" size={16} />
-      </span>
+      <Icon name={theme === "dark" ? "moon" : "sun"} size={18} />
     </button>
   );
 }

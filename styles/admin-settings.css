@@ -60,23 +60,7 @@
 .admin-settings-page .admin-logging-settings { padding: 12px; margin-bottom: 12px; }
 .admin-settings-page .admin-logging-settings h2 { margin: 0 0 8px; }
 
-/* Both detail views share one header and one scrolling body, including pending/error states. */
-.admin-settings-page .admin-detail-dialog {
-  padding: 0; width: calc(100% - 40px); max-width: 520px; max-height: 85dvh;
-  overflow: hidden; background: var(--surface); border-radius: 10px;
-}
-.admin-settings-page .admin-detail-dialog[open] { display: flex; flex-direction: column; }
-.admin-settings-page .admin-detail-header {
-  position: relative; z-index: 1; flex: 0 0 auto; gap: 8px;
-  padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--surface);
-  box-shadow: 0 4px 8px rgb(0 0 0 / 16%);
-}
-[data-theme=dark] .admin-settings-page .admin-detail-header { box-shadow: 0 4px 8px rgb(0 0 0 / 36%); }
-.admin-settings-page .admin-detail-header h2 { margin: 0; font-size: 12px; line-height: 1.4; }
-.admin-settings-page .admin-detail-close { width: auto; min-height: 24px; padding: 2px 7px; }
-.admin-settings-page .admin-detail-body { flex: 1 1 auto; min-height: 0; padding: 16px 12px 12px; overflow: auto; overflow-wrap: anywhere; }
-.admin-settings-page .admin-detail-body > :first-child { margin-top: 0; }
-.admin-settings-page .admin-detail-body h3 { margin: 0 0 8px; }
+/* Shared detail modal layout lives in styles/dialog.css. */
 .admin-settings-page .admin-member-form { margin-top: 16px; }
 .admin-settings-page .admin-member-form fieldset { display: grid; min-width: 0; padding: 0; margin: 0; border: 0; gap: 10px; }
 .admin-settings-page .admin-member-form legend { padding: 0; margin-bottom: 10px; }
@@ -128,6 +112,5 @@
 }
 @media (max-width: 700px), (pointer: coarse) {
   .admin-settings-page .button,.admin-settings-page .guardrail-tabs button { min-height: 32px; }
-  .admin-settings-page .admin-detail-close { min-height: 28px; }
   .admin-settings-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 32px; }
 }

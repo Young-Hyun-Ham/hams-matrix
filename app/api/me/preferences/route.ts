@@ -6,6 +6,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isAccentColor } from "@/lib/personal-palette";
 import { noStore } from "@/lib/admin-query";
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
       throw new HttpError(403, "게스트는 설정을 조회할 수 없습니다.");
     const row = (
       await db().execute({
-        sql: "SELECT toast_position AS toastPosition,default_theme AS defaultTheme,toast_background_color AS toastBackgroundColor,toast_font_color AS toastFontColor,version FROM user_preferences WHERE user_id=?",
+        sql: "SELECT toast_position AS toastPosition,default_theme AS defaultTheme,toast_background_color AS toastBackgroundColor,toast_font_color AS toastFontColor,accent_color AS accentColor,toast_close_button_color AS toastCloseButtonColor,toast_close_button_background_color AS toastCloseButtonBackgroundColor,version FROM user_preferences WHERE user_id=?",
         args: [user.id],
       })
     ).rows[0];
@@ -24,6 +25,9 @@ export async function GET() {
         defaultTheme: "light",
         toastBackgroundColor: "#ffffff",
         toastFontColor: "#262138",
+        toastCloseButtonColor: null,
+        toastCloseButtonBackgroundColor: null,
+        accentColor: null,
         version: 0,
       },
       noStore,
@@ -47,9 +51,14 @@ export async function PATCH(request: Request) {
             "defaultTheme",
             "toastBackgroundColor",
             "toastFontColor",
+            "toastCloseButtonColor",
+            "toastCloseButtonBackgroundColor",
+            "accentColor",
             "version",
           ].includes(k),
       ) ||
+      (["toastCloseButtonColor", "toastCloseButtonBackgroundColor"].some((key) => input[key] !== undefined && !isAccentColor(input[key]))) ||
+      (input.accentColor !== undefined && !isAccentColor(input.accentColor)) ||
       !Number.isSafeInteger(input.version) ||
       Number(input.version) < 0 ||
       (input.toastPosition !== undefined &&
@@ -93,15 +102,21 @@ export async function PATCH(request: Request) {
         toastFontColor = String(
           input.toastFontColor ?? row?.toast_font_color ?? "#262138",
         ),
+        toastCloseButtonColor = input.toastCloseButtonColor === undefined ? row?.toast_close_button_color ?? null : input.toastCloseButtonColor === null ? null : String(input.toastCloseButtonColor).toLowerCase(),
+        toastCloseButtonBackgroundColor = input.toastCloseButtonBackgroundColor === undefined ? row?.toast_close_button_background_color ?? null : input.toastCloseButtonBackgroundColor === null ? null : String(input.toastCloseButtonBackgroundColor).toLowerCase(),
+        accentColor = input.accentColor === undefined ? row?.accent_color ?? null : input.accentColor === null ? null : String(input.accentColor).toLowerCase(),
         version = Number(input.version) + 1;
       await tx.execute({
-        sql: "INSERT INTO user_preferences(user_id,toast_position,default_theme,toast_background_color,toast_font_color,version) VALUES (?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET toast_position=excluded.toast_position,default_theme=excluded.default_theme,toast_background_color=excluded.toast_background_color,toast_font_color=excluded.toast_font_color,version=excluded.version,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
+        sql: "INSERT INTO user_preferences(user_id,toast_position,default_theme,toast_background_color,toast_font_color,accent_color,toast_close_button_color,toast_close_button_background_color,version) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET toast_position=excluded.toast_position,default_theme=excluded.default_theme,toast_background_color=excluded.toast_background_color,toast_font_color=excluded.toast_font_color,accent_color=excluded.accent_color,toast_close_button_color=excluded.toast_close_button_color,toast_close_button_background_color=excluded.toast_close_button_background_color,version=excluded.version,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",
         args: [
           user.id,
           toastPosition,
           defaultTheme,
           toastBackgroundColor,
           toastFontColor,
+          accentColor,
+          toastCloseButtonColor,
+          toastCloseButtonBackgroundColor,
           version,
         ],
       });
@@ -112,6 +127,9 @@ export async function PATCH(request: Request) {
           defaultTheme,
           toastBackgroundColor,
           toastFontColor,
+          accentColor,
+          toastCloseButtonColor,
+          toastCloseButtonBackgroundColor,
           version,
         },
         noStore,

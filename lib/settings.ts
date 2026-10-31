@@ -21,7 +21,7 @@ export async function getAppSetting(
   executor: Pick<Client, "execute"> = db(),
 ): Promise<AppSetting | null> {
   const result = await executor.execute({
-    sql: "SELECT * FROM app_settings WHERE setting_key=?",
+    sql: "SELECT * FROM admin_setting WHERE setting_key=?",
     args: [key],
   });
   const row = result.rows[0];
