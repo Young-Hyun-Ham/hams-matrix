@@ -54,6 +54,7 @@ try {
     UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED';`);
   const existing=(await client.execute('SELECT * FROM project_members ORDER BY project_id,user_id')).rows;
   await client.executeMultiple(await readFile('db/migrations/030_project_permissions_rfp.sql','utf8'));
+  for(const name of (await readdir('db/migrations')).filter(n=>n.endsWith('.sql')&&n>'030_project_permissions_rfp.sql').sort())await client.executeMultiple(await readFile(join('db/migrations',name),'utf8'));
   assert.deepEqual((await client.execute('SELECT * FROM project_members ORDER BY project_id,user_id')).rows,existing);
   assert.equal((await client.execute('SELECT * FROM project_role_tab_permissions')).rows.length,112);
   assert.equal((await client.execute('SELECT * FROM project_rfp_documents')).rows.length,0);

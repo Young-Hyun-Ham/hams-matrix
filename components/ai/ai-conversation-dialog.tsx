@@ -96,32 +96,32 @@ export function AiConversationDialog({
       </div>
       <form onSubmit={submit}>
         <div className="admin-detail-body project-registration-body">
-        {kind === "rename" ? (
-          <label>
-            채팅방 제목
-            <input
-              autoFocus
-              aria-label="채팅방 제목 입력"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              maxLength={100}
-              required
-              disabled={pending}
-            />
-          </label>
-        ) : (
-          <div>
-            <p>
-              <strong>{room.title}</strong> 채팅방을 삭제하시겠습니까?
+          {kind === "rename" ? (
+            <label>
+              채팅방 제목
+              <input
+                autoFocus
+                aria-label="채팅방 제목 입력"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={100}
+                required
+                disabled={pending}
+              />
+            </label>
+          ) : (
+            <div>
+              <p>
+                <strong>{room.title}</strong> 채팅방을 삭제하시겠습니까?
+              </p>
+              <p>대화와 첨부 이미지가 함께 삭제되며 복구할 수 없습니다.</p>
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="matrix-ai-error">
+              {error}
             </p>
-            <p>대화와 첨부 이미지가 함께 삭제되며 복구할 수 없습니다.</p>
-          </div>
-        )}
-        {error && (
-          <p role="alert" className="matrix-ai-error">
-            {error}
-          </p>
-        )}
+          )}
         </div>
         <div className="matrix-ai-room-dialog-actions project-registration-footer">
           <button

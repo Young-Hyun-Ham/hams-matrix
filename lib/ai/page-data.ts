@@ -8,7 +8,7 @@ import { projectAccess, toArtifact } from "../artifacts";
 import { acceptanceReport } from "../integration";
 
 export async function readAiPage(user: User, context: AiContext, page: AiPage) {
-  if(page.key === "rfp") return readRfp(db(),user,context.projectId);
+  if (page.key === "rfp") return readRfp(db(), user, context.projectId);
   if (page.source === "dashboard") {
     const projects = await db().execute({
       sql: "SELECT p.id,p.name,p.description,p.status FROM projects p JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id WHERE p.workspace_id=? AND m.user_id=? ORDER BY p.updated_at DESC LIMIT 100",
@@ -53,6 +53,27 @@ export async function readAiPage(user: User, context: AiContext, page: AiPage) {
     name: String(project.name),
     description: String(project.description),
   };
+  // RFPs live outside project_artifacts; reference them explicitly for the relevant tabs.
+  const usesRfp = page.key === "wbs" || page.key === "requirement";
+  const rfpDocument = usesRfp
+    ? (await readRfp(db(), user, context.projectId)).document
+    : null;
+  const rfp = rfpDocument
+    ? {
+        id: rfpDocument.id,
+        version: rfpDocument.version,
+        title: rfpDocument.draft.title,
+        ...(page.key === "wbs"
+          ? {
+              basic: {
+                startDate: rfpDocument.draft.basic.startDate,
+                endDate: rfpDocument.draft.basic.endDate,
+              },
+              delivery: rfpDocument.draft.delivery,
+            }
+          : { requirements: rfpDocument.draft.requirements }),
+      }
+    : null;
   if (page.source === "history") {
     const revisions = await db().execute({
       sql: "SELECT id,artifact_id,version,action,actor_name,occurred_at,snapshot_json FROM artifact_revisions WHERE project_id=? AND workspace_id=? ORDER BY occurred_at DESC,id DESC LIMIT 50",
@@ -120,7 +141,13 @@ export async function readAiPage(user: User, context: AiContext, page: AiPage) {
       .slice(0, 200),
     report,
     total: artifacts.length,
+    ...(usesRfp ? { rfp, rfpAvailable: rfp !== null } : {}),
     truncated: selected.length < artifacts.length,
-    scope: "현재 탭 및 관련 문서. 긴 자료는 생략될 수 있음",
+    scope:
+      page.key === "wbs"
+        ? "현재 탭 및 관련 산출물과 저장된 제안요청서의 수행 및 관리. total은 산출물 건수이며 제안요청서 포함 여부는 rfpAvailable로 확인. 긴 산출물은 생략될 수 있음"
+        : page.key === "requirement"
+          ? "현재 탭 및 관련 산출물과 저장된 제안요청서의 세부 요구사항. total은 산출물 건수이며 제안요청서 포함 여부는 rfpAvailable로 확인. 긴 산출물은 생략될 수 있음"
+          : "현재 탭 및 관련 문서. 긴 자료는 생략될 수 있음",
   };
 }

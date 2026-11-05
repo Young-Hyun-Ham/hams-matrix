@@ -17,7 +17,10 @@ export function PreferencesRuntime({
   }, [userId, initial, initialize]);
   useLayoutEffect(() => {
     const token = owner.current;
-    return () => { if (usePreferences.getState().reset(userId, token)) useToasts.setState({ items: [] }); };
+    return () => {
+      if (usePreferences.getState().reset(userId, token))
+        useToasts.setState({ items: [] });
+    };
   }, [userId]);
   return (
     <div
@@ -51,7 +54,12 @@ export function PreferencesRuntime({
             type="button"
             aria-label="알림 닫기"
             onClick={() => remove(item.id)}
-            style={{ float: "right", color: current.toastCloseButtonColor ?? "inherit", backgroundColor: current.toastCloseButtonBackgroundColor ?? "ButtonFace" }}
+            style={{
+              float: "right",
+              color: current.toastCloseButtonColor ?? "inherit",
+              backgroundColor:
+                current.toastCloseButtonBackgroundColor ?? "ButtonFace",
+            }}
           >
             ×
           </button>

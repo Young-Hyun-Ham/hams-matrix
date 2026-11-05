@@ -82,6 +82,8 @@ export function prepareStructure(
 ): ArtifactStructure {
   const raw = record(input.structure),
     structure: ArtifactStructure = {};
+  if (after.kind === "screen" && previous?.planningBoard)
+    structure.planningBoard = previous.planningBoard;
   const byId = new Map(artifacts.map((a) => [a.id, a]));
   const get = (id: string, kind: ArtifactKind) => {
     const a = byId.get(id);
@@ -93,7 +95,9 @@ export function prepareStructure(
     // Generated metadata is accepted only by the server mutation orchestration.
     if (previous?.mermaid) structure.mermaid = previous.mermaid;
     const topology =
-      raw.topology === undefined ? previous?.topology ?? topologyFor(after) : raw.topology;
+      raw.topology === undefined
+        ? (previous?.topology ?? topologyFor(after))
+        : raw.topology;
     if (topology !== undefined) {
       try {
         structure.topology = validateTopology(topology);

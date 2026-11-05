@@ -150,7 +150,7 @@ export async function POST(request: Request) {
     if (projectId) {
       const project = await projectAccess(db(), user, projectId);
       projectName = String(project.name);
-      const access = await projectPermissionAccess(db(),user,projectId);
+      const access = await projectPermissionAccess(db(), user, projectId);
       const rights = tab ? access.permissionsByTab[tab] : undefined;
       canWrite = !!rights && (rights.CREATE || rights.UPDATE || rights.DELETE);
     }

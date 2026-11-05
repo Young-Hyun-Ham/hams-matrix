@@ -1,6 +1,6 @@
 import type { ProjectPermissions } from "./project-permission-model";
 import type { ProjectRole } from "./plan-types";
-﻿export const kinds = [
+export const kinds = [
   "wbs",
   "architecture",
   "requirement",
@@ -253,7 +253,12 @@ export type TableOperation = {
 };
 export type Baseline = { artifactId: string; version: number };
 export type ArchitectureLayer =
-  "client" | "gateway" | "frontend" | "backend" | "data" | "external";
+  | "client"
+  | "gateway"
+  | "frontend"
+  | "backend"
+  | "data"
+  | "external";
 export type ArchitectureNode = {
   id: string;
   name: string;
@@ -277,17 +282,36 @@ export type ArchitectureMermaid = {
   generatedAt: string;
   generatorVersion: string;
 };
-export const architectureLegacyKeys = ["languages", "frameworks", "database", "servers", "deployment", "security", "performance", "standards"] as const;
+export const architectureLegacyKeys = [
+  "languages",
+  "frameworks",
+  "database",
+  "servers",
+  "deployment",
+  "security",
+  "performance",
+  "standards",
+] as const;
 // Retain the existing workbook columns even though the registration form is smaller.
 export const architectureDocumentFields: FieldDefinition[] = [
   definitions.architecture.fields[0],
-  ...architectureLegacyKeys.map((key, index) => ({ key, label: [
-    "개발 언어", "프레임워크 / 버전", "DBMS / 버전", "서버 / WAS / 인프라",
-    "배포 / 네트워크 구성", "보안 기준", "성능 기준", "개발 표준 / 인터페이스 / 예외 기준",
-  ][index] })),
+  ...architectureLegacyKeys.map((key, index) => ({
+    key,
+    label: [
+      "개발 언어",
+      "프레임워크 / 버전",
+      "DBMS / 버전",
+      "서버 / WAS / 인프라",
+      "배포 / 네트워크 구성",
+      "보안 기준",
+      "성능 기준",
+      "개발 표준 / 인터페이스 / 예외 기준",
+    ][index],
+  })),
   ...definitions.architecture.fields.slice(1),
 ];
 export type ArtifactStructure = {
+  planningBoard?: { id: string; contentVersion: number };
   mermaid?: ArchitectureMermaid;
   topology?: ArchitectureTopology;
   parentId?: string;
@@ -304,6 +328,7 @@ export type Artifact = {
   title: string;
   status: string;
   fields: Record<string, string>;
+  planningBoardStatus?: string;
   structure?: ArtifactStructure;
   version: number;
   createdAt: string;

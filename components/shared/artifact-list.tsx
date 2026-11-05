@@ -10,12 +10,15 @@ import { useProjectPage } from "./project-page-context";
 export function ArtifactList({
   kind,
   renderActions,
+  renderReadActions,
+  readActionsLabel,
 }: {
   kind: ArtifactKind;
   renderActions?: (artifact: Artifact) => ReactNode;
+  renderReadActions?: (artifact: Artifact) => ReactNode;
+  readActionsLabel?: string;
 }) {
-  const { can, artifacts, openCreate, openEdit, openDelete } =
-    useProjectPage();
+  const { can, artifacts, openCreate, openEdit, openDelete } = useProjectPage();
   const [query, setQuery] = useState(""),
     [status, setStatus] = useState("");
   const linkedText = (ids: string[]) =>
@@ -37,7 +40,7 @@ export function ArtifactList({
         <h2>
           {definitions[kind].document} <small>{filtered.length}건</small>
         </h2>
-        {can(kind,'CREATE') && (
+        {can(kind, "CREATE") && (
           <button className="button primary" onClick={() => openCreate(kind)}>
             {definitions[kind].label} 등록
           </button>
@@ -72,6 +75,7 @@ export function ArtifactList({
               <th>연결 문서</th>
               <th>버전</th>
               <th>최근 수정</th>
+              {readActionsLabel && <th>{readActionsLabel}</th>}
               <th>작업</th>
             </tr>
           </thead>
@@ -93,16 +97,27 @@ export function ArtifactList({
                     timeZone: "Asia/Seoul",
                   })}
                 </td>
+                {readActionsLabel && (
+                  <td>{can(kind, "READ") && renderReadActions?.(a)}</td>
+                )}
                 <td>
-                  {can(kind,'UPDATE') || can(kind,'DELETE') ? (
+                  {!readActionsLabel &&
+                    can(kind, "READ") &&
+                    renderReadActions?.(a)}
+                  {can(kind, "UPDATE") || can(kind, "DELETE") ? (
                     <>
                       <button className="button" onClick={() => openEdit(a)}>
-                        {can(kind,'UPDATE') ? '수정' : '상세'}
+                        {can(kind, "UPDATE") ? "수정" : "상세"}
                       </button>{" "}
                       {renderActions?.(a)}
-                      {can(kind,'DELETE') && <button className="button" onClick={() => openDelete(a)}>
-                        삭제
-                      </button>}
+                      {can(kind, "DELETE") && (
+                        <button
+                          className="button"
+                          onClick={() => openDelete(a)}
+                        >
+                          삭제
+                        </button>
+                      )}
                     </>
                   ) : (
                     <button className="button" onClick={() => openEdit(a)}>

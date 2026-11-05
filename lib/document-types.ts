@@ -5,6 +5,7 @@ export type DocumentFolder = {
   name: string;
 };
 export type DocumentFile = {
+  rfpSource?: boolean;
   id: string;
   name: string;
   size: number;

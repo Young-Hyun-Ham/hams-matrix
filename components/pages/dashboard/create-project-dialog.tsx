@@ -118,115 +118,115 @@ export function CreateProjectDialog({
         aria-busy={saving}
       >
         <div className="admin-detail-body project-registration-body">
-        <label htmlFor="project-name">
-          프로젝트 이름 <span>필수</span>
-        </label>
-        <input
-          id="project-name"
-          name="name"
-          autoFocus
-          required
-          maxLength={100}
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="프로젝트 이름을 입력하세요"
-          disabled={saving}
-        />
-        <label htmlFor="project-description">설명</label>
-        <textarea
-          id="project-description"
-          name="description"
-          maxLength={2000}
-          rows={4}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="프로젝트의 목표와 내용을 적어 주세요"
-          disabled={saving}
-        />
-        <fieldset disabled={saving}>
-          <legend>
-            팀원 <span>{selected.length}명 선택</span>
-          </legend>
-          <p className="project-form-hint">
-            {user.workspaceName}의 팀원을 선택하세요. 생성자는 자동으로
-            포함됩니다.
-          </p>
-          <label
-            className="project-member-search"
-            htmlFor="project-member-search"
-          >
-            팀원 검색
-            <input
-              id="project-member-search"
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="이름으로 검색"
-            />
+          <label htmlFor="project-name">
+            프로젝트 이름 <span>필수</span>
           </label>
-          {loading ? (
-            <p role="status">팀원을 불러오는 중입니다.</p>
-          ) : loadError ? (
-            <div role="alert">
-              <p>{loadError}</p>
-              <button
-                type="button"
-                className="button"
-                onClick={() => setAttempt((value) => value + 1)}
-              >
-                다시 불러오기
-              </button>
-            </div>
-          ) : (
-            <div className="project-member-options">
-              {filtered.length ? (
-                filtered.map((member) => (
-                  <label key={member.id} className="project-member-option">
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(member.id)}
-                      disabled={
-                        member.id === user.id ||
-                        (!selected.includes(member.id) &&
-                          selected.length >= 100)
-                      }
-                      onChange={(e) =>
-                        setSelected((ids) =>
-                          e.target.checked
-                            ? [...ids, member.id]
-                            : ids.filter((id) => id !== member.id),
-                        )
-                      }
-                    />
-                    <span>
-                      {member.name}
-                      {member.id === user.id && (
-                        <small> (나 · 자동 포함)</small>
-                      )}
-                    </span>
-                    <small>
-                      {(
-                        {
-                          owner: "소유자",
-                          admin: "관리자",
-                          member: "팀원",
-                          viewer: "뷰어",
-                        } as Record<string, string>
-                      )[member.role] ?? member.role}
-                    </small>
-                  </label>
-                ))
-              ) : (
-                <p>검색 결과가 없습니다.</p>
-              )}
-            </div>
+          <input
+            id="project-name"
+            name="name"
+            autoFocus
+            required
+            maxLength={100}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="프로젝트 이름을 입력하세요"
+            disabled={saving}
+          />
+          <label htmlFor="project-description">설명</label>
+          <textarea
+            id="project-description"
+            name="description"
+            maxLength={2000}
+            rows={4}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="프로젝트의 목표와 내용을 적어 주세요"
+            disabled={saving}
+          />
+          <fieldset disabled={saving}>
+            <legend>
+              팀원 <span>{selected.length}명 선택</span>
+            </legend>
+            <p className="project-form-hint">
+              {user.workspaceName}의 팀원을 선택하세요. 생성자는 자동으로
+              포함됩니다.
+            </p>
+            <label
+              className="project-member-search"
+              htmlFor="project-member-search"
+            >
+              팀원 검색
+              <input
+                id="project-member-search"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="이름으로 검색"
+              />
+            </label>
+            {loading ? (
+              <p role="status">팀원을 불러오는 중입니다.</p>
+            ) : loadError ? (
+              <div role="alert">
+                <p>{loadError}</p>
+                <button
+                  type="button"
+                  className="button"
+                  onClick={() => setAttempt((value) => value + 1)}
+                >
+                  다시 불러오기
+                </button>
+              </div>
+            ) : (
+              <div className="project-member-options">
+                {filtered.length ? (
+                  filtered.map((member) => (
+                    <label key={member.id} className="project-member-option">
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(member.id)}
+                        disabled={
+                          member.id === user.id ||
+                          (!selected.includes(member.id) &&
+                            selected.length >= 100)
+                        }
+                        onChange={(e) =>
+                          setSelected((ids) =>
+                            e.target.checked
+                              ? [...ids, member.id]
+                              : ids.filter((id) => id !== member.id),
+                          )
+                        }
+                      />
+                      <span>
+                        {member.name}
+                        {member.id === user.id && (
+                          <small> (나 · 자동 포함)</small>
+                        )}
+                      </span>
+                      <small>
+                        {(
+                          {
+                            owner: "소유자",
+                            admin: "관리자",
+                            member: "팀원",
+                            viewer: "뷰어",
+                          } as Record<string, string>
+                        )[member.role] ?? member.role}
+                      </small>
+                    </label>
+                  ))
+                ) : (
+                  <p>검색 결과가 없습니다.</p>
+                )}
+              </div>
+            )}
+          </fieldset>
+          {error && (
+            <p className="project-form-error" role="alert">
+              {error}
+            </p>
           )}
-        </fieldset>
-        {error && (
-          <p className="project-form-error" role="alert">
-            {error}
-          </p>
-        )}
         </div>
         <div className="project-form-actions project-registration-footer">
           <button

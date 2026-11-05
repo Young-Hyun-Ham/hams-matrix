@@ -39,8 +39,12 @@ async function AuthenticatedWorkspace({
     toastBackgroundColor: String(row?.toast_background_color ?? "#ffffff"),
     toastFontColor: String(row?.toast_font_color ?? "#262138"),
     accentColor: row?.accent_color ? String(row.accent_color) : null,
-    toastCloseButtonColor: row?.toast_close_button_color ? String(row.toast_close_button_color) : null,
-    toastCloseButtonBackgroundColor: row?.toast_close_button_background_color ? String(row.toast_close_button_background_color) : null,
+    toastCloseButtonColor: row?.toast_close_button_color
+      ? String(row.toast_close_button_color)
+      : null,
+    toastCloseButtonBackgroundColor: row?.toast_close_button_background_color
+      ? String(row.toast_close_button_background_color)
+      : null,
     version: Number(row?.version ?? 0),
   };
   return (

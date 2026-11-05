@@ -41,9 +41,13 @@ export async function requireFolder(
       "폴더를 찾을 수 없습니다. 목록을 새로고침해 주세요.",
     );
 }
-export async function readDocumentUpload(request: Request) {
-  if (Number(request.headers.get("content-length")) > MAX_DOCUMENT_BYTES)
-    throw new HttpError(413, "파일은 20MB까지 업로드할 수 있습니다.");
+export async function readDocumentUpload(
+  request: Request,
+  maxBytes = MAX_DOCUMENT_BYTES,
+) {
+  const sizeMessage = `파일은 ${maxBytes / 1024 / 1024}MB까지 업로드할 수 있습니다.`;
+  if (Number(request.headers.get("content-length")) > maxBytes)
+    throw new HttpError(413, sizeMessage);
   if (!request.body) throw new HttpError(400, "파일을 선택해 주세요.");
   const reader = request.body.getReader(),
     chunks: Uint8Array[] = [];
@@ -53,9 +57,9 @@ export async function readDocumentUpload(request: Request) {
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > MAX_DOCUMENT_BYTES) {
+      if (size > maxBytes) {
         await reader.cancel();
-        throw new HttpError(413, "파일은 20MB까지 업로드할 수 있습니다.");
+        throw new HttpError(413, sizeMessage);
       }
       chunks.push(value);
     }

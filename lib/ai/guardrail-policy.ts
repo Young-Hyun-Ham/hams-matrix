@@ -5,6 +5,7 @@ import { HttpError } from "../auth";
 import type { User } from "../types";
 import {
   defaultGuardrailPolicy,
+  MAX_GUARDRAIL_CHANGES,
   type GuardrailPolicy,
 } from "./guardrail-types";
 
@@ -87,9 +88,9 @@ export function validateGuardrailPolicy(value: unknown): GuardrailPolicy {
   if (
     !Number.isInteger(policy.maxChanges) ||
     policy.maxChanges < 0 ||
-    policy.maxChanges > 3
+    policy.maxChanges > MAX_GUARDRAIL_CHANGES
   )
-    throw new HttpError(400, "변경 건수는 0~3건입니다.");
+    throw new HttpError(400, `변경 건수는 0~${MAX_GUARDRAIL_CHANGES}건입니다.`);
   if (
     typeof policy.classifierModel !== "string" ||
     policy.classifierModel.length > 100 ||

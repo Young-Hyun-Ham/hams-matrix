@@ -1,5 +1,8 @@
-import { projectPermissionAccess, requireProjectPermission } from "./project-permissions";
-﻿import { randomUUID } from "node:crypto";
+import {
+  projectPermissionAccess,
+  requireProjectPermission,
+} from "./project-permissions";
+import { randomUUID } from "node:crypto";
 import type { Client, Row, Transaction } from "@libsql/client";
 import { HttpError, requireWriter } from "./auth";
 import { audit } from "./audit";
@@ -21,22 +24,72 @@ import {
   references,
   validateProjectGraph,
 } from "./artifact-validation";
-import { editableMermaidError, manualMermaidVersion, mermaidSource } from "./architecture-mermaid";
+import {
+  editableMermaidError,
+  manualMermaidVersion,
+  mermaidSource,
+} from "./architecture-mermaid";
 import { createHash } from "node:crypto";
 import type { ArchitectureMermaid } from "./artifact-types";
-const preparedMermaids = new WeakMap<object, { source: string; value: ArchitectureMermaid; userId: string; workspaceId: string; projectId: string }>();
-export function prepareEditedArtifactMermaid(input: Record<string, unknown>, artifact: Artifact, user: User, code: string) {
+const preparedMermaids = new WeakMap<
+  object,
+  {
+    source: string;
+    value: ArchitectureMermaid;
+    userId: string;
+    workspaceId: string;
+    projectId: string;
+  }
+>();
+export function prepareEditedArtifactMermaid(
+  input: Record<string, unknown>,
+  artifact: Artifact,
+  user: User,
+  code: string,
+) {
   const error = editableMermaidError(code);
-  if (artifact.kind !== "architecture" || error) throw new HttpError(400, error || "아키텍처 항목을 확인해 주세요.");
+  if (artifact.kind !== "architecture" || error)
+    throw new HttpError(400, error || "아키텍처 항목을 확인해 주세요.");
   const source = JSON.stringify(mermaidSource(artifact));
-  preparedMermaids.set(input, { source, value: { code: code.trim(), sourceHash: createHash("sha256").update(source).digest("hex"),
-    generatedAt: new Date().toISOString(), generatorVersion: manualMermaidVersion }, userId: user.id, workspaceId: user.workspaceId, projectId: artifact.projectId });
+  preparedMermaids.set(input, {
+    source,
+    value: {
+      code: code.trim(),
+      sourceHash: createHash("sha256").update(source).digest("hex"),
+      generatedAt: new Date().toISOString(),
+      generatorVersion: manualMermaidVersion,
+    },
+    userId: user.id,
+    workspaceId: user.workspaceId,
+    projectId: artifact.projectId,
+  });
 }
-export async function prepareArtifactMermaid(input: Record<string, unknown>, artifact: Artifact, user: User, checkpoint: () => Promise<void> = async () => {}) {
+export async function prepareArtifactMermaid(
+  input: Record<string, unknown>,
+  artifact: Artifact,
+  user: User,
+  checkpoint: () => Promise<void> = async () => {},
+  imageDataUrl?: string,
+  deadline?: number,
+) {
   if (artifact.kind !== "architecture") return;
-  const { generateArchitectureMermaid } = await import("./ai/architecture-mermaid");
-  const value = await generateArchitectureMermaid(user, artifact, checkpoint);
-  preparedMermaids.set(input, { source: JSON.stringify(mermaidSource(artifact)), value, userId: user.id, workspaceId: user.workspaceId, projectId: artifact.projectId });
+  const { generateArchitectureMermaid } = await import(
+    "./ai/architecture-mermaid"
+  );
+  const value = await generateArchitectureMermaid(
+    user,
+    artifact,
+    checkpoint,
+    imageDataUrl,
+    deadline,
+  );
+  preparedMermaids.set(input, {
+    source: JSON.stringify(mermaidSource(artifact)),
+    value,
+    userId: user.id,
+    workspaceId: user.workspaceId,
+    projectId: artifact.projectId,
+  });
 }
 type Executor = Pick<Client, "execute">;
 export async function projectAccess(
@@ -90,6 +143,18 @@ export async function projectData(
     sql: "SELECT source_id,target_id FROM artifact_links WHERE project_id=? AND workspace_id=? AND relation='reference'",
     args: [projectId, user.workspaceId],
   });
+  const planningBoards = result.rows.some((row) => row.kind === "screen")
+    ? await executor.execute({
+        sql: "SELECT screen_artifact_id,status FROM planning_boards WHERE project_id=? AND workspace_id=?",
+        args: [projectId, user.workspaceId],
+      })
+    : { rows: [] };
+  const planningStatuses = new Map(
+    planningBoards.rows.map((row) => [
+      String(row.screen_artifact_id),
+      String(row.status),
+    ]),
+  );
   const revisions = await executor.execute({
     sql: "SELECT * FROM artifact_revisions WHERE project_id=? AND workspace_id=? ORDER BY occurred_at DESC,id DESC LIMIT 100",
     args: [projectId, user.workspaceId],
@@ -101,14 +166,17 @@ export async function projectData(
       description: String(p.description),
       status: String(p.status),
     },
-    artifacts: result.rows.map((row) =>
-      toArtifact(
+    artifacts: result.rows.map((row) => ({
+      ...toArtifact(
         row,
         edges.rows
           .filter((e) => e.source_id === row.id)
           .map((e) => String(e.target_id)),
       ),
-    ),
+      ...(row.kind === "screen" && planningStatuses.has(String(row.id))
+        ? { planningBoardStatus: planningStatuses.get(String(row.id)) }
+        : {}),
+    })),
     revisions: ((await projectHistoryEnabled(projectId, executor))
       ? revisions.rows
       : []
@@ -122,10 +190,16 @@ export async function projectData(
       snapshot: JSON.parse(String(row.snapshot_json)) as Artifact,
     })),
     ...permissions,
-    canWrite: Object.values(permissions.permissionsByTab).some(p => p.CREATE || p.UPDATE || p.DELETE),
+    canWrite: Object.values(permissions.permissionsByTab).some(
+      (p) => p.CREATE || p.UPDATE || p.DELETE,
+    ),
   };
 }
-export function validateArtifactInput(input: Record<string, unknown>, kind: ArtifactKind, before?: Artifact) {
+export function validateArtifactInput(
+  input: Record<string, unknown>,
+  kind: ArtifactKind,
+  before?: Artifact,
+) {
   const title = typeof input.title === "string" ? input.title.trim() : "";
   if (!title || title.length > 200)
     throw new HttpError(400, "명칭은 1~200자로 입력해 주세요.");
@@ -174,7 +248,8 @@ export function validateArtifactInput(input: Record<string, unknown>, kind: Arti
   }
   if (kind === "architecture") {
     for (const key of architectureLegacyKeys) {
-      if (typeof before?.fields[key] === "string") fields[key] = before.fields[key];
+      if (typeof before?.fields[key] === "string")
+        fields[key] = before.fields[key];
     }
   }
   if (
@@ -203,24 +278,38 @@ export async function mutateArtifact(
 ) {
   // Validate in a rollback-only transaction before any paid generation. The
   // provider call must never run while holding the final write transaction.
-  const targetKind = !transaction && action !== "DELETE" && id
-    ? (await db().execute({
-        sql: "SELECT kind FROM project_artifacts WHERE id=? AND project_id=? AND workspace_id=? AND deleted_at IS NULL",
-        args: [id, projectId, user.workspaceId],
-      })).rows[0]?.kind
-    : input.kind;
+  const targetKind =
+    !transaction && action !== "DELETE" && id
+      ? (
+          await db().execute({
+            sql: "SELECT kind FROM project_artifacts WHERE id=? AND project_id=? AND workspace_id=? AND deleted_at IS NULL",
+            args: [id, projectId, user.workspaceId],
+          })
+        ).rows[0]?.kind
+      : input.kind;
   if (!transaction && action !== "DELETE" && targetKind === "architecture") {
     const preflight = await db().transaction("write");
     let candidate: Artifact;
     try {
-      candidate = await mutateArtifact(request, user, projectId, input, action, id, beforeCommit, preflight, true);
+      candidate = await mutateArtifact(
+        request,
+        user,
+        projectId,
+        input,
+        action,
+        id,
+        beforeCommit,
+        preflight,
+        true,
+      );
     } finally {
       await preflight.rollback();
       preflight.close();
     }
     if (candidate.kind === "architecture")
       await prepareArtifactMermaid(input, candidate, user, async () => {
-        if (request.signal.aborted) throw new HttpError(499, "저장 요청이 취소되었습니다.");
+        if (request.signal.aborted)
+          throw new HttpError(499, "저장 요청이 취소되었습니다.");
         await beforeCommit?.(db());
       });
   }
@@ -340,9 +429,17 @@ export async function mutateArtifact(
       );
       if (after.kind === "architecture" && !preview) {
         const prepared = preparedMermaids.get(input);
-        if (!prepared || prepared.userId !== user.id || prepared.workspaceId !== user.workspaceId ||
-          prepared.projectId !== projectId || prepared.source !== JSON.stringify(mermaidSource(after)))
-          throw new HttpError(409, "아키텍처 구성도 생성 결과가 없습니다. 최신 내용을 확인하고 다시 저장해 주세요.");
+        if (
+          !prepared ||
+          prepared.userId !== user.id ||
+          prepared.workspaceId !== user.workspaceId ||
+          prepared.projectId !== projectId ||
+          prepared.source !== JSON.stringify(mermaidSource(after))
+        )
+          throw new HttpError(
+            409,
+            "아키텍처 구성도 생성 결과가 없습니다. 최신 내용을 확인하고 다시 저장해 주세요.",
+          );
         after.structure.mermaid = prepared.value;
       }
       validateProjectGraph(candidate);
@@ -362,115 +459,143 @@ export async function mutateArtifact(
 }
 
 type ArtifactAction = "CREATE" | "UPDATE" | "DELETE";
-export async function persistArtifactRow(tx: Transaction, user: User, after: Artifact, before: Artifact | undefined, action: ArtifactAction) {
-  await requireProjectPermission(tx,user,after.projectId,before?.kind??after.kind,action);
-  const projectId = after.projectId, now = after.updatedAt, kind = after.kind, code = after.code;
+export async function persistArtifactRow(
+  tx: Transaction,
+  user: User,
+  after: Artifact,
+  before: Artifact | undefined,
+  action: ArtifactAction,
+) {
+  await requireProjectPermission(
+    tx,
+    user,
+    after.projectId,
+    before?.kind ?? after.kind,
+    action,
+  );
+  const projectId = after.projectId,
+    now = after.updatedAt,
+    kind = after.kind,
+    code = after.code;
   if (action === "DELETE") {
-      await tx.execute({
-        sql: "UPDATE project_artifacts SET deleted_at=?,updated_at=?,updated_by=?,version=version+1 WHERE id=? AND project_id=? AND workspace_id=?",
-        args: [now, now, user.id, after.id, projectId, user.workspaceId],
-      });
+    await tx.execute({
+      sql: "UPDATE project_artifacts SET deleted_at=?,updated_at=?,updated_by=?,version=version+1 WHERE id=? AND project_id=? AND workspace_id=?",
+      args: [now, now, user.id, after.id, projectId, user.workspaceId],
+    });
   } else {
-      if (before)
-        await tx.execute({
-          sql: "UPDATE project_artifacts SET title=?,status=?,fields_json=?,structure_json=?,version=?,updated_by=?,updated_at=? WHERE id=? AND project_id=? AND workspace_id=?",
-          args: [
-            after.title,
-            after.status,
-            JSON.stringify(after.fields),
-            JSON.stringify(after.structure),
-            after.version,
-            user.id,
-            now,
-            after.id,
-            projectId,
-            user.workspaceId,
-          ],
-        });
-      else
-        await tx.execute({
-          sql: "INSERT INTO project_artifacts(id,workspace_id,project_id,kind,code,title,status,fields_json,structure_json,version,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-          args: [
-            after.id,
-            user.workspaceId,
-            projectId,
-            kind,
-            code,
-            after.title,
-            after.status,
-            JSON.stringify(after.fields),
-            JSON.stringify(after.structure),
-            1,
-            user.id,
-            user.id,
-            now,
-            now,
-          ],
-        });
-  }
-}
-export async function syncArtifactLinks(tx: Transaction, user: User, after: Artifact) {
-  const projectId = after.projectId;
+    if (before)
       await tx.execute({
-        sql: "DELETE FROM artifact_links WHERE source_id=? AND project_id=? AND workspace_id=?",
-        args: [after.id, projectId, user.workspaceId],
-      });
-      for (const { targetId, relation } of references(after))
-        await tx.execute({
-          sql: "INSERT INTO artifact_links(source_id,target_id,project_id,workspace_id,relation) VALUES (?,?,?,?,?)",
-          args: [after.id, targetId, projectId, user.workspaceId, relation],
-        });
-}
-export async function recordArtifactChange(tx: Transaction, request: Request, user: User, after: Artifact, before: Artifact | undefined, action: ArtifactAction) {
-  const projectId = after.projectId, now = after.updatedAt, kind = after.kind;
-    if (await projectHistoryEnabled(projectId, tx))
-      await tx.execute({
-        sql: "INSERT INTO artifact_revisions(id,artifact_id,project_id,workspace_id,version,action,actor_id,actor_name,snapshot_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        sql: "UPDATE project_artifacts SET title=?,status=?,fields_json=?,structure_json=?,version=?,updated_by=?,updated_at=? WHERE id=? AND project_id=? AND workspace_id=?",
         args: [
-          randomUUID(),
+          after.title,
+          after.status,
+          JSON.stringify(after.fields),
+          JSON.stringify(after.structure),
+          after.version,
+          user.id,
+          now,
           after.id,
           projectId,
           user.workspaceId,
-          after.version,
-          action,
+        ],
+      });
+    else
+      await tx.execute({
+        sql: "INSERT INTO project_artifacts(id,workspace_id,project_id,kind,code,title,status,fields_json,structure_json,version,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        args: [
+          after.id,
+          user.workspaceId,
+          projectId,
+          kind,
+          code,
+          after.title,
+          after.status,
+          JSON.stringify(after.fields),
+          JSON.stringify(after.structure),
+          1,
           user.id,
-          user.name,
-          JSON.stringify(after),
+          user.id,
+          now,
           now,
         ],
       });
-    await audit(
-      request,
-      {
-        user,
+  }
+}
+export async function syncArtifactLinks(
+  tx: Transaction,
+  user: User,
+  after: Artifact,
+) {
+  const projectId = after.projectId;
+  await tx.execute({
+    sql: "DELETE FROM artifact_links WHERE source_id=? AND project_id=? AND workspace_id=?",
+    args: [after.id, projectId, user.workspaceId],
+  });
+  for (const { targetId, relation } of references(after))
+    await tx.execute({
+      sql: "INSERT INTO artifact_links(source_id,target_id,project_id,workspace_id,relation) VALUES (?,?,?,?,?)",
+      args: [after.id, targetId, projectId, user.workspaceId, relation],
+    });
+}
+export async function recordArtifactChange(
+  tx: Transaction,
+  request: Request,
+  user: User,
+  after: Artifact,
+  before: Artifact | undefined,
+  action: ArtifactAction,
+) {
+  const projectId = after.projectId,
+    now = after.updatedAt,
+    kind = after.kind;
+  if (await projectHistoryEnabled(projectId, tx))
+    await tx.execute({
+      sql: "INSERT INTO artifact_revisions(id,artifact_id,project_id,workspace_id,version,action,actor_id,actor_name,snapshot_json,occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+      args: [
+        randomUUID(),
+        after.id,
+        projectId,
+        user.workspaceId,
+        after.version,
         action,
-        resource: kind,
-        resourceId: after.id,
-        before: before
-          ? {
-              title: before.title,
-              status: before.status,
-              version: before.version,
-              code: before.code,
-              fields: before.fields,
-              links: before.links,
-              structure: before.structure,
-            }
-          : undefined,
-        after:
-          action === "DELETE"
-            ? undefined
-            : {
-                title: after.title,
-                status: after.status,
-                version: after.version,
-                code: after.code,
-                fields: after.fields,
-                links: after.links,
-                structure: after.structure,
-              },
-        metadata: { projectId },
-      },
-      tx,
-    );
+        user.id,
+        user.name,
+        JSON.stringify(after),
+        now,
+      ],
+    });
+  await audit(
+    request,
+    {
+      user,
+      action,
+      resource: kind,
+      resourceId: after.id,
+      before: before
+        ? {
+            title: before.title,
+            status: before.status,
+            version: before.version,
+            code: before.code,
+            fields: before.fields,
+            links: before.links,
+            structure: before.structure,
+          }
+        : undefined,
+      after:
+        action === "DELETE"
+          ? undefined
+          : {
+              title: after.title,
+              status: after.status,
+              version: after.version,
+              code: after.code,
+              fields: after.fields,
+              links: after.links,
+              structure: after.structure,
+            },
+      metadata: { projectId },
+    },
+    tx,
+  );
 }

@@ -471,7 +471,8 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       </div>
       <dialog
         ref={dialog}
-        className="workspace-dialog matrix-ai-result"
+        className="workspace-dialog admin-detail-dialog matrix-ai-result"
+        aria-labelledby="matrix-ai-result-title"
         onCancel={(event) => {
           if (event.target === event.currentTarget) {
             event.preventDefault();
@@ -482,20 +483,20 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
           if (e.target === e.currentTarget) closeResult();
         }}
       >
-        <div className="dialog-header">
-          <h2>AI 생성 결과</h2>
+        <div className="dialog-header admin-detail-header">
+          <h2 id="matrix-ai-result-title">AI 생성 결과</h2>
           <button
             type="button"
-            className="icon-button"
+            className="button admin-detail-close"
             aria-label="AI 결과 닫기"
             onClick={closeResult}
           >
-            <Icon name="close" />
+            닫기
           </button>
         </div>
         {result && (
           <>
-            <div className="matrix-ai-result-body">
+            <div className="admin-detail-body matrix-ai-result-body">
               <p className="matrix-ai-result-context">
                 {result.screenTitle} · {result.model}
               </p>
@@ -516,12 +517,12 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               )}
               <pre>{result.result}</pre>
             </div>
-            {copyError && (
-              <p className="matrix-ai-error" role="alert">
-                {copyError}
-              </p>
-            )}
-            <div className="matrix-ai-result-actions">
+            <div className="project-registration-footer matrix-ai-result-actions">
+              {copyError && (
+                <p className="matrix-ai-error" role="alert">
+                  {copyError}
+                </p>
+              )}
               <span>조회 내용과 서버의 실행 결과를 확인하세요.</span>
               <button
                 type="button"

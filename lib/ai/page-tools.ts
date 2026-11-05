@@ -1,8 +1,13 @@
 import "server-only";
-import { createRfpAgent } from './rfp-tools';
-import { requireProjectPermission } from '../project-permissions';
+import { createRfpAgent } from "./rfp-tools";
+import { requireProjectPermission } from "../project-permissions";
 import { HttpError } from "../auth";
-import { mutateArtifact, prepareArtifactMermaid, projectAccess, toArtifact } from "../artifacts";
+import {
+  mutateArtifact,
+  prepareArtifactMermaid,
+  projectAccess,
+  toArtifact,
+} from "../artifacts";
 import { db } from "../db";
 import type { User } from "../types";
 import type { AiContext } from "../ai-context";
@@ -14,7 +19,7 @@ import { GenerationCancelled } from "./generation-control";
 import { GuardrailBlocked } from "./guardrails";
 import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
 export type AiAction = {
-  target?: 'artifact' | 'rfp';
+  target?: "artifact" | "rfp";
   action: string;
   id: string;
   code: string;
@@ -41,7 +46,16 @@ export function createPageAgent(
     inspect: (stage: GuardrailStage, value: unknown) => Promise<unknown>;
   },
 ) {
-  if (page.key === 'rfp') return createRfpAgent(request,user,context,canWrite,prompt,checkpoint,guard);
+  if (page.key === "rfp")
+    return createRfpAgent(
+      request,
+      user,
+      context,
+      canWrite,
+      prompt,
+      checkpoint,
+      guard,
+    );
   const actions: AiAction[] = [],
     seen = new Set<string>();
   const pending: {
@@ -120,7 +134,13 @@ export function createPageAgent(
       const action = input.action;
       if (action !== "CREATE" && action !== "UPDATE" && action !== "DELETE")
         throw new HttpError(400, "작업 유형을 확인해 주세요.");
-      await requireProjectPermission(db(),user,context.projectId,page.kind,action);
+      await requireProjectPermission(
+        db(),
+        user,
+        context.projectId,
+        page.kind,
+        action,
+      );
       if (guard && !guard.policy.allowedActions.includes(action))
         throw new HttpError(
           403,
@@ -143,7 +163,7 @@ export function createPageAgent(
       if (pending.length >= (guard?.policy.maxChanges ?? 3))
         throw new HttpError(
           400,
-          "한 요청에서는 최대 3건까지 변경할 수 있습니다.",
+          `한 요청에서는 최대 ${guard?.policy.maxChanges ?? 3}건까지 변경할 수 있습니다.`,
         );
       const signature = JSON.stringify(input);
       if (seen.has(signature))
@@ -255,7 +275,8 @@ export function createPageAgent(
         await previewTx.rollback();
         previewTx.close();
       }
-      if (action !== "DELETE") await prepareArtifactMermaid(change, saved, user, checkpoint);
+      if (action !== "DELETE")
+        await prepareArtifactMermaid(change, saved, user, checkpoint);
       pending.push({ input: change, action, id: before?.id });
       seen.add(signature);
       const result = {

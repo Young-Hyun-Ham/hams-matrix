@@ -62,15 +62,20 @@ export function SubscriptionPlans({
     <section>
       <div className={styles.heading}>
         <h1>요금제</h1>
-        {current && <span className="badge purple">{current.name} 이용 중</span>}
+        {current && (
+          <span className="badge purple">{current.name} 이용 중</span>
+        )}
       </div>
       <p>
-        ※ 현재 결제 시스템이 연결되어 있지 않습니다. 결재 버튼을 누르면 실제 청구 없이 요금제가 즉시 변경됩니다.
+        ※ 현재 결제 시스템이 연결되어 있지 않습니다. 결재 버튼을 누르면 실제
+        청구 없이 요금제가 즉시 변경됩니다.
       </p>
       <p className="muted">
         {readOnly ? "게스트는 요금제를 조회만 할 수 있습니다." : ""}
       </p>
-      <div style={{ display: "flex", justifyContent: "center", margin: "20px 0" }}>
+      <div
+        style={{ display: "flex", justifyContent: "center", margin: "20px 0" }}
+      >
         <PlansToggle period={period} onChange={setPeriod} />
       </div>
       {notice && <p role="status">{notice}</p>}
@@ -82,68 +87,89 @@ export function SubscriptionPlans({
         }}
       >
         {plans.map((plan) => {
-          const regularPrice = period === "month" ? plan.monthlyPrice : plan.yearlyPrice;
-          const discountPrice = period === "month" ? plan.monthlyDiscountPrice : plan.yearlyDiscountPrice;
-          const showDiscount = plan.priceMode === "fixed" && regularPrice !== null && discountPrice !== null;
-          const discountRate = showDiscount && regularPrice > 0
-            ? Math.round((1 - discountPrice / regularPrice) * 100)
-            : null;
+          const regularPrice =
+            period === "month" ? plan.monthlyPrice : plan.yearlyPrice;
+          const discountPrice =
+            period === "month"
+              ? plan.monthlyDiscountPrice
+              : plan.yearlyDiscountPrice;
+          const showDiscount =
+            plan.priceMode === "fixed" &&
+            regularPrice !== null &&
+            discountPrice !== null;
+          const discountRate =
+            showDiscount && regularPrice > 0
+              ? Math.round((1 - discountPrice / regularPrice) * 100)
+              : null;
           return (
-          <article
-            key={plan.code}
-            className="panel"
-            style={{
-              padding: 24,
-              paddingTop: 9,
-              borderColor: plan.recommended ? "var(--primary)" : undefined,
-            }}
-          >
-            <div className={styles.tagRow}>
-              {plan.recommended && <span className="badge purple">추천</span>}
-              {showDiscount && <span className="badge green">할인</span>}
-            </div>
-            <div className={styles.nameRow}>
-              <h2>{plan.name}</h2>
-              {discountRate !== null && <span className={styles.discountRate}>{discountRate}% 할인</span>}
-            </div>
-            <p className={styles.priceRow}>
-              {/* {period === "month" ? "월" : "년"}{" "} */}
-              <strong className={`${styles.price} ${showDiscount ? styles.discountPrice : ""}`}>{plan.priceMode === "contact"
-                ? "협의"
-                : amount(showDiscount ? discountPrice : regularPrice)}</strong>
-              {showDiscount && <del className={styles.originalPrice}>{amount(regularPrice)}</del>}
-            </p>
-            <ul style={{ paddingLeft: 18, lineHeight: 2.2 }}>
-              <li>프로젝트 {limit(plan.projectLimit)}개</li>
-              <li>
-                총 토큰 {limit(plan.tokenLimit)}
-                {plan.code === "business" && " · 사용량 과금"}
-              </li>
-              <li>일일 이미지 {limit(plan.dailyImageLimit)}개</li>
-              <li>프롬프트 이미지 {plan.attachmentLimit}개</li>
-              <li>이력 {plan.historyEnabled ? "생성" : "미생성"}</li>
-            </ul>
-            {current?.code === plan.code ? (
-              <span className="badge purple">이용 중</span>
-            ) : (
-              !readOnly && (
-                <label style={{ display: "flex", gap: 8 }}>
-                  <input
-                    type="radio"
-                    name="subscription-plan"
-                    checked={selected?.code === plan.code}
-                    disabled={busy}
-                    onChange={() => {
-                      setSelected(plan);
-                      setNotice("");
-                    }}
-                  />
-                  {plan.name} 선택
-                </label>
-              )
-            )}
-          </article>
-        );})}
+            <article
+              key={plan.code}
+              className="panel"
+              style={{
+                padding: 24,
+                paddingTop: 9,
+                borderColor: plan.recommended ? "var(--primary)" : undefined,
+              }}
+            >
+              <div className={styles.tagRow}>
+                {plan.recommended && <span className="badge purple">추천</span>}
+                {showDiscount && <span className="badge green">할인</span>}
+              </div>
+              <div className={styles.nameRow}>
+                <h2>{plan.name}</h2>
+                {discountRate !== null && (
+                  <span className={styles.discountRate}>
+                    {discountRate}% 할인
+                  </span>
+                )}
+              </div>
+              <p className={styles.priceRow}>
+                {/* {period === "month" ? "월" : "년"}{" "} */}
+                <strong
+                  className={`${styles.price} ${showDiscount ? styles.discountPrice : ""}`}
+                >
+                  {plan.priceMode === "contact"
+                    ? "협의"
+                    : amount(showDiscount ? discountPrice : regularPrice)}
+                </strong>
+                {showDiscount && (
+                  <del className={styles.originalPrice}>
+                    {amount(regularPrice)}
+                  </del>
+                )}
+              </p>
+              <ul style={{ paddingLeft: 18, lineHeight: 2.2 }}>
+                <li>프로젝트 {limit(plan.projectLimit)}개</li>
+                <li>
+                  총 토큰 {limit(plan.tokenLimit)}
+                  {plan.code === "business" && " · 사용량 과금"}
+                </li>
+                <li>일일 이미지 {limit(plan.dailyImageLimit)}개</li>
+                <li>프롬프트 이미지 {plan.attachmentLimit}개</li>
+                <li>이력 {plan.historyEnabled ? "생성" : "미생성"}</li>
+              </ul>
+              {current?.code === plan.code ? (
+                <span className="badge purple">이용 중</span>
+              ) : (
+                !readOnly && (
+                  <label style={{ display: "flex", gap: 8 }}>
+                    <input
+                      type="radio"
+                      name="subscription-plan"
+                      checked={selected?.code === plan.code}
+                      disabled={busy}
+                      onChange={() => {
+                        setSelected(plan);
+                        setNotice("");
+                      }}
+                    />
+                    {plan.name} 선택
+                  </label>
+                )
+              )}
+            </article>
+          );
+        })}
       </div>
       {!readOnly && (
         <button

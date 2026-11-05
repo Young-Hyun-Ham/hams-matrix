@@ -1,3 +1,5 @@
+export const MAX_GUARDRAIL_CHANGES = 100;
+
 export type GuardrailPolicy = {
   mode: "monitor" | "enforce";
   aiEnabled: boolean;
@@ -35,7 +37,11 @@ export const defaultGuardrailPolicy: GuardrailPolicy = {
   classifierThreshold: 0.8,
 };
 export type GuardrailStage =
-  "input" | "context" | "tool" | "tool-result" | "output";
+  | "input"
+  | "context"
+  | "tool"
+  | "tool-result"
+  | "output";
 export type GuardrailFinding = {
   rule: string;
   severity: "medium" | "high" | "critical";

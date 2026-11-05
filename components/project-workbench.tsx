@@ -13,7 +13,7 @@ import {
 import { ProjectPageProvider } from "./shared/project-page-context";
 import { useProjectData } from "./shared/use-project-data";
 import { useArtifactActions } from "./shared/use-artifact-actions";
-import { useProjectAccess } from './shared/use-project-access';
+import { useProjectAccess } from "./shared/use-project-access";
 import { ArtifactDialogs } from "./shared/artifact-dialogs";
 import { ProjectOverviewPage } from "./pages/project-overview/project-overview-page";
 import { RfpPage } from "./pages/rfp/rfp-page";
@@ -66,7 +66,11 @@ function ProjectContent({
   onDirtyChange: (dirty: boolean) => void;
 }) {
   const access = useProjectAccess(user, data.project.id, tab);
-  const actions = useArtifactActions(data.project.id, onChanged, access.verifyPermission),
+  const actions = useArtifactActions(
+      data.project.id,
+      onChanged,
+      access.verifyPermission,
+    ),
     Page = pages[tab];
   const can = access.can;
   const right = access.access?.permissionsByTab[tab];
@@ -74,7 +78,11 @@ function ProjectContent({
     <ProjectPageProvider.Provider
       value={{
         user,
-        data: { ...data, ...access.access, canWrite: !!right && (right.CREATE || right.UPDATE || right.DELETE) },
+        data: {
+          ...data,
+          ...access.access,
+          canWrite: !!right && (right.CREATE || right.UPDATE || right.DELETE),
+        },
         tab,
         can,
         verifyPermission: access.verifyPermission,
@@ -83,16 +91,30 @@ function ProjectContent({
         updateData,
         onDirtyChange,
         selectTab,
-        openCreate: (kind, draft) => { if (can(kind, 'CREATE')) actions.openCreate(kind, draft); },
+        openCreate: (kind, draft) => {
+          if (can(kind, "CREATE")) actions.openCreate(kind, draft);
+        },
         openEdit: actions.openEdit,
-        openDelete: (artifact) => { if (can(artifact.kind, 'DELETE')) actions.openDelete(artifact); },
+        openDelete: (artifact) => {
+          if (can(artifact.kind, "DELETE")) actions.openDelete(artifact);
+        },
       }}
     >
       <div
         className={`matrix-tab-content${tab === "overview" ? "" : " matrix-tab-content-compact"}`}
       >
-        <p className="matrix-project-role" role="status">{access.access ? `프로젝트 역할: ${access.access.projectRole}` : access.error ? '프로젝트 권한을 확인할 수 없습니다.' : '프로젝트 권한 확인 중…'}</p>
-        {access.error && <p role="alert" className="matrix-error">{access.error}</p>}
+        <p className="matrix-project-role" role="status">
+          {access.access
+            ? `프로젝트 역할: ${access.access.projectRole}`
+            : access.error
+              ? "프로젝트 권한을 확인할 수 없습니다."
+              : "프로젝트 권한 확인 중…"}
+        </p>
+        {access.error && (
+          <p role="alert" className="matrix-error">
+            {access.error}
+          </p>
+        )}
         <Page />
         <ArtifactDialogs actions={actions} onReload={onReload} />
       </div>
@@ -110,7 +132,9 @@ export function ProjectWorkbench({
 }) {
   const model = useProjectData(user, initialProjectId);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<
+    (() => void) | null
+  >(null);
   function navigate(action: () => void) {
     if (hasUnsavedChanges) setPendingNavigation(() => action);
     else action();
@@ -124,9 +148,9 @@ export function ProjectWorkbench({
   function setTab(nextTab: ProjectTab) {
     if (nextTab === tab) return;
     navigate(() => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("tab", nextTab);
-    window.history.pushState(null, "", url);
+      const url = new URL(window.location.href);
+      url.searchParams.set("tab", nextTab);
+      window.history.pushState(null, "", url);
     });
   }
   const pathname = usePathname(),
@@ -152,7 +176,10 @@ export function ProjectWorkbench({
           value={model.projectId}
           onChange={(e) => {
             const projectId = e.target.value;
-            navigate(() => { model.setProjectId(projectId); model.setNotice(""); });
+            navigate(() => {
+              model.setProjectId(projectId);
+              model.setNotice("");
+            });
           }}
         >
           <option value="">프로젝트 선택</option>
@@ -212,7 +239,23 @@ export function ProjectWorkbench({
           onDirtyChange={setHasUnsavedChanges}
         />
       )}
-      {pendingNavigation && <ConfirmationDialog title="미저장 변경사항" confirmLabel="변경사항 버리고 이동" onClose={() => setPendingNavigation(null)} onConfirm={() => { pendingNavigation(); setPendingNavigation(null); setHasUnsavedChanges(false); }}><p>편집 중인 내용이 저장되지 않았습니다. 변경사항을 버리고 이동하시겠습니까?</p></ConfirmationDialog>}
+      {pendingNavigation && (
+        <ConfirmationDialog
+          title="미저장 변경사항"
+          confirmLabel="변경사항 버리고 이동"
+          onClose={() => setPendingNavigation(null)}
+          onConfirm={() => {
+            pendingNavigation();
+            setPendingNavigation(null);
+            setHasUnsavedChanges(false);
+          }}
+        >
+          <p>
+            편집 중인 내용이 저장되지 않았습니다. 변경사항을 버리고
+            이동하시겠습니까?
+          </p>
+        </ConfirmationDialog>
+      )}
     </div>
   );
 }

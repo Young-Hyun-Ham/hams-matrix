@@ -6,7 +6,7 @@ import {
   type ArtifactKind,
 } from "@/lib/artifact-types";
 import { jsonRequest } from "@/lib/client-request";
-import type { PermissionAction } from '@/lib/project-permission-model';
+import type { PermissionAction } from "@/lib/project-permission-model";
 type EditorSession = {
   kind: ArtifactKind;
   artifact: Artifact | null;
@@ -15,7 +15,10 @@ type EditorSession = {
 export function useArtifactActions(
   projectId: string,
   onChanged: (message: string) => void,
-  verifyPermission: (kind: ArtifactKind, action: PermissionAction) => Promise<boolean>,
+  verifyPermission: (
+    kind: ArtifactKind,
+    action: PermissionAction,
+  ) => Promise<boolean>,
 ) {
   const [savedArtifact, setSavedArtifact] = useState<Artifact | null>(null);
   const [editor, setEditor] = useState<EditorSession | null>(null),
@@ -52,7 +55,10 @@ export function useArtifactActions(
     setBusy(true);
     setError("");
     try {
-      if (!await verifyPermission(editor.kind, selected ? 'UPDATE' : 'CREATE')) throw new Error('현재 프로젝트 권한으로 저장할 수 없습니다.');
+      if (
+        !(await verifyPermission(editor.kind, selected ? "UPDATE" : "CREATE"))
+      )
+        throw new Error("현재 프로젝트 권한으로 저장할 수 없습니다.");
       const result = await jsonRequest(
         `/api/projects/${projectId}/artifacts${selected ? `/${selected.id}` : ""}`,
         {
@@ -107,7 +113,8 @@ export function useArtifactActions(
     setBusy(true);
     setError("");
     try {
-      if (!await verifyPermission(deleting.kind, 'DELETE')) throw new Error('현재 프로젝트 권한으로 삭제할 수 없습니다.');
+      if (!(await verifyPermission(deleting.kind, "DELETE")))
+        throw new Error("현재 프로젝트 권한으로 삭제할 수 없습니다.");
       await jsonRequest(`/api/projects/${projectId}/artifacts/${deleting.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },

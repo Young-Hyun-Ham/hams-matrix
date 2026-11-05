@@ -2,6 +2,7 @@ import "server-only";
 import { HttpError } from "./auth";
 import type { AiCallEvent } from "./ai/token-types";
 import { finishBackgroundResponse } from "./ai/background-response";
+import { MAX_GUARDRAIL_CHANGES } from "./ai/guardrail-types";
 
 export async function aiModels() {
   if (!process.env.OPENAI_API_KEY)
@@ -49,8 +50,16 @@ export async function generateAi(
   history: Record<string, unknown>[] = [],
   track?: (event: AiCallEvent) => Promise<void>,
   checkpoint?: () => Promise<void>,
-  options?: { responseFormat?: Record<string, unknown>; deadline?: number },
+  options?: {
+    responseFormat?: Record<string, unknown>;
+    deadline?: number;
+    maxOutputTokens?: number;
+  },
 ) {
+  const maxOutputTokens = Math.min(
+    16000,
+    Math.max(1, Math.floor(options?.maxOutputTokens ?? 6000)),
+  );
   const messages: Record<string, unknown>[] = [
     ...history,
     {
@@ -90,7 +99,7 @@ export async function generateAi(
       status: "started",
       reservedTokens:
         Buffer.byteLength(budgetText, "utf8") +
-        6000 +
+        maxOutputTokens +
         4096 +
         imageCount * 65536,
     });
@@ -108,7 +117,7 @@ export async function generateAi(
           input: agent || images.length || history.length ? messages : input,
           store: false,
           background: true,
-          max_output_tokens: 6000,
+          max_output_tokens: maxOutputTokens,
           ...(options?.responseFormat
             ? { text: { format: options.responseFormat } }
             : {}),
@@ -201,7 +210,8 @@ export async function generateAi(
     const output = data.output ?? [],
       calls = output.filter((item) => item.type === "function_call");
     if (calls.length) {
-      if (!agent || calls.length > 3)
+      // Allow a full change batch plus read_page; the agent enforces the active change limit.
+      if (!agent || calls.length > MAX_GUARDRAIL_CHANGES + 1)
         throw new HttpError(502, "허용된 도구 호출 수를 초과했습니다.");
       messages.push(...output);
       for (const call of calls) {

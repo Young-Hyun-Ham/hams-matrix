@@ -136,3 +136,9 @@
     padding: 16px;
   }
 }
+.document-rfp-source {
+  display: block;
+  color: var(--primary);
+  margin-top: 4px;
+  font-size: 11px;
+}

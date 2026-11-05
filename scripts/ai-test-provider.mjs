@@ -20,6 +20,7 @@ globalThis.fetch = async (input, init) => {
         { id: "gpt-4o-mini" },
         { id: "gpt-3.5-turbo" },
         { id: "gpt-audio" },
+        { id: "gpt-image-2" },
       ],
     });
   const match = url.match(/\/responses\/([^/]+)(\/cancel)?$/);
@@ -41,6 +42,7 @@ globalThis.fetch = async (input, init) => {
     });
   }
   const data = JSON.parse(init.body);
+  if (url.endsWith("/images/generations")) return Response.json({data:[{b64_json:"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQIoAAAAASUVORK5CYII="}]});
   const content = Array.isArray(data.input)
     ? data.input.findLast((item) => item.role === "user").content
     : data.input;
@@ -82,6 +84,15 @@ globalThis.fetch = async (input, init) => {
     }
     return Response.json({ ...usage, status: "completed", output: [{ type: "message", content: [{ type: "output_text", text: inspected.includes("[CLASSIFIER_INVALID]") ? "invalid" : JSON.stringify({ category: inspected.includes("[CLASSIFY_INJECTION]") ? "injection" : "safe", risk: inspected.includes("[CLASSIFY_INJECTION]") ? 0.99 : 0.01 }) }] }] });
   }
+  if (data.text?.format?.name === "rfp_from_source") {
+    const example = schema => schema.type === "object" ? Object.fromEntries(Object.entries(schema.properties).map(([key,value])=>[key,example(value)]))
+      : schema.type === "array" ? [] : schema.type === "boolean" ? true : schema.enum?.[0] ?? "";
+    const envelope=example(data.text.format.schema);
+    envelope.document.title="File generated RFP";
+    envelope.document.basic.background=String(userInput.untrustedSourceText);
+    return Response.json({...usage,status:"completed",output:[{type:"message",content:[{type:"output_text",text:JSON.stringify(envelope)}]}]});
+  }
+  if(data.text?.format?.name === "architecture_mermaid_order") return Response.json({...usage,status:"completed",output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({nodeIds:userInput.topology.nodes.map(node=>node.id).reverse(),edgeIds:userInput.topology.edges.map(edge=>edge.id),...(data.text.format.schema.properties.direction?{direction:"LR"}:{})})}]}]});
   const toolOutputs = Array.isArray(data.input)
     ? data.input.filter((item) => item.type === "function_call_output")
     : [];

@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- Authenticated image routes serve the saved PNG directly. */
 import { useEffect, useId, useRef, useState } from "react";
 import type { GeneratedImageInfo } from "@/lib/generated-image-types";
+import type { ProjectData } from "@/lib/artifact-types";
 import { jsonRequest } from "@/lib/client-request";
 import "./ai-image-actions.css";
 
@@ -17,6 +18,10 @@ export function AiImageActions({
   artifactVersion,
   canWrite,
   onBusyChange,
+  onGenerated,
+  disabled = false,
+  explicitGeneration = false,
+  hasSavedImage = false,
 }: {
   endpoint: string;
   label: string;
@@ -27,6 +32,13 @@ export function AiImageActions({
   artifactVersion?: number;
   canWrite: boolean;
   onBusyChange?: (busy: boolean) => void;
+  onGenerated?: (result: {
+    image: GeneratedImageInfo;
+    data?: ProjectData;
+  }) => void;
+  disabled?: boolean;
+  explicitGeneration?: boolean;
+  hasSavedImage?: boolean;
 }) {
   const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
@@ -96,11 +108,15 @@ export function AiImageActions({
       setSourceHash(result.sourceHash ?? "");
       if (result.image) setMode(requested);
       else {
+        if (explicitGeneration)
+          throw new Error(
+            "저장된 이미지가 없습니다. AI 이미지생성 버튼으로 먼저 생성해 주세요.",
+          );
         if (!canWrite)
           throw new Error(
             "저장된 이미지가 없습니다. 프로젝트 편집 권한이 있는 사용자에게 생성을 요청해 주세요.",
           );
-        setPrompt("");
+        setPrompt(promptPlaceholder);
         setMode("generate");
         await loadModels(null);
       }
@@ -121,7 +137,9 @@ export function AiImageActions({
       if (!active.current) return;
       setImage(result.image);
       setSourceHash(result.sourceHash ?? "");
-      setPrompt(result.image?.prompt ?? "");
+      setPrompt(
+        result.image?.prompt?.trim() ? result.image.prompt : promptPlaceholder,
+      );
       await loadModels(result.image);
     } catch (error) {
       showError(error);
@@ -147,25 +165,29 @@ export function AiImageActions({
     setGenerating(true);
     setError("");
     try {
-      const result: { image: GeneratedImageInfo; sourceHash?: string } =
-        await jsonRequest(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model,
-            prompt,
-            artifactVersion,
-            sourceHash,
-            regenerate: !!image,
-            expectedImageId: image?.id,
-          }),
-        });
+      const result: {
+        image: GeneratedImageInfo;
+        sourceHash?: string;
+        data?: ProjectData;
+      } = await jsonRequest(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model,
+          prompt: prompt.trim() || promptPlaceholder,
+          artifactVersion,
+          sourceHash,
+          regenerate: !!image,
+          expectedImageId: image?.id,
+        }),
+      });
       if (!active.current) return;
       setImage(result.image);
       if (result.sourceHash) setSourceHash(result.sourceHash);
       setImageError(false);
       setImageLoaded(false);
       setMode(intent);
+      onGenerated?.(result);
     } catch (error) {
       showError(error);
     } finally {
@@ -177,7 +199,9 @@ export function AiImageActions({
     if (busy) return;
     setError("");
     // Cancelling regeneration returns to the previous saved image.
-    setMode(mode === "generate" && image ? intent : null);
+    setMode(
+      mode === "generate" && image && !explicitGeneration ? intent : null,
+    );
   }
   async function download() {
     if (!image || running.current) return;
@@ -222,10 +246,23 @@ export function AiImageActions({
   return (
     <>
       <div className="matrix-image-actions">
+        {explicitGeneration && (
+          <button
+            type="button"
+            className="button"
+            disabled={busy || disabled || !canWrite}
+            onClick={() => {
+              setIntent("preview");
+              void regenerate();
+            }}
+          >
+            AI 이미지생성
+          </button>
+        )}
         <button
           type="button"
           className="button"
-          disabled={busy}
+          disabled={busy || disabled || (explicitGeneration && !hasSavedImage)}
           onClick={() => void open("preview")}
         >
           미리보기
@@ -233,10 +270,10 @@ export function AiImageActions({
         <button
           type="button"
           className="button"
-          disabled={busy}
+          disabled={busy || disabled || (explicitGeneration && !hasSavedImage)}
           onClick={() => void open("download")}
         >
-          PNG 이미지 다운로드
+          이미지 다운로드
         </button>
         {busy && !mode && <span role="status">저장 이미지 확인 중...</span>}
         {error && !mode && (
@@ -247,18 +284,26 @@ export function AiImageActions({
       </div>
       <dialog
         ref={dialog}
-        className={`matrix-dialog matrix-image-modal ${mode === "generate" ? "matrix-image-generate" : "matrix-image-preview"}`}
+        className={`matrix-dialog matrix-image-modal ${mode === "generate" ? "workspace-dialog admin-detail-dialog workspace-form-dialog matrix-image-generate" : "matrix-image-preview"}`}
         aria-labelledby={titleId}
         onCancel={(event) => {
           event.preventDefault();
           close();
         }}
       >
-        <header className="matrix-image-header">
+        <header
+          className={
+            mode === "generate"
+              ? "dialog-header admin-detail-header"
+              : "matrix-image-header"
+          }
+        >
           <h2 id={titleId}>{title}</h2>
           <button
             type="button"
-            className="button"
+            className={
+              mode === "generate" ? "button admin-detail-close" : "button"
+            }
             disabled={busy}
             onClick={close}
           >
@@ -273,48 +318,50 @@ export function AiImageActions({
               void generate();
             }}
           >
-            <p>{subject}</p>
-            <p className="matrix-image-hint">{description}</p>
-            <fieldset disabled={busy || !canWrite}>
-              <label>
-                AI 이미지 모델 *
-                <select
-                  required
-                  value={model}
-                  onChange={(event) => setModel(event.target.value)}
-                >
-                  <option value="">
-                    {busy ? "모델 조회 중..." : "이미지 모델을 선택하세요"}
-                  </option>
-                  {models.map((id) => (
-                    <option key={id} value={id}>
-                      {id}
+            <div className="admin-detail-body matrix-image-generation-body">
+              <p>{subject}</p>
+              <p className="matrix-image-hint">{description}</p>
+              <fieldset disabled={busy || !canWrite}>
+                <label>
+                  AI 이미지 모델 *
+                  <select
+                    required
+                    value={model}
+                    onChange={(event) => setModel(event.target.value)}
+                  >
+                    <option value="">
+                      {busy ? "모델 조회 중..." : "이미지 모델을 선택하세요"}
                     </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                추가 요청 (선택)
-                <input
-                  type="text"
-                  value={prompt}
-                  maxLength={1000}
-                  onChange={(event) => setPrompt(event.target.value)}
-                  placeholder={promptPlaceholder}
-                />
-              </label>
-            </fieldset>
-            {generating && (
-              <p role="status">
-                AI가 이미지를 생성하고 저장하고 있습니다. 잠시 기다려 주세요.
-              </p>
-            )}
-            {error && (
-              <p role="alert" className="matrix-error">
-                {error}
-              </p>
-            )}
-            <footer className="matrix-image-actions matrix-image-footer">
+                    {models.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  추가 요청 (선택)
+                  <input
+                    type="text"
+                    value={prompt}
+                    maxLength={1000}
+                    onChange={(event) => setPrompt(event.target.value)}
+                    placeholder={promptPlaceholder}
+                  />
+                </label>
+              </fieldset>
+              {generating && (
+                <p role="status">
+                  AI가 이미지를 생성하고 저장하고 있습니다. 잠시 기다려 주세요.
+                </p>
+              )}
+              {error && (
+                <p role="alert" className="matrix-error">
+                  {error}
+                </p>
+              )}
+            </div>
+            <footer className="project-registration-footer">
               {!models.length && !busy && (
                 <button
                   type="button"
@@ -324,6 +371,14 @@ export function AiImageActions({
                   모델 다시 조회
                 </button>
               )}
+              <button
+                type="button"
+                className="button"
+                disabled={busy}
+                onClick={close}
+              >
+                취소
+              </button>
               <button
                 type="submit"
                 className="button primary"
@@ -384,7 +439,7 @@ export function AiImageActions({
                 </p>
               )}
               <footer className="matrix-image-actions matrix-image-footer">
-                {canWrite && (
+                {canWrite && !explicitGeneration && (
                   <button
                     type="button"
                     className="button"

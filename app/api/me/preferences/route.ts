@@ -57,7 +57,9 @@ export async function PATCH(request: Request) {
             "version",
           ].includes(k),
       ) ||
-      (["toastCloseButtonColor", "toastCloseButtonBackgroundColor"].some((key) => input[key] !== undefined && !isAccentColor(input[key]))) ||
+      ["toastCloseButtonColor", "toastCloseButtonBackgroundColor"].some(
+        (key) => input[key] !== undefined && !isAccentColor(input[key]),
+      ) ||
       (input.accentColor !== undefined && !isAccentColor(input.accentColor)) ||
       !Number.isSafeInteger(input.version) ||
       Number(input.version) < 0 ||
@@ -102,9 +104,24 @@ export async function PATCH(request: Request) {
         toastFontColor = String(
           input.toastFontColor ?? row?.toast_font_color ?? "#262138",
         ),
-        toastCloseButtonColor = input.toastCloseButtonColor === undefined ? row?.toast_close_button_color ?? null : input.toastCloseButtonColor === null ? null : String(input.toastCloseButtonColor).toLowerCase(),
-        toastCloseButtonBackgroundColor = input.toastCloseButtonBackgroundColor === undefined ? row?.toast_close_button_background_color ?? null : input.toastCloseButtonBackgroundColor === null ? null : String(input.toastCloseButtonBackgroundColor).toLowerCase(),
-        accentColor = input.accentColor === undefined ? row?.accent_color ?? null : input.accentColor === null ? null : String(input.accentColor).toLowerCase(),
+        toastCloseButtonColor =
+          input.toastCloseButtonColor === undefined
+            ? (row?.toast_close_button_color ?? null)
+            : input.toastCloseButtonColor === null
+              ? null
+              : String(input.toastCloseButtonColor).toLowerCase(),
+        toastCloseButtonBackgroundColor =
+          input.toastCloseButtonBackgroundColor === undefined
+            ? (row?.toast_close_button_background_color ?? null)
+            : input.toastCloseButtonBackgroundColor === null
+              ? null
+              : String(input.toastCloseButtonBackgroundColor).toLowerCase(),
+        accentColor =
+          input.accentColor === undefined
+            ? (row?.accent_color ?? null)
+            : input.accentColor === null
+              ? null
+              : String(input.accentColor).toLowerCase(),
         version = Number(input.version) + 1;
       await tx.execute({
         sql: "INSERT INTO user_preferences(user_id,toast_position,default_theme,toast_background_color,toast_font_color,accent_color,toast_close_button_color,toast_close_button_background_color,version) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET toast_position=excluded.toast_position,default_theme=excluded.default_theme,toast_background_color=excluded.toast_background_color,toast_font_color=excluded.toast_font_color,accent_color=excluded.accent_color,toast_close_button_color=excluded.toast_close_button_color,toast_close_button_background_color=excluded.toast_close_button_background_color,version=excluded.version,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')",

@@ -1,4 +1,7 @@
-import { projectPermissionAccess, requireProjectPermission } from "./project-permissions";
+import {
+  projectPermissionAccess,
+  requireProjectPermission,
+} from "./project-permissions";
 import "server-only";
 import { createHmac, timingSafeEqual, randomUUID } from "node:crypto";
 import type { Client, Row } from "@libsql/client";
@@ -8,6 +11,7 @@ import { audit } from "./audit";
 import { db } from "./db";
 import { getDocument, putDocument, removeDocument } from "./r2";
 import { readDocumentUpload } from "./documents";
+import { protectRfpSourceFile, rfpSourceRow } from "./rfp-sources";
 import type { User } from "./types";
 import type { OnlyofficeConfiguration } from "./onlyoffice-types";
 
@@ -163,8 +167,14 @@ export async function onlyofficeConfiguration(
   const row = await fileFor(db(), projectId, user.workspaceId, fileId);
   const { fileType, documentType } = onlyofficeFileType(String(row.name));
   const { serverUrl, appUrl, secret } = onlyofficeSettings();
+  const permissions = (await projectPermissionAccess(db(), user, projectId))
+    .permissionsByTab;
+  const source = await rfpSourceRow(db(), user, projectId);
   const key = onlyofficeKey(row),
-    canEdit = writer({ ...user, role: String(access.role) }) && (await projectPermissionAccess(db(),user,projectId)).permissionsByTab.documents.UPDATE;
+    canEdit =
+      writer({ ...user, role: String(access.role) }) &&
+      permissions.documents.UPDATE &&
+      (source?.file_id !== fileId || permissions.rfp.UPDATE);
   const scope = {
     projectId,
     fileId,
@@ -254,7 +264,22 @@ async function scopedUser(executor: Executor, scope: Scope, write: boolean) {
     onboardingComplete: true,
   };
   const access = await projectAccess(executor, user, scope.projectId, write);
-  if(write) await requireProjectPermission(executor,user,scope.projectId,"documents","UPDATE");
+  if (write) {
+    await requireProjectPermission(
+      executor,
+      user,
+      scope.projectId,
+      "documents",
+      "UPDATE",
+    );
+    await protectRfpSourceFile(
+      executor,
+      user,
+      scope.projectId,
+      scope.fileId,
+      "UPDATE",
+    );
+  }
   return { ...user, role: String(access.role) };
 }
 export async function onlyofficeContent(scope: Scope) {

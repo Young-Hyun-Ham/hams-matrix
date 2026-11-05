@@ -1,0 +1,568 @@
+/* Editor chrome only: keep the light stylesheet and authored screen colors intact. */
+[data-theme="dark"] .planning-root {
+  --planning-hover: color-mix(in srgb, var(--ink) 8%, var(--surface));
+  --planning-error: #fca5a5;
+  --planning-warning: #fcd34d;
+  --planning-success: #86efac;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .panel-tabs,
+    .inspector-tabs,
+    .page-label,
+    .project-list-head,
+    .selection-title,
+    .property,
+    .property-title,
+    .ai-card,
+    .ai-history-panel,
+    .ai-history-head,
+    .comment-popover,
+    .zoom-menu,
+    .page-menu,
+    .layer-menu,
+    .layer-context-menu,
+    .add-layer-menu,
+    .layer-add-submenu,
+    .canvas-context-menu,
+    .canvas-add-submenu,
+    .order-submenu,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .review-dialog,
+    .review-dialog footer,
+    .share-dialog,
+    .preview-header,
+    .preview-pages
+  ) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+/* Limit inherited control styles to UI containers, never to the authored artboards. */
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .zoom-menu,
+    .canvas-context-menu,
+    .layer-context-menu,
+    .page-menu,
+    .add-layer-menu,
+    .layer-add-submenu,
+    .canvas-add-submenu,
+    .order-submenu,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog,
+    .preview-header,
+    .preview-pages,
+    .preview-empty
+  )
+  :is(
+    button:not(.theme-toggle):not(:where(.planning-shared-dialog button)),
+    input,
+    textarea,
+    select,
+    a
+  ) {
+  color: var(--ink);
+  border-color: var(--line);
+  accent-color: var(--primary);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog
+  )
+  :is(input, textarea, select),
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .field,
+    .select-field,
+    .font-row,
+    .color-row,
+    .color-option,
+    .component-color-control,
+    .option-editor-row > span,
+    .content-field,
+    .effect-select,
+    .file-upload-button,
+    .code-panel,
+    .code-textarea,
+    .code-head button,
+    .copy-mode-toggle,
+    .preview-thumbnail-viewport
+  ) {
+  background-color: var(--canvas);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .zoom-menu,
+    .canvas-context-menu,
+    .layer-context-menu,
+    .page-menu,
+    .add-layer-menu,
+    .layer-add-submenu,
+    .canvas-add-submenu,
+    .order-submenu,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog,
+    .preview-header,
+    .preview-pages
+  )
+  button:not(.theme-toggle):not(:where(.planning-shared-dialog button)) {
+  background-color: transparent;
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .zoom-menu,
+    .canvas-context-menu,
+    .layer-context-menu,
+    .page-menu,
+    .add-layer-menu,
+    .layer-add-submenu,
+    .canvas-add-submenu,
+    .order-submenu,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog,
+    .preview-header,
+    .preview-pages
+  )
+  button:not(.theme-toggle):not(
+    :where(.planning-shared-dialog button)
+  ):hover:enabled,
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .project-list-item:hover,
+    .layer-row:hover,
+    .file-upload-button:hover,
+    .ai-history-item,
+    .comment-items article,
+    .image-option-preview:not(.has-image),
+    .share-owner,
+    .share-list-item
+  ) {
+  background-color: var(--planning-hover);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .doc-title small,
+    .muted,
+    .layer-icon,
+    .field span,
+    .font-row small,
+    .component-option,
+    .component-color-control,
+    .option-editor-head,
+    .project-list-item small,
+    .project-list-state,
+    .project-login-state p,
+    .ai-model-field > span,
+    .ai-card p,
+    .ai-history-state,
+    .ai-history-item > div,
+    .ai-history-item time,
+    .comment-state,
+    .comment-items article time,
+    .comment-popover-footer > span,
+    .clipboard-help,
+    .empty-effect,
+    .context-title,
+    .context-arrow,
+    .order-symbol,
+    .submenu-arrow,
+    .order-submenu kbd,
+    .zoom,
+    .code-note,
+    .review-dialog header p,
+    .share-dialog header p,
+    .preview-navigation span,
+    .preview-header-actions span,
+    .preview-pages h2,
+    .preview-empty p,
+    .preview-no-pages
+  ) {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .planning-root .ai-card .ai-history-item p,
+[data-theme="dark"] .planning-root .preview-page-name {
+  color: var(--ink);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog
+  )
+  :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog,
+    .preview-header,
+    .preview-pages
+  )
+  :is(button, input, textarea, select, a):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .topbar,
+    .left-panel,
+    .right-panel,
+    .canvas-toolbar,
+    .comment-popover,
+    .zoom-menu,
+    .canvas-context-menu,
+    .layer-context-menu,
+    .page-menu,
+    .add-layer-menu,
+    .layer-add-submenu,
+    .canvas-add-submenu,
+    .order-submenu,
+    .workspace-dialog:not(:where(.planning-shared-dialog)),
+    .share-dialog,
+    .preview-header,
+    .preview-pages
+  )
+  :is(
+    button:not(.theme-toggle):not(:where(.planning-shared-dialog button)),
+    input,
+    textarea,
+    select
+  ):disabled {
+  color: var(--muted);
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .layer-row.selected,
+    .layer-row.drop-target,
+    .layer-row:has(.layer-name.editing),
+    .tool-group button.active,
+    .device-switch button.active,
+    .layer-row-actions button.active,
+    .zoom-menu button.active,
+    .ai-history-button[aria-expanded="true"],
+    .copy-mode-toggle button.active,
+    .preview-page-list > .preview-page-item.active
+  ) {
+  background: var(--primary-soft);
+  color: var(--ink);
+  border-color: var(--primary);
+}
+
+[data-theme="dark"] .planning-root .device-switch button.active:disabled {
+  color: var(--ink);
+  background: var(--primary-soft);
+  opacity: 1;
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .panel-tabs button.active,
+    .inspector-tabs button.active,
+    .property-title:hover,
+    .layer-icon.frame,
+    .layer-icon.section,
+    .project-list-icon,
+    .ai-icon,
+    .ai-history-head > span,
+    .project-list-head > span,
+    .beta,
+    .preview-brand small
+  ) {
+  color: var(--primary);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .project-list-icon,
+    .ai-icon,
+    .ai-history-head > span,
+    .project-list-head > span,
+    .beta,
+    .preview-brand small
+  ) {
+  background: var(--primary-soft);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .share-button,
+    .ai-card > button,
+    .comment-popover-footer > button,
+    .review-dialog .review-dialog-submit,
+    .project-login-state a,
+    .preview-empty button,
+    .preview-page-list > .preview-page-item.active .preview-page-name b
+  ) {
+  background: var(--primary);
+  color: var(--on-primary, #101018);
+  border-color: var(--primary);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .share-button,
+    .ai-card > button,
+    .comment-popover-footer > button,
+    .review-dialog .review-dialog-submit,
+    .preview-empty button
+  ):hover:enabled {
+  background: color-mix(in srgb, var(--primary) 88%, var(--surface));
+  color: var(--on-primary, #101018);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(.layer-name.editing, .page-label > span.editing) {
+  background: var(--canvas);
+  color: var(--ink);
+  border-color: var(--primary);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .canvas-area,
+    .canvas,
+    .preview-viewport,
+    .preview-empty,
+    .code-panel-scroll
+  ) {
+  background-color: var(--canvas);
+}
+
+[data-theme="dark"] .planning-root :is(.canvas, .preview-viewport) {
+  background-image: radial-gradient(var(--line) 0.7px, transparent 0.7px);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(.device-switch, .preview-page-name b, .comment-list-mark) {
+  background: var(--planning-hover);
+  color: var(--muted);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .divider,
+    .context-separator,
+    .canvas-menu-separator,
+    .tool-group > span
+  ) {
+  background: var(--line);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .code-head,
+    .code-section,
+    .code-note,
+    .comment-items article,
+    .image-option-preview,
+    .empty-effect,
+    .preview-thumbnail-viewport
+  ) {
+  border-color: var(--line);
+}
+
+/* These editor-only legacy rules use !important for geometry and selection. */
+[data-theme="dark"] .planning-root .add-layer-menu button {
+  color: var(--ink) !important;
+}
+[data-theme="dark"] .planning-root .add-layer-menu button:hover {
+  color: var(--primary) !important;
+}
+[data-theme="dark"] .planning-root .canvas-node-selected {
+  outline-color: var(--primary) !important;
+}
+[data-theme="dark"] .planning-root .resize-handle {
+  background: var(--surface) !important;
+  border-color: var(--primary) !important;
+}
+[data-theme="dark"] .planning-root .canvas-node-selected::after {
+  border-color: var(--primary);
+}
+[data-theme="dark"] .planning-root .size-badge {
+  background: var(--primary);
+  color: var(--on-primary, #101018);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(
+    .review-dialog-error,
+    .project-list-state.error,
+    .ai-history-state.error,
+    .comment-state.error,
+    .comment-popover > p,
+    .context-delete,
+    .canvas-delete-button
+  ) {
+  color: var(--planning-error);
+}
+[data-theme="dark"] .planning-root .ai-card p.ai-model-warning {
+  color: var(--planning-warning);
+}
+[data-theme="dark"] .planning-root .access-badge {
+  background: var(--planning-hover);
+  color: var(--muted);
+}
+[data-theme="dark"] .planning-root .access-badge.edit {
+  color: var(--planning-success);
+}
+[data-theme="dark"]
+  .planning-root
+  :is(.canvas, .inspector, .layer-tree, .project-list, .code-panel-scroll) {
+  scrollbar-color: var(--line) var(--canvas);
+}
+
+[data-theme="dark"]
+  .planning-root
+  :is(.left-panel, .canvas-toolbar, .preview-pages)
+  button:is(.selected, .active):hover:enabled {
+  background: var(--primary-soft);
+  color: var(--ink);
+}
+[data-theme="dark"]
+  .planning-root
+  :is(.layer-context-menu, .canvas-context-menu, .page-menu)
+  button:is(.context-delete, .canvas-delete-button) {
+  color: var(--planning-error);
+}
+[data-theme="dark"]
+  .planning-root
+  :is(.layer-context-menu, .canvas-context-menu, .page-menu)
+  button:is(.context-delete, .canvas-delete-button):hover:enabled {
+  color: var(--planning-error);
+  background: color-mix(in srgb, var(--planning-error) 12%, var(--surface));
+}
+[data-theme="dark"]
+  .planning-root
+  .workspace-dialog
+  .review-dialog
+  button.review-dialog-submit.reject {
+  background: color-mix(in srgb, var(--planning-error) 12%, var(--surface));
+  color: var(--planning-error);
+  border-color: var(--planning-error);
+}
+
+[data-theme="dark"]
+  .planning-root
+  .canvas-memo-controls
+  :is(button, input[type="color"]) {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--line);
+}
+
+/* A page is the document, not the editor background. Inline authored colors win. */
+[data-theme="dark"] .planning-root :is(.artboard, .preview-page-canvas) {
+  color: #18181b;
+  color-scheme: light;
+}
+
+[data-theme="dark"] .planning-root .canvas-node-selected::after {
+  background: var(--primary);
+  color: var(--on-primary, #101018);
+}
+[data-theme="dark"] .planning-root .error-snackbar {
+  background: var(--surface);
+  border-color: var(--planning-error);
+}
+[data-theme="dark"]
+  .planning-root
+  .error-snackbar
+  :is(strong, p, button, .error-snackbar-icon) {
+  color: var(--planning-error);
+}
+[data-theme="dark"] .planning-root .error-snackbar-icon,
+[data-theme="dark"] .planning-root .error-snackbar > button:hover {
+  background: color-mix(in srgb, var(--planning-error) 12%, var(--surface));
+}
+
+[data-theme="dark"] .planning-root .text-alignment button[aria-pressed="true"],
+[data-theme="dark"] .planning-root .emoji-tabs button[aria-selected="true"] {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+  color: var(--ink);
+}
+[data-theme="dark"] .planning-root .emoji-panel button:hover:enabled {
+  background: var(--planning-hover);
+  color: var(--ink);
+}
+[data-theme="dark"] .planning-root .template-create-dialog .template-error {
+  color: var(--planning-error);
+}

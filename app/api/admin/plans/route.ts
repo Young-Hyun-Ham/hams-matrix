@@ -73,10 +73,16 @@ export async function PATCH(request: Request) {
       ["monthlyDiscountPrice", "monthlyPrice"],
       ["yearlyDiscountPrice", "yearlyPrice"],
     ] as const) {
-      if (input[discountKey] !== null &&
-        (input.priceMode !== "fixed" || input[priceKey] === null ||
-          Number(input[discountKey]) >= Number(input[priceKey])))
-        throw new HttpError(400, "할인 가격은 정액 요금의 기존 가격보다 낮게 입력해 주세요.");
+      if (
+        input[discountKey] !== null &&
+        (input.priceMode !== "fixed" ||
+          input[priceKey] === null ||
+          Number(input[discountKey]) >= Number(input[priceKey]))
+      )
+        throw new HttpError(
+          400,
+          "할인 가격은 정액 요금의 기존 가격보다 낮게 입력해 주세요.",
+        );
     }
     const tx = await db().transaction("write");
     try {

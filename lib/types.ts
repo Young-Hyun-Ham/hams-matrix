@@ -14,7 +14,12 @@ export type User = {
 export type MenuKey = "dashboard" | "team" | "ai";
 
 export type NavigationMenuKey =
-  MenuKey | "subscription" | "admin" | "settings" | "help";
+  | MenuKey
+  | "subscription"
+  | "admin"
+  | "viewer"
+  | "settings"
+  | "help";
 export type NavigationMenu = {
   key: NavigationMenuKey;
   label: string;

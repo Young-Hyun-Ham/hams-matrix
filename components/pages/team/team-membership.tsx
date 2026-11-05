@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { notifyProjectAccessChange } from '@/lib/project-access-events';
+import { notifyProjectAccessChange } from "@/lib/project-access-events";
 import type { User } from "@/lib/types";
 import type { TeamMember } from "@/lib/project-types";
 import "./team-membership.css";

@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "title": "화면설계서",
+  "activePageId": "page",
+  "layers": [
+    {
+      "id": "page",
+      "name": "Page",
+      "kind": "page",
+      "children": [
+        {
+          "id": "custom-layer-bb9a5047-5f15-4a98-8116-072501bf94c6",
+          "name": "헤더",
+          "kind": "layer",
+          "children": [
+            {
+              "id": "custom-text-a0bdf554-1d5b-4729-bafd-59512167531e",
+              "name": "New Text",
+              "kind": "text"
+            },
+            {
+              "id": "custom-text-21cb91cf-e3a7-473b-9dd4-62ee9e532ba6",
+              "name": "New Text",
+              "kind": "text"
+            }
+          ]
+        },
+        {
+          "id": "custom-layer-15c16862-06c1-4f08-bbaf-38aad0b96c4f",
+          "name": "화면",
+          "kind": "layer",
+          "children": []
+        },
+        {
+          "id": "custom-layer-331d474f-b94c-4066-8f9d-a22f63560c7b",
+          "name": "화면구성",
+          "kind": "layer",
+          "children": [
+            {
+              "id": "custom-section-b0f4397f-9c80-4577-b85d-5799da5ab1a3",
+              "name": "화면구성헤더",
+              "kind": "section",
+              "children": [
+                {
+                  "id": "custom-text-6e2085b1-f9d4-43e7-addf-862107394d57",
+                  "name": "화면구성텍스트",
+                  "kind": "text"
+                }
+              ]
+            },
+            {
+              "id": "custom-section-ef1c4031-a7cd-4c13-85e0-43c716a6af62",
+              "name": "설명",
+              "kind": "section",
+              "children": [
+                {
+                  "id": "custom-text-cb13996e-bed3-4b27-82f2-1883b86ccb95",
+                  "name": "New Text",
+                  "kind": "text"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sizes": {
+    "page": {
+      "width": 860.8888075086805,
+      "height": 561.7652384440105
+    },
+    "custom-layer-bb9a5047-5f15-4a98-8116-072501bf94c6": {
+      "width": 861,
+      "height": 60
+    },
+    "custom-layer-331d474f-b94c-4066-8f9d-a22f63560c7b": {
+      "width": 230,
+      "height": 502.06561017962156
+    },
+    "custom-layer-15c16862-06c1-4f08-bbaf-38aad0b96c4f": {
+      "width": 630.9713393086647,
+      "height": 502
+    },
+    "custom-text-a0bdf554-1d5b-4729-bafd-59512167531e": {
+      "width": 200,
+      "height": 32
+    },
+    "custom-text-21cb91cf-e3a7-473b-9dd4-62ee9e532ba6": {
+      "width": 80,
+      "height": 32
+    },
+    "custom-section-b0f4397f-9c80-4577-b85d-5799da5ab1a3": {
+      "width": 228,
+      "height": 34
+    },
+    "custom-text-6e2085b1-f9d4-43e7-addf-862107394d57": {
+      "width": 110,
+      "height": 32
+    },
+    "custom-section-ef1c4031-a7cd-4c13-85e0-43c716a6af62": {
+      "width": 227.11107636236508,
+      "height": 466
+    },
+    "custom-text-cb13996e-bed3-4b27-82f2-1883b86ccb95": {
+      "width": 226,
+      "height": 464
+    }
+  },
+  "positions": {
+    "page": {
+      "x": 0,
+      "y": 0
+    },
+    "custom-layer-bb9a5047-5f15-4a98-8116-072501bf94c6": {
+      "x": 0,
+      "y": 0
+    },
+    "custom-layer-331d474f-b94c-4066-8f9d-a22f63560c7b": {
+      "x": 631,
+      "y": 60
+    },
+    "custom-layer-15c16862-06c1-4f08-bbaf-38aad0b96c4f": {
+      "x": 0,
+      "y": 60
+    },
+    "custom-text-a0bdf554-1d5b-4729-bafd-59512167531e": {
+      "x": 20,
+      "y": 13
+    },
+    "custom-text-21cb91cf-e3a7-473b-9dd4-62ee9e532ba6": {
+      "x": 750,
+      "y": 13
+    },
+    "custom-section-b0f4397f-9c80-4577-b85d-5799da5ab1a3": {
+      "x": 0,
+      "y": 0
+    },
+    "custom-text-6e2085b1-f9d4-43e7-addf-862107394d57": {
+      "x": 0,
+      "y": 0
+    },
+    "custom-section-ef1c4031-a7cd-4c13-85e0-43c716a6af62": {
+      "x": 0.8889236376349297,
+      "y": 34
+    },
+    "custom-text-cb13996e-bed3-4b27-82f2-1883b86ccb95": {
+      "x": 0,
+      "y": 0
+    }
+  },
+  "layerText": {
+    "custom-text-a0bdf554-1d5b-4729-bafd-59512167531e": "샘플 프로젝트 (차세대 업무시스템 구축)",
+    "custom-text-21cb91cf-e3a7-473b-9dd4-62ee9e532ba6": "V 1.0",
+    "custom-text-6e2085b1-f9d4-43e7-addf-862107394d57": "화면구성",
+    "custom-text-cb13996e-bed3-4b27-82f2-1883b86ccb95": ""
+  },
+  "layerImages": {},
+  "layerStyles": {
+    "custom-text-cb13996e-bed3-4b27-82f2-1883b86ccb95": {
+      "effect": "none"
+    }
+  }
+}

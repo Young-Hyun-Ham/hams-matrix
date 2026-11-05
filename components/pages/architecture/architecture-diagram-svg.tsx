@@ -85,7 +85,11 @@ export function ArchitectureDiagramSvg({
           <path d="M 0 0 L 10 5 L 0 10 z" fill={palette.line} />
         </marker>
       </defs>
-      <rect width={layout.width} height={layout.height} fill={palette.background} />
+      <rect
+        width={layout.width}
+        height={layout.height}
+        fill={palette.background}
+      />
       <Lines
         lines={[
           `${artifact.code} · SYSTEM ARCHITECTURE · ${artifact.status} · v${artifact.version}`,

@@ -25,9 +25,11 @@ export function parseTokenUsage(value: unknown) {
   )
     return null;
   const inputDetails = usage.input_tokens_details as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   const outputDetails = usage.output_tokens_details as
-    Record<string, unknown> | undefined;
+    | Record<string, unknown>
+    | undefined;
   const cached = count(inputDetails?.cached_tokens),
     reasoning = count(outputDetails?.reasoning_tokens);
   return {

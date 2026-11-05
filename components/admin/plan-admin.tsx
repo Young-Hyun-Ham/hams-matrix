@@ -47,8 +47,9 @@ export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
   return (
     <div className="plan-admin">
       <p className="muted">
-        금액은 원 단위입니다. 할인 가격은 선택 사항이며 기존 가격보다 낮아야 합니다.
-        연간 가격의 빈 값은 미정, 자원 한도의 빈 값은 무제한입니다. 첨부는 최대 5개입니다.
+        금액은 원 단위입니다. 할인 가격은 선택 사항이며 기존 가격보다 낮아야
+        합니다. 연간 가격의 빈 값은 미정, 자원 한도의 빈 값은 무제한입니다.
+        첨부는 최대 5개입니다.
       </p>
       {notice && (
         <p role="status" className="panel">
@@ -88,7 +89,11 @@ export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
                   <input
                     type="number"
                     name={key}
-                    defaultValue={plan[key] == null || !Number.isFinite(plan[key]) ? "" : plan[key]}
+                    defaultValue={
+                      plan[key] == null || !Number.isFinite(plan[key])
+                        ? ""
+                        : plan[key]
+                    }
                     min={0}
                     max={key === "attachmentLimit" ? 5 : undefined}
                     step={1}

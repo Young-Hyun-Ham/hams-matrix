@@ -14,7 +14,13 @@ export function ThemeToggle() {
       role="switch"
       aria-label="다크 모드"
       aria-checked={theme === "dark"}
-      title={current.defaultTheme !== saved.defaultTheme ? "편집 중인 기본 테마를 먼저 저장하거나 취소해 주세요." : theme === "dark" ? "라이트 모드로 변경" : "다크 모드로 변경"}
+      title={
+        current.defaultTheme !== saved.defaultTheme
+          ? "편집 중인 기본 테마를 먼저 저장하거나 취소해 주세요."
+          : theme === "dark"
+            ? "라이트 모드로 변경"
+            : "다크 모드로 변경"
+      }
       disabled={busy || !userId || current.defaultTheme !== saved.defaultTheme}
       onClick={() =>
         void save({

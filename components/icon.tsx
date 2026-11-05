@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  "book-open":
+    "M12 5v16 M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z",
   pin: "m16 3 5 5-4 1-4 4v4l-2 2-6-6 2-2h4l4-4zM8 16l-5 5",
   message: "M4 4h16v12H9l-5 4V4zM8 8h8M8 12h5",
   edit: "m15 4 5 5M4 20l4-1L20 7a2.1 2.1 0 0 0-3-3L5 16z",

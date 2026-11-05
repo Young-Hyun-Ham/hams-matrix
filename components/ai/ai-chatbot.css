@@ -497,36 +497,16 @@
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
-.matrix-ai-result {
-  padding: 0;
-  overflow: hidden;
-  width: min(850px, calc(100vw - 32px));
-  max-width: 850px;
-  color: var(--ink);
-  background: var(--surface);
-}
-.matrix-ai-result[open] {
-  display: flex;
-  flex-direction: column;
-}
-.matrix-ai-result > .dialog-header {
-  flex-shrink: 0;
-}
 .matrix-ai-result-body {
-  min-height: 0;
-  overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 24px;
 }
 .matrix-ai-result-context {
   margin: 0 0 12px;
   color: var(--muted);
-  font-size: 12px;
 }
 .matrix-ai-result-prompt {
-  margin: 0 0 20px;
-  line-height: 1.7;
-  padding: 12px;
+  margin: 0 0 12px;
+  padding: 10px;
   background: var(--primary-soft);
   border-radius: 8px;
   overflow-wrap: anywhere;
@@ -536,22 +516,17 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font: inherit;
-  font-size: 13px;
-  line-height: 1.9;
 }
 .matrix-ai-result-actions {
-  flex-shrink: 0;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: space-between;
   align-items: center;
-  border-top: 1px solid var(--line);
-  padding: 16px 24px;
 }
 .matrix-ai-result-actions > span {
-  font-size: 11px;
+  flex: 1 1 200px;
   color: var(--muted);
+}
+.matrix-ai-result-actions > .matrix-ai-error {
+  flex: 0 0 100%;
+  margin: 0;
 }
 .matrix-ai-image-help {
   color: var(--muted);
@@ -656,14 +631,4 @@
 }
 .matrix-ai-image-dialog::backdrop {
   background: #17122baa;
-}
-
-@media (max-width: 600px) {
-  .matrix-ai-result-body {
-    padding: 18px 16px;
-  }
-  .matrix-ai-result > .dialog-header,
-  .matrix-ai-result-actions {
-    padding: 16px;
-  }
 }

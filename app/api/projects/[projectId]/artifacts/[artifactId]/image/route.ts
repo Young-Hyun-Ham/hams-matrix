@@ -39,6 +39,7 @@ export async function POST(request: Request, { params }: Context) {
       projectId,
       id,
       await body(request),
+      request,
     );
     return Response.json(result, {
       headers: { "Cache-Control": "private, no-store" },

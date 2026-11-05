@@ -15,6 +15,7 @@ import {
   type DocumentFile,
 } from "@/lib/document-types";
 import "./documents-page.css";
+import { useWorkspace } from "@/stores/workspace";
 
 type LibraryAction = {
   kind: "create" | "rename" | "delete";
@@ -33,10 +34,12 @@ function fileSize(size: number) {
 }
 
 export function DocumentsPage() {
+  const aiVersion = useWorkspace((state) => state.aiDataVersion);
   const { data, can, verifyPermission } = useProjectPage();
   const base = `/api/projects/${data.project.id}/documents`;
-  const canWrite = can("documents","CREATE");
-  const canUpdate = can("documents","UPDATE"), canDelete = can("documents","DELETE");
+  const canWrite = can("documents", "CREATE");
+  const canUpdate = can("documents", "UPDATE"),
+    canDelete = can("documents", "DELETE");
   const [current, setCurrent] = useState<string | null>(null);
   const [listing, setListing] = useState<DocumentListing>({
     folders: [],
@@ -106,7 +109,7 @@ export function DocumentsPage() {
     }
     void load();
     return () => controller.abort();
-  }, [base, current, revision]);
+  }, [base, current, revision, aiVersion]);
 
   const ancestors: DocumentFolder[] = [];
   const seen = new Set<string>();
@@ -127,7 +130,17 @@ export function DocumentsPage() {
     setLoading(true);
   }
   function openAction(next: LibraryAction) {
-    if (!can("documents", next.kind === "create" ? "CREATE" : next.kind === "rename" ? "UPDATE" : "DELETE")) return;
+    if (
+      !can(
+        "documents",
+        next.kind === "create"
+          ? "CREATE"
+          : next.kind === "rename"
+            ? "UPDATE"
+            : "DELETE",
+      )
+    )
+      return;
     setAction(next);
     setName(next.kind === "rename" ? (next.file ?? next.folder)!.name : "");
     setError("");
@@ -140,7 +153,17 @@ export function DocumentsPage() {
     setError("");
     setNotice("");
     try {
-      if(!await verifyPermission('documents', action.kind==='create'?'CREATE':action.kind==='rename'?'UPDATE':'DELETE')) throw new Error('현재 프로젝트 권한으로 문서를 변경할 수 없습니다.');
+      if (
+        !(await verifyPermission(
+          "documents",
+          action.kind === "create"
+            ? "CREATE"
+            : action.kind === "rename"
+              ? "UPDATE"
+              : "DELETE",
+        ))
+      )
+        throw new Error("현재 프로젝트 권한으로 문서를 변경할 수 없습니다.");
       await jsonRequest(
         action.file ? `${base}/files/${action.file.id}` : base,
         {
@@ -192,7 +215,10 @@ export function DocumentsPage() {
         `업로드 중 (${uploaded + failures.length + 1}/${files.length}): ${file.name}`,
       );
       try {
-        if(!await verifyPermission('documents','CREATE')) throw new Error('현재 프로젝트 권한으로 파일을 업로드할 수 없습니다.');
+        if (!(await verifyPermission("documents", "CREATE")))
+          throw new Error(
+            "현재 프로젝트 권한으로 파일을 업로드할 수 없습니다.",
+          );
         await jsonRequest(
           `${base}/files?${new URLSearchParams({ folderId: current ?? "", name: file.name })}`,
           {
@@ -374,13 +400,33 @@ export function DocumentsPage() {
                 required
                 maxLength={action.file ? 255 : 100}
                 value={name}
-                disabled={busy || !can('documents',action.kind==='create'?'CREATE':'UPDATE')}
+                disabled={
+                  busy ||
+                  !can(
+                    "documents",
+                    action.kind === "create" ? "CREATE" : "UPDATE",
+                  )
+                }
                 onChange={(event) => setName(event.target.value)}
               />
             </label>
           )}
           <div className="document-actions">
-            <button className="button primary" disabled={busy || !can('documents',action.kind==='create'?'CREATE':action.kind==='rename'?'UPDATE':'DELETE')} type="submit">
+            <button
+              className="button primary"
+              disabled={
+                busy ||
+                !can(
+                  "documents",
+                  action.kind === "create"
+                    ? "CREATE"
+                    : action.kind === "rename"
+                      ? "UPDATE"
+                      : "DELETE",
+                )
+              }
+              type="submit"
+            >
               {action.kind === "delete" ? "삭제" : "저장"}
             </button>
             <button
@@ -503,6 +549,11 @@ export function DocumentsPage() {
                       <span aria-hidden="true">📄 </span>
                       {file.name}
                     </button>
+                    {file.rfpSource && (
+                      <small className="document-rfp-source">
+                        제안요청서 원본 · 삭제 전 첨부 해제 필요
+                      </small>
+                    )}
                   </td>
                   <td>{fileSize(file.size)}</td>
                   <td>{file.uploadedBy}</td>
@@ -521,7 +572,11 @@ export function DocumentsPage() {
                         <>
                           <button
                             className="button"
-                            disabled={disabled || !canUpdate}
+                            disabled={
+                              disabled ||
+                              !canUpdate ||
+                              (!!file.rfpSource && !can("rfp", "UPDATE"))
+                            }
                             aria-label={`${file.name} 이름 변경`}
                             onClick={() => openAction({ kind: "rename", file })}
                           >
@@ -529,7 +584,14 @@ export function DocumentsPage() {
                           </button>
                           <button
                             className="button"
-                            disabled={disabled || !canDelete}
+                            disabled={
+                              disabled || !canDelete || !!file.rfpSource
+                            }
+                            title={
+                              file.rfpSource
+                                ? "제안요청서 탭에서 먼저 첨부를 해제해 주세요."
+                                : undefined
+                            }
                             aria-label={`${file.name} 삭제`}
                             onClick={() => openAction({ kind: "delete", file })}
                           >

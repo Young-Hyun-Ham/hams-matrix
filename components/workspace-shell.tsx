@@ -222,6 +222,7 @@ export function WorkspaceShell({
                   m.key !== "subscription" &&
                   m.key !== "admin" &&
                   m.key !== "settings" &&
+                  m.key !== "viewer" &&
                   m.key !== "help",
               ),
             )}
@@ -234,6 +235,7 @@ export function WorkspaceShell({
                     m.key === "subscription" ||
                     m.key === "admin" ||
                     m.key === "settings" ||
+                    m.key === "viewer" ||
                     m.key === "help",
                 ),
               )}
@@ -455,8 +457,18 @@ export function WorkspaceShell({
             닫기
           </button>
         </div>
-        <div className="admin-detail-body"><HelpContent /></div>
-        <div className="project-registration-footer"><button type="button" className="button primary" onClick={() => setModal(null)}>확인</button></div>
+        <div className="admin-detail-body">
+          <HelpContent />
+        </div>
+        <div className="project-registration-footer">
+          <button
+            type="button"
+            className="button primary"
+            onClick={() => setModal(null)}
+          >
+            확인
+          </button>
+        </div>
       </dialog>
     </div>
   );

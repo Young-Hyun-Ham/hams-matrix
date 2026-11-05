@@ -11,6 +11,7 @@ import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { getDocument, removeDocument } from "@/lib/r2";
 import { documentName } from "@/lib/documents";
+import { protectRfpSourceFile, rfpSourceRow } from "@/lib/rfp-sources";
 
 type Context = { params: Promise<{ projectId: string; fileId: string }> };
 
@@ -34,7 +35,13 @@ async function mutateFile(
     const input = action === "UPDATE" ? await body(request) : null;
     const tx = await db().transaction("write");
     try {
-      await requireProjectPermission(tx, user, projectId, "documents", request.method === "DELETE" ? "DELETE" : "UPDATE");
+      await requireProjectPermission(
+        tx,
+        user,
+        projectId,
+        "documents",
+        request.method === "DELETE" ? "DELETE" : "UPDATE",
+      );
       const row = (
         await tx.execute({
           sql: "SELECT name,object_key FROM project_files WHERE id=? AND workspace_id=? AND project_id=?",
@@ -43,6 +50,14 @@ async function mutateFile(
       ).rows[0];
       if (!row) throw new HttpError(404, "파일을 찾을 수 없습니다.");
       const name = action === "UPDATE" ? documentName(input?.name, 255) : null;
+      await protectRfpSourceFile(
+        tx,
+        user,
+        projectId,
+        fileId,
+        action,
+        name ?? undefined,
+      );
       if (action === "UPDATE") {
         await tx.execute({
           sql: "UPDATE project_files SET name=? WHERE id=? AND workspace_id=? AND project_id=?",
@@ -90,6 +105,9 @@ export async function GET(
     const user = await requireUser(),
       { projectId, fileId } = await context.params;
     await projectAccess(db(), user, projectId);
+    await requireProjectPermission(db(), user, projectId, "documents", "READ");
+    if ((await rfpSourceRow(db(), user, projectId))?.file_id === fileId)
+      await requireProjectPermission(db(), user, projectId, "rfp", "READ");
     const row = (
       await db().execute({
         sql: "SELECT name,object_key FROM project_files WHERE id=? AND workspace_id=? AND project_id=?",

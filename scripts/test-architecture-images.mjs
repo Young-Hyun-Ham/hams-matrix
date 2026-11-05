@@ -45,13 +45,20 @@ function load(file) {
 
 const originalFetch = globalThis.fetch;
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQIoAAAAASUVORK5CYII=";
-let generations = 0, modelQueries = 0, failProvider = false, onGeneration;
+let generations = 0, modelQueries = 0, failProvider = false, failMermaid = false, onGeneration;
 let generationInput;
 globalThis.fetch = async (url, init) => {
   assert.equal(init.headers.Authorization, "Bearer test-key");
   if (url === "https://api.openai.com/v1/models") {
     modelQueries++;
     return Response.json({ data: ["gpt-5.6-sol", "gpt-image-1", "gpt-image-1.5", "gpt-image-2.5-sunburst", "chatgpt-image-latest"].map((id) => ({ id })) });
+  }
+  if (url === "https://api.openai.com/v1/responses") {
+    const input=JSON.parse(init.body);
+    assert.equal(input.text.format.name,"architecture_mermaid_order");
+    assert.ok(input.input.some(message=>Array.isArray(message.content)&&message.content.some(part=>part.type==="input_image"&&part.image_url===`data:image/png;base64,${png}`)));
+    if(failMermaid)return new Response("failed",{status:502});
+    return Response.json({status:"completed",usage:{input_tokens:50,output_tokens:50,total_tokens:100},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({nodeIds:["db","api"],edgeIds:["sql"],direction:"LR"})}]}]});
   }
   assert.equal(url, "https://api.openai.com/v1/images/generations");
   generations++;
@@ -126,6 +133,11 @@ try {
   const createdResponse = await post();
   assert.equal(createdResponse.status, 200, await createdResponse.clone().text());
   const first = (await createdResponse.json()).image;
+  input.artifactVersion=first.artifactVersion;
+  assert.equal(first.artifactVersion,2);
+  const firstStructure=JSON.parse((await client.execute("SELECT structure_json FROM project_artifacts WHERE id='arc'")).rows[0].structure_json);
+  assert.ok(firstStructure.mermaid.code.startsWith("flowchart LR"));
+  assert.deepEqual(firstStructure.topology,topology);
   assert.equal(generationInput.size, "1536x1024");
   assert.equal(generationInput.quality, "high");
   for (const value of ["FastAPI 0.115", "PostgreSQL 16", "ORM / SQL", "연결선과 인프라 경계를 강조", '"source":"api"', "SOFTWARE SYSTEM ARCHITECTURE DIAGRAM", "side by side"])
@@ -156,6 +168,11 @@ try {
   assert.equal(generations, callsBeforeReuse);
   assert.equal(modelQueries, queriesBeforeReuse);
   const regen = { regenerate: true, expectedImageId: first.id };
+  failMermaid=true;
+  assert.equal((await post(regen)).status,502);
+  failMermaid=false;
+  assert.equal((await stored()).id,first.id);
+  assert.equal(Number((await client.execute("SELECT version FROM project_artifacts WHERE id='arc'")).rows[0].version),2);
   assert.equal((await post({ ...regen, expectedImageId: "old" })).status, 409);
   await client.execute("UPDATE architecture_images SET model='tampered' WHERE artifact_id='arc'");
   assert.equal((await bytes(first.url)).status, 500);
@@ -186,14 +203,15 @@ try {
   const secondResponse = await pending;
   assert.equal(secondResponse.status, 200, await secondResponse.clone().text());
   const second = (await secondResponse.json()).image;
+  input.artifactVersion=second.artifactVersion;
   assert.notEqual(second.id, first.id);
   assert.notEqual((await stored()).iv_base64, saved.iv_base64);
   assert.equal((await bytes(first.url)).status, 404);
   assert.equal((await bytes(second.url)).status, 200);
-  onGeneration = async () => { await client.execute("UPDATE project_artifacts SET version=2 WHERE id='arc'"); };
+  onGeneration = async () => { await client.execute("UPDATE project_artifacts SET version=version+1 WHERE id='arc'"); };
   assert.equal((await post({ regenerate: true, expectedImageId: second.id })).status, 409);
   assert.equal((await stored()).id, second.id);
-  assert.equal((await (await get()).json()).image.artifactVersion, 1);
+  assert.equal((await (await get()).json()).image.artifactVersion, second.artifactVersion);
   assert.equal(await locks(), 0);
   await client.execute("UPDATE project_artifacts SET deleted_at='now' WHERE id='arc'");
   assert.equal((await get()).status, 404);

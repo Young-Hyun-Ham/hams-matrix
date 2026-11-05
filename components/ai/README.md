@@ -29,7 +29,7 @@
 - `lib/ai/page-data.ts`: 프로젝트/팀/이력/산출물별 실제 조회 쿼리. WBS·아키텍처·요구사항·화면·DB·프로그램·검증은 공통 `project_artifacts`의 kind로 구분합니다. 관련 문서와 `artifact_links`를 함께 조회합니다. 이력은 `artifact_revisions`, 대시보드는 `projects`/`project_members`, 팀은 `workspace_members`/`team_join_requests`를 사용합니다.
 - 편집 탭(7종): `read_page`, `save_artifact(CREATE/UPDATE/DELETE)`. 기존 `mutateArtifact`를 재사용하여 권한, 버전 충돌, 필수값, 관계, FK, 삭제 제한, 변경 이력과 감사 로그를 동일하게 적용합니다. 수정 시 생략한 필드·연결·구조는 보존합니다.
 - 개요·추적표·통합검수·변경이력·산출물·대시보드·팀은 현재 조회 도구를 제공합니다. 기존 화면에 없는 프로젝트 수정/삭제, 팀 권한 변경, Excel 파일 생성, 검수 승인 기능을 도구가 실행했다고 주장하지 않도록 구분합니다.
-- 'SCR-001의 명칭을 회원 조회로 수정해줘', 'SCR-001 삭제해줘', '아래 내용으로 화면을 등록해줘'처럼 작업과 대상을 명시합니다. 단순 초안·설계 요청은 저장하지 않습니다. 수정/삭제 대상의 정확한 명칭 또는 관리번호가 필요하며 한 요청에서 최대 3건을 변경합니다.
+- 'SCR-001의 명칭을 회원 조회로 수정해줘', 'SCR-001 삭제해줘', '아래 내용으로 화면을 등록해줘'처럼 작업과 대상을 명시합니다. 단순 초안·설계 요청은 저장하지 않습니다. 수정/삭제 대상의 정확한 명칭 또는 관리번호가 필요하며 한 요청의 최대 변경 건수는 활성 가드레일 정책을 따릅니다(기본 3건, 관리자 설정 범위 0~100건).
 - AI가 변경한 뒤 store의 `aiDataVersion`을 갱신하여 현재 프로젝트 화면을 다시 조회합니다. 실행 중 AI 설명이 실패해도 커밋한 항목의 실제 결과를 반환합니다.
 - 모델/키: 서버 전용 `OPENAI_API_KEY`, 선택적 `OPENAI_MODELS`/`OPENAI_MODEL`. Responses API 함수 호출을 사용하고 원본 응답·도구 결과를 이어 전달합니다. 참고: https://developers.openai.com/api/docs/guides/function-calling
 - placeholder·제목은 `lib/ai-context.ts`에서 수정합니다.

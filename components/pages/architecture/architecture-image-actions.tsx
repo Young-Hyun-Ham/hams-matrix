@@ -1,15 +1,26 @@
 "use client";
 import type { Artifact } from "@/lib/artifact-types";
 import { AiImageActions } from "@/components/shared/ai-image-actions";
+import type { GeneratedImageInfo } from "@/lib/generated-image-types";
+import type { ProjectData } from "@/lib/artifact-types";
 
 export function ArchitectureImageActions({
   artifact,
   canWrite,
   onBusyChange,
+  onGenerated,
+  disabled,
+  hasSavedImage,
 }: {
   artifact: Artifact;
   canWrite: boolean;
   onBusyChange: (busy: boolean) => void;
+  onGenerated?: (result: {
+    image: GeneratedImageInfo;
+    data?: ProjectData;
+  }) => void;
+  disabled?: boolean;
+  hasSavedImage: boolean;
 }) {
   return (
     <AiImageActions
@@ -22,6 +33,10 @@ export function ArchitectureImageActions({
       artifactVersion={artifact.version}
       canWrite={canWrite}
       onBusyChange={onBusyChange}
+      onGenerated={onGenerated}
+      disabled={disabled}
+      explicitGeneration
+      hasSavedImage={hasSavedImage}
     />
   );
 }

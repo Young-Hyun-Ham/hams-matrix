@@ -61,9 +61,21 @@ export function ArtifactFieldInputs({
                 ))}
               </select>
             ) : kind === "architecture" && f.key === "owner" ? (
-              <input id={id} name={f.key} maxLength={3000} value={fields[f.key]} onChange={(e) => change(f.key, e.target.value)} />
+              <input
+                id={id}
+                name={f.key}
+                maxLength={3000}
+                value={fields[f.key]}
+                onChange={(e) => change(f.key, e.target.value)}
+              />
             ) : f.type === "date" && calendarOnly ? (
-              <WbsDatePicker label={f.label} name={f.key} value={fields[f.key]} required={f.required} onChange={(value) => change(f.key, value)} />
+              <WbsDatePicker
+                label={f.label}
+                name={f.key}
+                value={fields[f.key]}
+                required={f.required}
+                onChange={(value) => change(f.key, value)}
+              />
             ) : f.type === "date" ? (
               <DateInput
                 id={id}

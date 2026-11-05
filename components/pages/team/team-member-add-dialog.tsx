@@ -59,33 +59,40 @@ export function TeamMemberAddDialog({
       <form onSubmit={(event) => void add(event)}>
         <div className="dialog-header admin-detail-header">
           <h2 id="team-add-title">Free 사용자 추가</h2>
-          <button type="button" className="button admin-detail-close" disabled={busy} onClick={onClose}>닫기</button>
+          <button
+            type="button"
+            className="button admin-detail-close"
+            disabled={busy}
+            onClick={onClose}
+          >
+            닫기
+          </button>
         </div>
         <div className="admin-detail-body project-registration-body">
-        <p>
-          {projectId
-            ? `${projectName ?? "선택한 프로젝트"}에`
-            : "팀과 팀 프로젝트에"}{" "}
-          viewer 권한으로 추가합니다.
-        </p>
-        <label>
-          가입한 이메일
-          <input
-            type="email"
-            autoFocus
-            required
-            maxLength={254}
-            value={email}
-            disabled={busy}
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="user@example.com"
-          />
-        </label>
-        {error && (
-          <p className="error-message" role="alert">
-            {error}
+          <p>
+            {projectId
+              ? `${projectName ?? "선택한 프로젝트"}에`
+              : "팀과 팀 프로젝트에"}{" "}
+            viewer 권한으로 추가합니다.
           </p>
-        )}
+          <label>
+            가입한 이메일
+            <input
+              type="email"
+              autoFocus
+              required
+              maxLength={254}
+              value={email}
+              disabled={busy}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="user@example.com"
+            />
+          </label>
+          {error && (
+            <p className="error-message" role="alert">
+              {error}
+            </p>
+          )}
         </div>
         <div className="project-registration-footer">
           <button

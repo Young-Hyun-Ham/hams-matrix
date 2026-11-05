@@ -66,4 +66,11 @@ export type RfpDraft = {
   };
 };
 
-export type RfpDocument = { id: string; version: number; draft: RfpDraft; createdAt: string; updatedAt: string; updatedBy: string };
+export type RfpDocument = {
+  id: string;
+  version: number;
+  draft: RfpDraft;
+  createdAt: string;
+  updatedAt: string;
+  updatedBy: string;
+};

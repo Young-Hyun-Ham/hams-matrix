@@ -93,6 +93,16 @@ export const navigationMenus: NavigationMenu[] = [
     admin: false,
   },
   {
+    key: "viewer",
+    label: "문서뷰어",
+    en: "Document Viewer",
+    icon: "book-open",
+    description: "작업 문서 확인",
+    href: "/viewer",
+    action: "link",
+    admin: true,
+  },
+  {
     key: "admin",
     label: "관리자설정",
     en: "Administration",

@@ -26,7 +26,7 @@ export async function GET(request: Request, context: Context) {
         args: [user.workspaceId, projectId],
       }),
       db().execute({
-        sql: `SELECT f.id,f.name,f.byte_length,f.created_at,u.name AS uploader FROM project_files f JOIN users u ON u.id=f.created_by WHERE f.workspace_id=? AND f.project_id=? AND f.folder_id IS ? ORDER BY f.created_at DESC,f.id`,
+        sql: `SELECT f.id,f.name,f.byte_length,f.created_at,u.name AS uploader,EXISTS(SELECT 1 FROM project_rfp_sources s WHERE s.file_id=f.id AND s.project_id=f.project_id AND s.workspace_id=f.workspace_id) AS rfp_source FROM project_files f JOIN users u ON u.id=f.created_by WHERE f.workspace_id=? AND f.project_id=? AND f.folder_id IS ? ORDER BY f.created_at DESC,f.id`,
         args: [user.workspaceId, projectId, current],
       }),
     ]);
@@ -43,6 +43,7 @@ export async function GET(request: Request, context: Context) {
           size: Number(r.byte_length),
           createdAt: String(r.created_at),
           uploadedBy: String(r.uploader),
+          rfpSource: Number(r.rfp_source) === 1,
         })),
       },
       { headers: { "Cache-Control": "private, no-store" } },

@@ -121,7 +121,7 @@ const docId = (id: string) =>
 
 export default function TraceabilityNetworkPage() {
   const markerId = useId().replace(/:/g, "");
-  const [selectedId, setSelectedId] = useState<string | null>("rfp");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Category | "all">("all");
   const selected = NODES.find((node) => node.id === selectedId);
   const upstream = LINKS.filter((link) => link.target === selectedId);
@@ -165,7 +165,10 @@ export default function TraceabilityNetworkPage() {
           <button
             type="button"
             aria-pressed={filter === "all"}
-            onClick={() => setFilter("all")}
+            onClick={() => {
+              setFilter("all");
+              setSelectedId(null);
+            }}
           >
             전체 보기
           </button>

@@ -6,7 +6,14 @@ import type { User } from "../types";
 import type { ArchitectureImageInfo } from "../architecture-image-types";
 import { HttpError } from "../auth";
 import { db } from "../db";
-import { projectAccess, toArtifact } from "../artifacts";
+import {
+  mutateArtifact,
+  prepareArtifactMermaid,
+  projectAccess,
+  projectData,
+  toArtifact,
+} from "../artifacts";
+import { topologyFor } from "../architecture";
 import { architectureImagePrompt } from "./architecture-image-prompt";
 import { encryptImage, decryptImage, imageEncryptionKey } from "./image-crypto";
 import { createTokenTracker } from "./token-usage";
@@ -25,7 +32,14 @@ export async function architectureFor(
   write = false,
 ) {
   await projectAccess(executor, user, projectId, write);
-  if(write) await requireProjectPermission(executor,user,projectId,"architecture","UPDATE");
+  if (write)
+    await requireProjectPermission(
+      executor,
+      user,
+      projectId,
+      "architecture",
+      "UPDATE",
+    );
   const result = await executor.execute({
     sql: "SELECT * FROM project_artifacts WHERE id=? AND project_id=? AND workspace_id=? AND kind='architecture' AND deleted_at IS NULL",
     args: [artifactId, projectId, user.workspaceId],
@@ -121,6 +135,7 @@ export async function createArchitectureImage(
   projectId: string,
   artifactId: string,
   input: Record<string, unknown>,
+  request: Request,
 ) {
   const artifact = await architectureFor(
     db(),
@@ -229,12 +244,51 @@ export async function createArchitectureImage(
     }
     await settleQuota(quotaId, 1);
     await track({ turn: 0, status: "completed", usage: generated.usage });
+    const normalized = {
+      ...artifact,
+      structure: { ...artifact.structure, topology: topologyFor(artifact) },
+    };
+    const change = {
+      kind: artifact.kind,
+      title: artifact.title,
+      status: artifact.status,
+      fields: artifact.fields,
+      links: artifact.links,
+      structure: normalized.structure,
+      version: artifact.version,
+    };
+    await prepareArtifactMermaid(
+      change,
+      normalized,
+      user,
+      async () => {
+        if (Date.now() >= now + 280000)
+          throw new HttpError(
+            504,
+            "이미지와 Mermaid 생성 시간이 초과되었습니다. 다시 시도해 주세요.",
+          );
+        const latest = await architectureFor(
+          db(),
+          user,
+          projectId,
+          artifactId,
+          true,
+        );
+        if (latest.version !== artifact.version)
+          throw new HttpError(
+            409,
+            "생성 중 아키텍처가 변경되었습니다. 최신 데이터로 다시 생성해 주세요.",
+          );
+      },
+      `data:image/png;base64,${generated.bytes.toString("base64")}`,
+      now + 280000,
+    );
     const row = {
       artifact_id: artifactId,
       project_id: projectId,
       workspace_id: user.workspaceId,
       id: randomUUID(),
-      artifact_version: artifact.version,
+      artifact_version: artifact.version + 1,
       model: input.model,
       prompt: input.prompt.trim(),
       created_at: new Date().toISOString(),
@@ -269,6 +323,20 @@ export async function createArchitectureImage(
           409,
           "생성 요청이 만료되었습니다. 최신 이미지를 확인해 주세요.",
         );
+      const before = (await projectData(tx, user, projectId)).artifacts.find(
+        (item) => item.id === artifactId,
+      )!;
+      change.links = before.links;
+      await mutateArtifact(
+        request,
+        user,
+        projectId,
+        change,
+        "UPDATE",
+        artifactId,
+        undefined,
+        tx,
+      );
       await tx.execute({
         sql: `INSERT INTO architecture_images(${metadataColumns},encryption_version,key_id,iv_base64,tag_base64,ciphertext_base64)
           VALUES (${Array(18).fill("?").join(",")}) ON CONFLICT(artifact_id) DO UPDATE SET
@@ -298,11 +366,15 @@ export async function createArchitectureImage(
           encrypted.ciphertext_base64,
         ],
       });
+      const data = await projectData(tx, user, projectId);
       await tx.commit();
+      return { image: architectureImageInfo(row), reused: false, data };
+    } catch (error) {
+      await tx.rollback();
+      throw error;
     } finally {
       tx.close();
     }
-    return { image: architectureImageInfo(row), reused: false };
   } finally {
     await db().execute({
       sql: "DELETE FROM architecture_image_generations WHERE artifact_id=? AND token=?",

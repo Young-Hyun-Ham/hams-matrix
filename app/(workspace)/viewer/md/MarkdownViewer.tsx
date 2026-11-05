@@ -789,10 +789,10 @@ export default function MarkdownViewer({
                             );
                             const canOpenInViewer = Boolean(
                               markdownLink &&
-                              documents.some(
-                                (document) =>
-                                  document.relativePath === markdownLink.path,
-                              ),
+                                documents.some(
+                                  (document) =>
+                                    document.relativePath === markdownLink.path,
+                                ),
                             );
 
                             if (markdownLink && canOpenInViewer) {

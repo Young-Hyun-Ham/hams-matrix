@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { MAX_GUARDRAIL_CHANGES } from "@/lib/ai/guardrail-types";
 import type {
   GuardrailPolicy,
   GuardrailResult,
@@ -441,7 +442,8 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
                     <input
                       type="number"
                       min={0}
-                      max={3}
+                      max={MAX_GUARDRAIL_CHANGES}
+                      step={1}
                       value={policy.maxChanges}
                       onChange={(e) =>
                         update("maxChanges", Number(e.target.value))
@@ -634,12 +636,14 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
               </div>
             )}
             {tab === "compliance" && (
-              <GlobalCompliancePanel onSample={(stage, text) => {
-                setTestStage(stage);
-                setTestText(text);
-                setTestResult(null);
-                setTab("test");
-              }} />
+              <GlobalCompliancePanel
+                onSample={(stage, text) => {
+                  setTestStage(stage);
+                  setTestText(text);
+                  setTestResult(null);
+                  setTab("test");
+                }}
+              />
             )}
             {tab === "history" && (
               <div className="guardrail-history">

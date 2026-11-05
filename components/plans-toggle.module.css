@@ -30,4 +30,7 @@
   color: #e4d6ff;
   box-shadow: 0 1px 4px #0004;
 }
-.option:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.option:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
