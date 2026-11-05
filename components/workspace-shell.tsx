@@ -19,6 +19,7 @@ import { emptyAiContext } from "@/lib/ai-context";
 
 import { isPlatformAdmin } from "@/lib/plan-types";
 import { WorkspacePicker } from "./workspace-picker";
+import { teamAccessDeniedEvent } from "@/lib/team-request";
 export function WorkspaceShell({
   user,
   children,
@@ -41,7 +42,9 @@ export function WorkspaceShell({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const query = useSearchParams();
   const menus = navigationMenus.filter(
-    (m) => !m.admin || isPlatformAdmin(activeUser.accountRole),
+    (m) =>
+      (!m.admin || isPlatformAdmin(activeUser.accountRole)) &&
+      (m.key !== "team" || activeUser.teamSharingEnabled === true),
   );
   const selected = menus.find((m) => m.href === pathname) ?? menus[0];
   const tabLabels: Record<string, string> | null =
@@ -107,6 +110,43 @@ export function WorkspaceShell({
   useEffect(() => {
     setUser(user);
   }, [user, setUser]);
+  useEffect(() => {
+    const controller = new AbortController();
+    let pending = false;
+    async function refreshUser() {
+      if (document.hidden || pending) return;
+      pending = true;
+      try {
+        const response = await fetch("/api/me", {
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const result = await response.json();
+        if (controller.signal.aborted) return;
+        if (!response.ok) {
+          setUser({ ...user, teamSharingEnabled: false });
+          return;
+        }
+        setUser(result.user);
+        if (pathname === "/team" && !result.user.teamSharingEnabled)
+          router.replace("/settings/subscription?reason=team-sharing");
+      } catch {
+        // Preserve the current page on a network interruption; APIs enforce live access.
+      } finally {
+        pending = false;
+      }
+    }
+    void refreshUser();
+    window.addEventListener("focus", refreshUser);
+    window.addEventListener(teamAccessDeniedEvent, refreshUser);
+    document.addEventListener("visibilitychange", refreshUser);
+    return () => {
+      controller.abort();
+      window.removeEventListener("focus", refreshUser);
+      window.removeEventListener(teamAccessDeniedEvent, refreshUser);
+      document.removeEventListener("visibilitychange", refreshUser);
+    };
+  }, [pathname, user, setUser, router]);
   useEffect(() => {
     if (
       pathname.startsWith("/projects/") ||
@@ -351,7 +391,7 @@ export function WorkspaceShell({
               >
                 <Icon name="bell" size={19} />
               </button>
-              {notifications && (
+              {notifications && activeUser.teamSharingEnabled && (
                 <div className="notification-popover">
                   <strong>알림</strong>
                   <p>
@@ -422,8 +462,9 @@ export function WorkspaceShell({
           >
             {activeUser.role === "viewer" && (
               <p className="sample-notice">
-                {activeUser.workspaceName} · viewer 권한은 조회 전용입니다. 팀
-                가입 신청 상태는 팀 공유 메뉴에서 확인하세요.
+                {activeUser.workspaceName} · viewer 권한은 조회 전용입니다.
+                {activeUser.teamSharingEnabled &&
+                  " 팀 가입 신청 상태는 팀 공유 메뉴에서 확인하세요."}
               </p>
             )}
             {children}

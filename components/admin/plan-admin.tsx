@@ -1,8 +1,10 @@
 "use client";
 import { toast } from "@/stores/toast";
 import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import type { Plan } from "@/lib/plan-types";
 export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
+  const router = useRouter();
   const [plans, setPlans] = useState(initialPlans);
   const [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
@@ -30,12 +32,14 @@ export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
           dailyImageLimit: numeric("dailyImageLimit"),
           attachmentLimit: numeric("attachmentLimit"),
           historyEnabled: form.has("historyEnabled"),
+          teamSharingEnabled: form.has("teamSharingEnabled"),
           recommended: form.has("recommended"),
         }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
       setPlans(result.plans);
+      router.refresh();
       setNotice("플랜 설정을 저장했습니다.");
       toast("플랜 설정을 저장했습니다.");
     } catch (error) {
@@ -108,6 +112,14 @@ export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
                   defaultChecked={plan.historyEnabled}
                 />
                 이력 생성
+              </label>
+              <label className="check">
+                <input
+                  type="checkbox"
+                  name="teamSharingEnabled"
+                  defaultChecked={plan.teamSharingEnabled}
+                />
+                팀공유
               </label>
               <label className="check">
                 <input

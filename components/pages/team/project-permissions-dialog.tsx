@@ -9,7 +9,7 @@ import {
   type RolePermissions,
 } from "@/lib/project-permission-model";
 import { projectTabLabels } from "@/lib/project-tabs";
-import { jsonRequest } from "@/lib/client-request";
+import { teamJsonRequest as jsonRequest } from "@/lib/team-request";
 import "@/styles/project-tabs.css";
 import { notifyProjectAccessChange } from "@/lib/project-access-events";
 export function ProjectPermissionsDialog({

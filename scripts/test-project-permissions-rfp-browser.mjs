@@ -55,6 +55,18 @@ try {
   await call("Network.enable"); await call("Page.enable"); await call("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   async function navigate(user,path){await call('Network.setCookie',{name:'hams_session',value:`${user}-token`,url:origin,httpOnly:true});await call('Page.navigate',{url:origin+path});}
   async function clickText(selector,text){await evaluate(`[...document.querySelectorAll(${JSON.stringify(selector)})].find(e=>e.textContent.includes(${JSON.stringify(text)})).click()`);await pause(200);}
+  await navigate('A','/dashboard');
+  await waitFor(()=>evaluate("!!document.querySelector('.sidebar-user')"),'free workspace');
+  await waitFor(()=>evaluate("Object.keys(document.querySelector('input[aria-label=\"메뉴 검색\"]')??{}).some(key=>key.startsWith('__reactProps$'))"),'search hydration');
+  assert.equal(await evaluate("!!document.querySelector('.sidebar a[href=\"/team\"]')"),false);
+  await input('input[aria-label="메뉴 검색"]','팀');
+  await waitFor(()=>evaluate("!!document.querySelector('.search-results')"),'free search');
+  assert.equal(await evaluate("!!document.querySelector('.search-results a[href=\"/team\"]')"),false);
+  await navigate('A','/team');
+  await waitFor(()=>evaluate("location.pathname==='/settings/subscription' && document.body.textContent.includes('현재 요금제에서는 팀공유를 사용할 수 없습니다.')"),'free team redirect');
+  await waitFor(()=>evaluate("document.querySelectorAll('article h2').length===4"),'subscription catalog streamed');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('article h2')].map(e=>e.textContent)"),['Free','Pro','Team','Business']);
+  await db.execute("UPDATE user_subscriptions SET plan_code='team'");
   await navigate('A','/projects/p?tab=rfp');
   await waitFor(()=>evaluate("!!document.querySelector('#rfp-title') && !document.querySelector('#rfp-title').readOnly"),'owner editor');
   assert.equal(await evaluate("document.querySelector('#rfp-basic-background').value"),'');
@@ -137,6 +149,25 @@ try {
     const enabled=await evaluate("[...document.querySelectorAll('.matrix-tab-content button')].filter(b=>!b.disabled && !b.closest('dialog:not([open])') && /^(저장|수정|삭제|배포|코드 저장|파일 업로드|폴더 추가|.* 등록)$/.test(b.textContent.trim())).map(b=>b.textContent.trim())");
     assert.deepEqual(enabled,[],`viewer has no enabled mutation button on ${tab}`);
   }
-  console.log(`PASS: browser owner RFP save/reload, admin/viewer read-only RFP, member read-only WBS, owner policy modal and persistence. Evidence: ${folder}`);
+  await db.execute("UPDATE users SET account_role='admin' WHERE id='A'");
+  await navigate('A','/admin/settings?tab=plans');
+  await waitFor(()=>evaluate("document.querySelectorAll('.plan-admin input[name=teamSharingEnabled]').length===4"),'admin sharing options');
+  await waitFor(()=>evaluate("[...document.querySelectorAll('.plan-admin form')].length===4 && [...document.querySelectorAll('.plan-admin form')].every(form=>Object.keys(form).some(key=>key.startsWith('__reactProps$') && typeof form[key].onSubmit==='function'))"),'admin form hydration');
+  assert.deepEqual(await evaluate("[...document.querySelectorAll('.plan-admin h2')].map(e=>e.textContent)"),['Free','Pro','Team','Business']);
+  await evaluate("(()=>{const form=[...document.querySelectorAll('.plan-admin form')].find(e=>e.querySelector('h2').textContent==='Team');form.querySelector('[name=teamSharingEnabled]').click();form.requestSubmit()})()");
+  await waitFor(async()=>Number((await db.execute("SELECT team_sharing_enabled FROM plans WHERE code='team'")).rows[0].team_sharing_enabled)===0,'admin option persisted');
+  await waitFor(()=>evaluate("!document.querySelector('.sidebar a[href=\"/team\"]')"),'admin own menu refresh');
+  assert.equal(await evaluate("!!document.querySelector('.sidebar a[href=\"/admin/settings\"]')"),true);
+  await evaluate("(()=>{const form=[...document.querySelectorAll('.plan-admin form')].find(e=>e.querySelector('h2').textContent==='Team');form.querySelector('[name=teamSharingEnabled]').click();form.requestSubmit()})()");
+  await waitFor(async()=>Number((await db.execute("SELECT team_sharing_enabled FROM plans WHERE code='team'")).rows[0].team_sharing_enabled)===1,'admin option restored');
+  await navigate('B','/team');
+  await waitFor(()=>evaluate("!!document.querySelector('.sidebar a[href=\"/team\"]')"),'sharing menu restored');
+  await db.execute("UPDATE plans SET team_sharing_enabled=0 WHERE code='team'");
+  await evaluate("window.dispatchEvent(new Event('focus'))");
+  await waitFor(()=>evaluate("location.pathname==='/settings/subscription' && !document.querySelector('.sidebar a[href=\"/team\"]')"),'focus entitlement revocation');
+  await db.execute("UPDATE plans SET team_sharing_enabled=1 WHERE code='team'");
+  await evaluate("window.dispatchEvent(new Event('focus'))");
+  await waitFor(()=>evaluate("!!document.querySelector('.sidebar a[href=\"/team\"]')"),'focus entitlement restored');
+  console.log(`PASS: browser role policies; plan labels, sharing checkboxes/save, hidden menu/search, direct URL redirect, admin no bypass and focus revocation/restoration. Evidence: ${folder}`);
 }catch(error){if(socket?.readyState===1)await screenshot('failure').catch(()=>{});console.error(logs.slice(-2000));console.error(`Evidence: ${folder}`);throw error;}
 finally{socket?.close();stop(browser);stop(server);db.close();}

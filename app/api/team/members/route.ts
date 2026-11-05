@@ -11,7 +11,11 @@ import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import { connection } from "next/server";
 import { projectAccess } from "@/lib/artifacts";
-import { assertProjectCapacity } from "@/lib/plans";
+import {
+  assertProjectCapacity,
+  assertTeamSharingEnabled,
+  memberPlan,
+} from "@/lib/plans";
 import {
   projectRoleSql,
   requireProjectOwner,
@@ -23,14 +27,18 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser();
     const projectId = new URL(request.url).searchParams.get("projectId") || "";
+    const enabled = (await memberPlan(user.id)).teamSharingEnabled;
+    if (projectId) await assertTeamSharingEnabled(user.id);
     const access = projectId
       ? await projectAccess(db(), user, projectId)
       : null;
     const result = await db().execute({
       sql: projectId
         ? `SELECT u.id,u.name,u.job_title,${projectRoleSql} AS role FROM projects p JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id JOIN workspace_members w ON w.workspace_id=m.workspace_id AND w.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE p.workspace_id=? AND p.id=? ORDER BY u.name,u.id`
-        : "SELECT u.id,u.name,u.job_title,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? ORDER BY u.name,u.id",
-      args: projectId ? [user.workspaceId, projectId] : [user.workspaceId],
+        : "SELECT u.id,u.name,u.job_title,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND (?=1 OR u.id=?) ORDER BY u.name,u.id",
+      args: projectId
+        ? [user.workspaceId, projectId]
+        : [user.workspaceId, enabled ? 1 : 0, user.id],
     });
     const members = result.rows.map((row) => ({
       id: String(row.id),
@@ -50,7 +58,9 @@ export async function GET(request: Request) {
         canAdd: access
           ? ["owner", "admin"].includes(String(access.role))
           : false,
-        canManage: access ? access.owner_id === user.id : user.role === "owner",
+        canManage:
+          enabled &&
+          (access ? access.owner_id === user.id : user.role === "owner"),
         ownerId: access
           ? String(access.owner_id)
           : members.find((member) => member.role === "owner")?.id,
@@ -74,6 +84,7 @@ export async function POST(request: Request) {
     await rateLimit(`team-add:${user.workspaceId}:${user.id}`, 30);
     const tx = await db().transaction("write");
     try {
+      await assertTeamSharingEnabled(user.id, tx);
       const access = await projectAccess(tx, user, projectId);
       if (!["owner", "admin"].includes(String(access.role)))
         throw new HttpError(
@@ -153,6 +164,7 @@ export async function PATCH(request: Request) {
       throw new HttpError(400, "구성원과 변경할 권한을 확인해 주세요.");
     const tx = await db().transaction("write");
     try {
+      await assertTeamSharingEnabled(user.id, tx);
       if (projectId) await requireProjectOwner(tx, user, projectId);
       else await requireTeamOwner(tx, user);
       const target = (

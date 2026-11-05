@@ -5,6 +5,7 @@ import { notifyProjectAccessChange } from "@/lib/project-access-events";
 import type { User } from "@/lib/types";
 import type { TeamMember } from "@/lib/project-types";
 import "./team-membership.css";
+import { fetchTeam as fetch } from "@/lib/team-request";
 
 type JoinRequest = {
   id: string;

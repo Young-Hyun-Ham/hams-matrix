@@ -105,6 +105,7 @@ export async function POST(
         workspaceName: `${name}의 워크스페이스`,
         role: "owner",
         plan: choice.plan,
+        teamSharingEnabled: false,
         accountRole: "user",
         onboardingComplete: true,
         jobTitle,
@@ -150,7 +151,7 @@ export async function POST(
       statements.push(...joinRequestStatements(request, user, choice));
       await signIn(request, user, statements);
       return Response.json(
-        { user },
+        { user: await userById(id) },
         { status: 201, headers: { "Cache-Control": "no-store" } },
       );
     }

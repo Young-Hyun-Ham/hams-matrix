@@ -5,6 +5,13 @@
   gap: 10px;
   margin-bottom: 16px;
 }
+.planCard {
+  display: flex;
+  flex-direction: column;
+}
+.planAction {
+  margin-top: auto;
+}
 .heading h1 {
   margin: 0;
 }

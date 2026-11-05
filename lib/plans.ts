@@ -21,6 +21,7 @@ export function toPlan(row: Row): Plan {
     dailyImageLimit: nullable("daily_image_limit"),
     attachmentLimit: Number(row.attachment_limit),
     historyEnabled: Number(row.history_enabled) === 1,
+    teamSharingEnabled: Number(row.team_sharing_enabled) === 1,
     recommended: Number(row.recommended) === 1,
     version: Number(row.version),
   };
@@ -28,7 +29,7 @@ export function toPlan(row: Row): Plan {
 export async function listPlans(executor: Executor = db()) {
   return (
     await executor.execute(
-      "SELECT * FROM plans ORDER BY CASE code WHEN 'free' THEN 0 WHEN 'plus' THEN 1 WHEN 'pro' THEN 2 ELSE 3 END",
+      "SELECT * FROM plans ORDER BY CASE code WHEN 'free' THEN 0 WHEN 'pro' THEN 1 WHEN 'team' THEN 2 ELSE 3 END",
     )
   ).rows.map(toPlan);
 }
@@ -45,6 +46,13 @@ export async function memberPlan(userId: string, executor: Executor = db()) {
 export function requirePlatformAdmin(user: User) {
   if (!isPlatformAdmin(user.accountRole))
     throw new HttpError(403, "서비스 관리자만 이용할 수 있습니다.");
+}
+export async function assertTeamSharingEnabled(
+  userId: string,
+  executor: Executor = db(),
+) {
+  if (!(await memberPlan(userId, executor)).teamSharingEnabled)
+    throw new HttpError(403, "현재 요금제에서는 팀공유를 사용할 수 없습니다.");
 }
 export async function assertProjectCapacity(
   userId: string,

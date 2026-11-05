@@ -2,6 +2,7 @@
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { memberPlan } from "@/lib/plans";
 import type { MenuKey, User } from "@/lib/types";
 import { WorkspaceLoading } from "./workspace-loading";
 
@@ -19,6 +20,8 @@ async function SectionContent({ section, page: Page }: SectionProps) {
   const user = await currentUser();
   if (!user) redirect("/login");
   if (!user.onboardingComplete) redirect("/onboarding");
+  if (section === "team" && !(await memberPlan(user.id)).teamSharingEnabled)
+    redirect("/settings/subscription?reason=team-sharing");
   await audit(new Request(`http://internal/${section}`), {
     user,
     action: "READ",

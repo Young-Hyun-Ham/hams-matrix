@@ -199,6 +199,7 @@ export async function finishOAuth(request: Request, provider: string) {
         workspaceName: `${name}의 워크스페이스`,
         role: "owner",
         plan: "free",
+        teamSharingEnabled: false,
         accountRole: "user",
         onboardingComplete: true,
       };

@@ -13,7 +13,11 @@ import {
 import { audit } from "@/lib/audit";
 import { db } from "@/lib/db";
 import type { Project } from "@/lib/project-types";
-import { assertProjectCapacity, projectHistoryEnabled } from "@/lib/plans";
+import {
+  assertProjectCapacity,
+  assertTeamSharingEnabled,
+  projectHistoryEnabled,
+} from "@/lib/plans";
 import { projectRoleSql } from "@/lib/team-permissions";
 
 export async function GET(request: Request) {
@@ -156,6 +160,8 @@ export async function POST(request: Request) {
     const tx = await db().transaction("write");
     try {
       await assertProjectCapacity(user.id, tx);
+      if (memberIds.some((id) => id !== user.id))
+        await assertTeamSharingEnabled(user.id, tx);
       const selected = await tx.execute({
         sql: `SELECT u.id,u.name,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.user_id IN (${memberIds.map(() => "?").join(",")}) ORDER BY u.name,u.id`,
         args: [user.workspaceId, ...memberIds],

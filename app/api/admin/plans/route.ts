@@ -46,10 +46,12 @@ export async function PATCH(request: Request) {
           "금액과 한도는 0 이상의 정수 또는 무제한/미정이어야 합니다.",
         );
     if (
+      !["free", "pro", "team", "business"].includes(String(input.code)) ||
       !Number.isInteger(input.attachmentLimit) ||
       Number(input.attachmentLimit) < 0 ||
       Number(input.attachmentLimit) > 5 ||
       typeof input.historyEnabled !== "boolean" ||
+      typeof input.teamSharingEnabled !== "boolean" ||
       typeof input.recommended !== "boolean" ||
       !["fixed", "contact"].includes(String(input.priceMode)) ||
       !Number.isInteger(input.version)
@@ -99,7 +101,7 @@ export async function PATCH(request: Request) {
           "다른 관리자가 수정했습니다. 새로고침해 주세요.",
         );
       await tx.execute({
-        sql: "UPDATE plans SET price_mode=?,monthly_price=?,yearly_price=?,monthly_discount_price=?,yearly_discount_price=?,project_limit=?,token_limit=?,daily_image_limit=?,attachment_limit=?,history_enabled=?,recommended=?,version=version+1,updated_by=?,updated_at=? WHERE code=?",
+        sql: "UPDATE plans SET price_mode=?,monthly_price=?,yearly_price=?,monthly_discount_price=?,yearly_discount_price=?,project_limit=?,token_limit=?,daily_image_limit=?,attachment_limit=?,history_enabled=?,team_sharing_enabled=?,recommended=?,version=version+1,updated_by=?,updated_at=? WHERE code=?",
         args: [
           String(input.priceMode),
           input.monthlyPrice as number | null,
@@ -111,6 +113,7 @@ export async function PATCH(request: Request) {
           input.dailyImageLimit as number | null,
           Number(input.attachmentLimit),
           input.historyEnabled ? 1 : 0,
+          input.teamSharingEnabled ? 1 : 0,
           input.recommended ? 1 : 0,
           user.id,
           new Date().toISOString(),

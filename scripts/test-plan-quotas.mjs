@@ -24,12 +24,12 @@ try {
  await assert.rejects(quota.reserveQuota("one","image-4","images",1));
  await quota.reserveQuota("one","tokens-1","tokens",99999);await assert.rejects(quota.reserveQuota("one","tokens-2","tokens",2));
  await quota.settleQuota("tokens-1",100);await quota.reserveQuota("one","tokens-3","tokens",99900);await assert.rejects(quota.reserveQuota("one","tokens-3","tokens",1));
- await db.execute("UPDATE user_subscriptions SET plan_code='plus' WHERE user_id='one'");await quota.reserveQuota("one","tokens-4","tokens",1);
+ await db.execute("UPDATE user_subscriptions SET plan_code='pro' WHERE user_id='one'");await quota.reserveQuota("one","tokens-4","tokens",1);
  await db.execute("UPDATE user_subscriptions SET plan_code='free' WHERE user_id='one'");await assert.rejects(quota.reserveQuota("one","tokens-5","tokens",1));
  await db.execute("UPDATE user_subscriptions SET plan_code='business' WHERE user_id='two'");await quota.reserveQuota("two","unlimited","tokens",100000000);
  const png="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQIoAAAAASUVORK5CYII=";
  const attachment={dataUrl:`data:image/png;base64,${png}`};
- for(const code of ["free","plus","pro","business"]){await db.execute({sql:"UPDATE user_subscriptions SET plan_code=? WHERE user_id='two'",args:[code]});const plan=await plans.memberPlan("two");assert.equal(images.validateAiImages(Array(plan.attachmentLimit).fill(attachment),plan.attachmentLimit).length,plan.attachmentLimit);assert.throws(()=>images.validateAiImages(Array(plan.attachmentLimit+1).fill(attachment),plan.attachmentLimit));}
+ for(const code of ["free","pro","team","business"]){await db.execute({sql:"UPDATE user_subscriptions SET plan_code=? WHERE user_id='two'",args:[code]});const plan=await plans.memberPlan("two");assert.equal(images.validateAiImages(Array(plan.attachmentLimit).fill(attachment),plan.attachmentLimit).length,plan.attachmentLimit);assert.throws(()=>images.validateAiImages(Array(plan.attachmentLimit+1).fill(attachment),plan.attachmentLimit));}
  await db.executeMultiple("INSERT INTO users(id,name) VALUES ('tracker','Tracker'); INSERT INTO workspaces(id,name) VALUES ('tracker-ws','Tracker'); UPDATE user_subscriptions SET plan_code='business' WHERE user_id='tracker';");
  const {createTokenTracker}=load(resolve("lib/ai/token-usage.ts"));
  const makeTracker=requestId=>createTokenTracker({workspaceId:"tracker-ws",userId:"tracker",projectId:"",projectName:"",convId:"test",conversationTitle:"Test",chatId:requestId,requestId,model:"test",prompt:"Test"});

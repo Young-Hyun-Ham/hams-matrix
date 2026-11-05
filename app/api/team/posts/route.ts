@@ -9,12 +9,14 @@ import {
 } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projectAccess } from "@/lib/artifacts";
+import { assertTeamSharingEnabled } from "@/lib/plans";
 import { audit } from "@/lib/audit";
 
 export async function GET(request: Request) {
   try {
     const user = await requireUser(),
       projectId = new URL(request.url).searchParams.get("projectId") || "";
+    await assertTeamSharingEnabled(user.id);
     if (!projectId)
       return Response.json(
         { posts: [] },
@@ -74,6 +76,7 @@ export async function POST(request: Request) {
     const tx = await db().transaction("write");
     const id = randomUUID();
     try {
+      await assertTeamSharingEnabled(user.id, tx);
       const access = await projectAccess(tx, user, projectId);
       if (!["owner", "admin", "member"].includes(String(access.role)))
         throw new HttpError(

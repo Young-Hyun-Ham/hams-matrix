@@ -100,7 +100,7 @@ export async function rateLimit(key: string, limit = 10) {
       "시도 횟수를 초과했습니다. 15분 후 다시 시도해 주세요.",
     );
 }
-const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,(SELECT s.plan_code FROM user_subscriptions s WHERE s.user_id=u.id) AS plan FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
+const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,(SELECT s.plan_code FROM user_subscriptions s WHERE s.user_id=u.id) AS plan,(SELECT p.team_sharing_enabled FROM user_subscriptions s JOIN plans p ON p.code=s.plan_code WHERE s.user_id=u.id) AS teamSharingEnabled FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
 // libSQL Row instances carry their own prototype; React server props must be plain DTOs.
 function toUser(row: Row | undefined): User | null {
   if (!row) return null;
@@ -113,6 +113,7 @@ function toUser(row: Row | undefined): User | null {
     workspaceName: String(row.workspaceName),
     role: String(row.role),
     plan: String(row.plan),
+    teamSharingEnabled: Number(row.teamSharingEnabled) === 1,
     accountRole: row.account_role as User["accountRole"],
     onboardingComplete: Number(row.onboarding_complete) === 1,
   };

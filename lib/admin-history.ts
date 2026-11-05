@@ -98,6 +98,7 @@ const allowed = new Set([
   "dailyImageLimit",
   "attachmentLimit",
   "historyEnabled",
+  "teamSharingEnabled",
   "recommended",
 ]);
 function safeJson(value: unknown) {

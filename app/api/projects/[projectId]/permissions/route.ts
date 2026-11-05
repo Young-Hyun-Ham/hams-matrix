@@ -7,6 +7,7 @@ import {
 } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { requireProjectOwner } from "@/lib/team-permissions";
+import { assertTeamSharingEnabled } from "@/lib/plans";
 import {
   initializeProjectPolicy,
   readProjectPolicy,
@@ -20,6 +21,7 @@ export async function GET(_request: Request, context: Context) {
   try {
     const user = await requireUser(),
       { projectId } = await context.params;
+    await assertTeamSharingEnabled(user.id);
     await requireProjectOwner(db(), user, projectId);
     return Response.json(
       await readProjectPolicy(db(), user.workspaceId, projectId),
@@ -40,6 +42,7 @@ export async function PATCH(request: Request, context: Context) {
       throw new HttpError(400, "최신 권한 버전이 필요합니다.");
     const tx = await db().transaction("write");
     try {
+      await assertTeamSharingEnabled(user.id, tx);
       await requireProjectOwner(tx, user, projectId);
       await initializeProjectPolicy(tx, user.workspaceId, projectId, user.id);
       const before = await readProjectPolicy(tx, user.workspaceId, projectId);

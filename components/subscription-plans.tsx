@@ -104,7 +104,7 @@ export function SubscriptionPlans({
           return (
             <article
               key={plan.code}
-              className="panel"
+              className={`panel ${styles.planCard}`}
               style={{
                 padding: 24,
                 paddingTop: 9,
@@ -146,27 +146,30 @@ export function SubscriptionPlans({
                 </li>
                 <li>일일 이미지 {limit(plan.dailyImageLimit)}개</li>
                 <li>프롬프트 이미지 {plan.attachmentLimit}개</li>
-                <li>이력 {plan.historyEnabled ? "생성" : "미생성"}</li>
+                {plan.historyEnabled ? <li>이력 생성</li> : ""}
+                {plan.teamSharingEnabled ? <li>팀공유 지원</li> : ""}
               </ul>
-              {current?.code === plan.code ? (
-                <span className="badge purple">이용 중</span>
-              ) : (
-                !readOnly && (
-                  <label style={{ display: "flex", gap: 8 }}>
-                    <input
-                      type="radio"
-                      name="subscription-plan"
-                      checked={selected?.code === plan.code}
-                      disabled={busy}
-                      onChange={() => {
-                        setSelected(plan);
-                        setNotice("");
-                      }}
-                    />
-                    {plan.name} 선택
-                  </label>
-                )
-              )}
+              <div className={styles.planAction}>
+                {current?.code === plan.code ? (
+                  <span className="badge purple">이용 중</span>
+                ) : (
+                  !readOnly && (
+                    <label style={{ display: "flex", gap: 8 }}>
+                      <input
+                        type="radio"
+                        name="subscription-plan"
+                        checked={selected?.code === plan.code}
+                        disabled={busy}
+                        onChange={() => {
+                          setSelected(plan);
+                          setNotice("");
+                        }}
+                      />
+                      {plan.name} 선택
+                    </label>
+                  )
+                )}
+              </div>
             </article>
           );
         })}

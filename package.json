@@ -25,6 +25,8 @@
     "test:rfp-source-browser": "node scripts/test-rfp-source-browser.mjs",
     "test:project-permissions-rfp-browser": "node scripts/test-project-permissions-rfp-browser.mjs",
     "test:plan-quotas": "node scripts/test-plan-quotas.mjs",
+    "test:team-sharing": "node scripts/test-team-sharing.mjs",
+    "test:plan-codes": "node scripts/test-plan-code-migration.mjs",
     "test:ai": "node scripts/test-ai.mjs",
     "test:auth": "node scripts/test-auth.mjs",
     "test:auth:dev": "node scripts/test-auth.mjs --dev",

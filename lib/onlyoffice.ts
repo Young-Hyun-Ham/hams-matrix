@@ -260,6 +260,7 @@ async function scopedUser(executor: Executor, scope: Scope, write: boolean) {
     workspaceName: "",
     role: String(row.role),
     plan: "",
+    teamSharingEnabled: false,
     accountRole: row.account_role as User["accountRole"],
     onboardingComplete: true,
   };

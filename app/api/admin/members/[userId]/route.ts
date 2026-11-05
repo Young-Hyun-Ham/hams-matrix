@@ -12,7 +12,7 @@ export async function GET(
     const { userId } = await params;
     const member = (
       await db().execute({
-        sql: "SELECT u.id,u.name,u.email,u.job_title AS jobTitle,u.account_role AS accountRole,u.created_at AS createdAt,u.updated_at AS updatedAt,u.management_version AS version,s.plan_code AS plan FROM users u LEFT JOIN user_subscriptions s ON s.user_id=u.id WHERE u.id=?",
+        sql: "SELECT u.id,u.name,u.email,u.job_title AS jobTitle,u.account_role AS accountRole,u.created_at AS createdAt,u.updated_at AS updatedAt,u.management_version AS version,s.plan_code AS plan,p.name AS planName FROM users u LEFT JOIN user_subscriptions s ON s.user_id=u.id LEFT JOIN plans p ON p.code=s.plan_code WHERE u.id=?",
         args: [userId],
       })
     ).rows[0];

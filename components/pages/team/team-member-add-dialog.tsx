@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import "./team-page.css";
+import { fetchTeam as fetch } from "@/lib/team-request";
 
 export function TeamMemberAddDialog({
   projectId,
@@ -58,7 +59,7 @@ export function TeamMemberAddDialog({
     >
       <form onSubmit={(event) => void add(event)}>
         <div className="dialog-header admin-detail-header">
-          <h2 id="team-add-title">Free 사용자 추가</h2>
+          <h2 id="team-add-title">멤버 추가</h2>
           <button
             type="button"
             className="button admin-detail-close"

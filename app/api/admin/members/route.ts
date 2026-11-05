@@ -7,7 +7,7 @@ import {
   requireUser,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { requirePlatformAdmin } from "@/lib/plans";
+import { listPlans, requirePlatformAdmin } from "@/lib/plans";
 import { paging, searchValue, noStore } from "@/lib/admin-query";
 export async function GET(request: Request) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
       plan = url.searchParams.get("plan") ?? "";
     if (
       (role && !["master", "admin", "user", "guest"].includes(role)) ||
-      (plan && !["free", "plus", "pro", "business"].includes(plan))
+      (plan && !["free", "pro", "team", "business"].includes(plan))
     )
       throw new HttpError(400, "필터를 확인해 주세요.");
     const where =
@@ -44,14 +44,18 @@ export async function GET(request: Request) {
       const members = (
         await tx.execute({
           sql:
-            "SELECT u.id,u.name,u.email,u.account_role AS accountRole,u.created_at AS createdAt,u.management_version AS version,s.plan_code AS plan FROM users u LEFT JOIN user_subscriptions s ON s.user_id=u.id" +
+            "SELECT u.id,u.name,u.email,u.account_role AS accountRole,u.created_at AS createdAt,u.management_version AS version,s.plan_code AS plan,p.name AS planName FROM users u LEFT JOIN user_subscriptions s ON s.user_id=u.id LEFT JOIN plans p ON p.code=s.plan_code" +
             where +
             " ORDER BY u.created_at DESC,u.id DESC LIMIT ? OFFSET ?",
           args: [...args, pageSize, (page - 1) * pageSize],
         })
       ).rows;
+      const plans = (await listPlans(tx)).map(({ code, name }) => ({
+        code,
+        name,
+      }));
       await tx.commit();
-      return Response.json({ members, total, page, pageSize }, noStore);
+      return Response.json({ members, plans, total, page, pageSize }, noStore);
     } finally {
       tx.close();
     }
@@ -74,7 +78,7 @@ export async function PATCH(request: Request) {
       typeof input.userId !== "string" ||
       (input.plan === undefined && input.accountRole === undefined) ||
       (input.plan !== undefined &&
-        !["free", "plus", "pro", "business"].includes(String(input.plan)))
+        !["free", "pro", "team", "business"].includes(String(input.plan)))
     )
       throw new HttpError(400, "회원과 플랜을 확인해 주세요.");
     const tx = await db().transaction("write");

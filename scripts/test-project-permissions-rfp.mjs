@@ -61,6 +61,8 @@ try {
   for(const id of ['owner','admin','member','viewer','outsider'])await client.execute({sql:'INSERT INTO sessions(id,token_hash,user_id,workspace_id,created_at,expires_at) VALUES (?,?,?,?,?,?)',args:[id,createHash('sha256').update(`${id}-token`).digest('hex'),id,'ws',new Date().toISOString(),new Date(Date.now()+3600000).toISOString()]});
   const perms=load(resolve('lib/project-permissions.ts')),model=load(resolve('lib/project-permission-model.ts'));
   const auth=load(resolve('lib/auth.ts'));
+  // Role-policy tests require an active sharing entitlement for each actor.
+  await client.execute("UPDATE user_subscriptions SET plan_code='team'");
   const user=async id=>{token=`${id}-token`;return auth.requireUser();};
   const owner=await user('owner');
   await perms.initializeProjectPolicy(client,'ws','p','owner');

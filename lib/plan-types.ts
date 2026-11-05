@@ -1,6 +1,6 @@
 export type AccountRole = "master" | "admin" | "user" | "guest";
 export type ProjectRole = "owner" | "admin" | "member" | "viewer";
-export type PlanCode = "free" | "plus" | "pro" | "business";
+export type PlanCode = "free" | "pro" | "team" | "business";
 export type Plan = {
   code: PlanCode;
   name: string;
@@ -14,6 +14,7 @@ export type Plan = {
   dailyImageLimit: number | null;
   attachmentLimit: number;
   historyEnabled: boolean;
+  teamSharingEnabled: boolean;
   recommended: boolean;
   version: number;
 };

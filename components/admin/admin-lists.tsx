@@ -1,12 +1,15 @@
 "use client";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "@/stores/toast";
+import { useRouter } from "next/navigation";
+import type { Plan } from "@/lib/plan-types";
 type Row = {
   id: string;
   name?: string;
   email?: string;
   accountRole?: string;
   plan?: string;
+  planName?: string;
   createdAt?: string;
   version?: number;
   source?: string;
@@ -25,6 +28,8 @@ const kst = (value?: string) =>
     ? new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })
     : "—";
 export function AdminList({ kind }: { kind: "members" | "history" }) {
+  const router = useRouter();
+  const [plans, setPlans] = useState<Pick<Plan, "code" | "name">[]>([]);
   const [filters, setFilters] = useState<Record<string, string>>({ q: "" }),
     [query, setQuery] = useState<Record<string, string>>({ q: "" }),
     [page, setPage] = useState(1),
@@ -62,6 +67,7 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
         if (!abort.signal.aborted) {
+          if (kind === "members") setPlans(data.plans);
           setResult({
             rows: data.members ?? data.entries,
             total: data.total,
@@ -146,6 +152,7 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       toast("회원 설정을 저장했습니다. 사용량은 유지됩니다.");
+      router.refresh();
       setDetail(null);
       setSelected({ ...member });
       reload();
@@ -181,7 +188,7 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
         {(kind === "members"
           ? [
               ["role", "계정 역할", ["master", "admin", "user", "guest"]],
-              ["plan", "플랜", ["free", "plus", "pro", "business"]],
+              ["plan", "플랜", plans.map((plan) => plan.code)],
             ]
           : [
               ["source", "출처", ["audit", "plan", "logging"]],
@@ -198,7 +205,11 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
           >
             <option value="">{label} 전체</option>
             {(options as string[]).map((value) => (
-              <option key={value}>{value}</option>
+              <option key={value} value={value}>
+                {key === "plan"
+                  ? (plans.find((plan) => plan.code === value)?.name ?? value)
+                  : value}
+              </option>
             ))}
           </select>
         ))}
@@ -297,7 +308,9 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
                           <td>{row.name}</td>
                           <td>{row.email ?? "소셜 계정"}</td>
                           <td>{row.accountRole}</td>
-                          <td>{row.plan ?? "구독 정보 없음"}</td>
+                          <td>
+                            {row.planName ?? row.plan ?? "구독 정보 없음"}
+                          </td>
                           <td>{kst(row.createdAt)}</td>
                         </>
                       ) : (
@@ -428,8 +441,10 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
                       <option value="" disabled>
                         구독 정보 없음
                       </option>
-                      {["free", "plus", "pro", "business"].map((plan) => (
-                        <option key={plan}>{plan}</option>
+                      {plans.map((plan) => (
+                        <option key={plan.code} value={plan.code}>
+                          {plan.name}
+                        </option>
                       ))}
                     </select>
                   </label>

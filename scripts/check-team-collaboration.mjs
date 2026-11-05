@@ -9,6 +9,8 @@ export async function checkTeamCollaboration({request,client,sessionCookie}) {
   assert.equal((await request("/api/me/workspace",{method:"PATCH",cookie:member.cookie,data:{workspaceId:owner.user.workspaceId}})).status,200);
   const write=cookie=>request("/api/team/posts",{method:"POST",cookie,data:{projectId:project.id,title:"Post",body:"Shared content",category:"공유"}});
   assert.equal((await write(owner.cookie)).status,201);assert.equal((await write(member.cookie)).status,403);
+  // Active sharing subscriptions are required in addition to project roles.
+  await client.execute({sql:"UPDATE user_subscriptions SET plan_code='team' WHERE user_id IN (?,?)",args:[member.user.id,outsider.user.id]});
   assert.equal((await request(`/api/team/members?projectId=${project.id}`,{cookie:outsider.cookie})).status,404);
   const change=(cookie,data)=>request("/api/team/members",{method:"PATCH",cookie,data:{projectId:project.id,...data}});
   assert.equal((await change(member.cookie,{userId:member.user.id,role:"admin",expectedRole:"viewer"})).status,403);
@@ -18,6 +20,6 @@ export async function checkTeamCollaboration({request,client,sessionCookie}) {
   const moved=await change(owner.cookie,{userId:member.user.id,role:"owner",expectedOwnerId:owner.user.id,confirmTransfer:true});assert.equal(moved.status,200,await moved.clone().text());
   const scope=(await (await request(`/api/team/members?projectId=${project.id}`,{cookie:member.cookie})).json());assert.equal(scope.ownerId,member.user.id);assert.equal(scope.members.filter(item=>item.role==="owner").length,1);
   assert.equal((await change(owner.cookie,{userId:owner.user.id,role:"admin",expectedRole:"member"})).status,403);
-  const me=(await (await request("/api/me",{cookie:member.cookie})).json()).user;assert.equal(me.accountRole,"user");assert.equal(me.plan,"free");
+  const me=(await (await request("/api/me",{cookie:member.cookie})).json()).user;assert.equal(me.accountRole,"user");assert.equal(me.plan,"team");
   console.log("PASS: explicit workspace switching, project viewer/admin/owner boundaries, team posting, stale role conflicts and owner transfer without account-role or plan changes.");
 }

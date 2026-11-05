@@ -8,6 +8,7 @@ export type User = {
   workspaceName: string;
   role: string;
   plan: string;
+  teamSharingEnabled: boolean;
   accountRole: AccountRole;
   onboardingComplete: boolean;
 };

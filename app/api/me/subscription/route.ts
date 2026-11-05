@@ -53,7 +53,7 @@ export async function PATCH(request: Request) {
     if (user.accountRole === "guest")
       throw new HttpError(403, "게스트는 요금제를 변경할 수 없습니다.");
     const input = await body(request);
-    const codes = ["free", "plus", "pro", "business"];
+    const codes = ["free", "pro", "team", "business"];
     if (
       Object.keys(input).some(
         (key) => !["plan", "currentPlan", "planVersion"].includes(key),

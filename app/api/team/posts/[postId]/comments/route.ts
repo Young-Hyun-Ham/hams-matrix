@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { projectAccess } from "@/lib/artifacts";
+import { assertTeamSharingEnabled } from "@/lib/plans";
 import type { User } from "@/lib/types";
 import { audit } from "@/lib/audit";
 async function access(
@@ -19,6 +20,7 @@ async function access(
   id: string,
   write = false,
 ) {
+  await assertTeamSharingEnabled(user.id, executor);
   const post = (
     await executor.execute({
       sql: "SELECT project_id FROM team_posts WHERE id=? AND workspace_id=?",

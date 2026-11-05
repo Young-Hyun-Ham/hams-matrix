@@ -27,7 +27,7 @@ export async function checkNavigationSettings({json,request,db,master,first,seco
  assert.equal((await json('/api/admin/members?q=Missing%20Subscription',{cookie:master})).data.members.some(row=>row.id==='paging-1'&&row.plan===null),true);
  const target=second.data.user.id;
  let detail=(await json(`/api/admin/members/${target}`,{cookie:master})).data;assert.equal(detail.canEditRole,true);assert.ok(!JSON.stringify(detail).includes('password_hash'));
- await patch('/api/admin/members',master,{userId:target,version:detail.member.version,plan:'pro'});
+ await patch('/api/admin/members',master,{userId:target,version:detail.member.version,plan:'team'});
  await patch('/api/admin/members',master,{userId:target,version:detail.member.version,plan:'free'},409);
  detail=(await json(`/api/admin/members/${target}`,{cookie:master})).data;
  await patch('/api/admin/members',master,{userId:target,version:detail.member.version,accountRole:'admin'});
@@ -35,7 +35,7 @@ export async function checkNavigationSettings({json,request,db,master,first,seco
  const admin=(await json('/api/auth/login',{method:'POST',data:{email:second.data.user.email,password:'UserPassword123!'}})).cookie;
  const firstDetail=(await json(`/api/admin/members/${first.data.user.id}`,{cookie:admin})).data;assert.equal(firstDetail.canEditRole,false);
  await patch('/api/admin/members',admin,{userId:first.data.user.id,version:firstDetail.member.version,accountRole:'guest'},403);
- const subscriptionBefore=(await db.execute({sql:'SELECT * FROM user_subscriptions WHERE user_id=?',args:[target]})).rows[0];assert.equal(subscriptionBefore.plan_code,'pro');
+ const subscriptionBefore=(await db.execute({sql:'SELECT * FROM user_subscriptions WHERE user_id=?',args:[target]})).rows[0];assert.equal(subscriptionBefore.plan_code,'team');
  const masterRow=(await db.execute("SELECT id,management_version FROM users WHERE account_role='master'")).rows[0];
  await patch('/api/admin/members',master,{userId:masterRow.id,version:masterRow.management_version,accountRole:'user'},403);
  let setting=(await json('/api/admin/settings/logging',{cookie:admin})).data;

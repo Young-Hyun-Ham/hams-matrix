@@ -7,6 +7,7 @@ import { ProjectPermissionsDialog } from "./project-permissions-dialog";
 import { TeamMemberAddDialog } from "./team-member-add-dialog";
 import { Icon } from "@/components/icon";
 import "./team-page.css";
+import { fetchTeam as fetch } from "@/lib/team-request";
 type Post = {
   id: string;
   title: string;
