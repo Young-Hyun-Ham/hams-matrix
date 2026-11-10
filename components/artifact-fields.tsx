@@ -28,7 +28,11 @@ function StandardFields({ kind, artifact, isExisting }: Props) {
 }
 export function ArtifactFields(props: Props) {
   return props.kind === "wbs" ? (
-    <WbsFields artifact={props.artifact} isExisting={props.isExisting} />
+    <WbsFields
+      artifact={props.artifact}
+      isExisting={props.isExisting}
+      calendarOnly
+    />
   ) : (
     <StandardFields {...props} />
   );

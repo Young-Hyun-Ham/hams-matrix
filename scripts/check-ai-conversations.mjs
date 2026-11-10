@@ -79,7 +79,7 @@ export async function checkAiConversations({
   const data = JSON.parse((await followup.json()).chat.result);
   assert.deepEqual(data.historyRoles, ["user", "assistant"]);
   assert.deepEqual(data.previousRequests, [firstChat.prompt]);
-  assert.ok(data.instructions.includes("현재 탭: WBS"));
+  assert.ok(data.instructions.includes("AI 대상 탭: WBS"));
   response = await request(endpoint(second), { cookie });
   assert.deepEqual((await response.json()).chats, []);
   assert.equal(
@@ -173,15 +173,23 @@ export async function checkAiConversations({
     "write",
   );
   const latest = await (await request(endpoint(paged), { cookie })).json();
-  assert.equal(latest.chats.length, 50);
-  assert.equal(latest.chats[0].prompt, "prompt-5");
+  assert.equal(latest.chats.length, 10);
+  assert.equal(latest.chats[0].prompt, "prompt-45");
   assert.equal(latest.chats.at(-1).prompt, "prompt-54");
-  const older = await (
-    await request(`${endpoint(paged)}&before=${latest.nextCursor}`, { cookie })
-  ).json();
-  assert.equal(older.chats.length, 5);
-  assert.equal(older.chats[0].prompt, "prompt-0");
-  assert.equal(older.nextCursor, null);
+  const pages = [...latest.chats];
+  let cursor = latest.nextCursor;
+  for (const count of [10, 10, 10, 10, 5]) {
+    assert.ok(cursor);
+    const older = await (
+      await request(`${endpoint(paged)}&before=${cursor}`, { cookie })
+    ).json();
+    assert.equal(older.chats.length, count);
+    pages.unshift(...older.chats);
+    cursor = older.nextCursor;
+  }
+  assert.equal(pages[0].prompt, "prompt-0");
+  assert.equal(new Set(pages.map((chat) => chat.id)).size, 55);
+  assert.equal(cursor, null);
   console.log(
     "PASS: explicit room creation, rename, project/user isolation, required convId, multi-turn context, cross-tab prompts, stable pagination, DB scope guards and generation lock recovery.",
   );

@@ -25,12 +25,16 @@ export function ArtifactFieldInputs({
   fields,
   change,
   calendarOnly = false,
+  dateRanges,
+  dateDescription,
 }: {
   kind: ArtifactKind;
   isExisting: boolean;
   fields: Record<string, string>;
   change: (key: string, value: string) => void;
   calendarOnly?: boolean;
+  dateRanges?: Record<string, { min?: string; max?: string }>;
+  dateDescription?: string;
 }) {
   const prefix = useId();
   return (
@@ -70,6 +74,10 @@ export function ArtifactFieldInputs({
               />
             ) : f.type === "date" && calendarOnly ? (
               <WbsDatePicker
+                id={id}
+                min={dateRanges?.[f.key]?.min}
+                max={dateRanges?.[f.key]?.max}
+                describedBy={dateDescription}
                 label={f.label}
                 name={f.key}
                 value={fields[f.key]}

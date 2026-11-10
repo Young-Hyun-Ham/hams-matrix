@@ -31,7 +31,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
     aiContext.pathname === pathname;
   const panel = useRef<HTMLElement>(null);
   const windowState = useAiWindow(panel, aiOpen);
-  const { floating, expanded, position, dragging } = windowState;
+  const { floating, expanded, split, position, dragging } = windowState;
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!aiOpen) return;
@@ -64,7 +64,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
   }
   return (
     <div
-      className={`workspace-content-layout ${aiOpen ? "ai-is-open" : ""} ${expanded ? "ai-is-expanded" : ""} ${floating ? "ai-is-floating" : ""} ${dragging ? "ai-is-dragging" : ""}`}
+      className={`workspace-content-layout ${aiOpen ? "ai-is-open" : ""} ${expanded ? "ai-is-expanded" : ""} ${split ? "ai-is-split" : ""} ${floating ? "ai-is-floating" : ""} ${dragging ? "ai-is-dragging" : ""}`}
     >
       <button
         type="button"
@@ -116,7 +116,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
                   {aiConversation?.title || "AI Chatbot"}
                 </strong>
                 <small>
-                  {floating ? "드래그하여 창 이동" : "현재 화면 도우미"}
+                  {floating ? "드래그하여 창 이동" : "선택한 AI 대상 도우미"}
                 </small>
               </span>
             </button>
@@ -139,8 +139,33 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
               <button
                 type="button"
                 className="icon-button"
+                aria-label={
+                  split ? "AI 채팅 상하 배치로 복원" : "AI 채팅 좌우 분리"
+                }
+                aria-describedby="matrix-ai-layout-help"
+                title={`${split ? "상하 배치로 복원" : "좌우 분리"} · 좁은 창에서는 상하 표시`}
+                aria-pressed={split}
+                onClick={windowState.toggleSplit}
+              >
+                <span id="matrix-ai-layout-help" className="sr-only">
+                  좁은 창에서는 상하로 표시합니다.
+                </span>
+                <Icon
+                  name={split ? "layout-stacked" : "layout-split"}
+                  size={17}
+                />
+              </button>
+              <button
+                type="button"
+                className="icon-button"
                 aria-label={expanded ? "AI 채팅 축소" : "AI 채팅 확대"}
-                title={expanded ? "축소 · 패널 30%" : "확대 · 패널 50%"}
+                title={
+                  floating
+                    ? `${expanded ? "축소 · 팝업 최대 460px" : "확대 · 팝업 최대 760px"} · 화면 너비 이내`
+                    : expanded
+                      ? "축소 · 패널 30%"
+                      : "확대 · 패널 50%"
+                }
                 aria-pressed={expanded}
                 onClick={windowState.toggleExpanded}
               >

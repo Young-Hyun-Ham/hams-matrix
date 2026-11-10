@@ -27,7 +27,7 @@ async function Settings({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
-  const user = await requireUser(),
+  const user = await requireUser({ allowPlanMismatch: true }),
     { tab = "usage" } = await searchParams;
   if (!items.some(([key]) => key === tab)) redirect("/settings?tab=usage");
   return (

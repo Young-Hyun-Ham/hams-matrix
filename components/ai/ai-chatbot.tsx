@@ -14,6 +14,8 @@ import { AiImagePreview } from "./ai-image-preview";
 import { useAiConversation } from "./use-ai-conversation";
 import { AiConversationTitle } from "./ai-conversation-title";
 import { AiConversationMessages } from "./ai-conversation-messages";
+import { useAiTarget } from "./use-ai-target";
+import { aiTargetContext, isAiTargetPage } from "@/lib/ai-target-pages";
 import "./ai-chatbot.css";
 
 export function AiChatbot() {
@@ -34,7 +36,15 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     aiContext.pathname === pathname
       ? aiContext
       : { ...emptyAiContext, pathname };
-  const { title, label, placeholder } = aiPresentation(context);
+  const { label } = aiPresentation(context);
+  const targetContext = conversation.targetPage
+    ? aiTargetContext(
+        conversation.targetPage,
+        conversation.projectId,
+        context.projectName,
+      )
+    : context;
+  const { title, placeholder } = aiPresentation(targetContext);
   const [prompt, setPrompt] = useState(""),
     [model, setModel] = useState(""),
     [models, setModels] = useState<string[]>([]);
@@ -57,6 +67,13 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   const activeRequest = useRef<string | null>(null);
   const stopBusy = useRef(false);
   const conversationState = useAiConversation(conversation, aiOpen);
+  const target = useAiTarget(
+    conversation,
+    context,
+    user,
+    !conversationState.loading && !conversationState.error,
+    aiOpen,
+  );
   const [result, setResult] = useState<AiChat | null>(null),
     [copyError, setCopyError] = useState("");
   const {
@@ -129,6 +146,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   const ready =
     !conversationState.loading &&
     !conversationState.error &&
+    target.ready &&
     (!!prompt.trim() || images.length > 0) &&
     !imagesLoading &&
     !!model &&
@@ -254,10 +272,15 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
           pathname: context.pathname,
           projectId: context.projectId,
           tab: context.tab,
+          sourceContext: { pathname: context.pathname, tab: context.tab },
+          targetPage: conversation.targetPage,
+          expectedTargetVersion: conversation.targetVersion,
         }),
         signal: controller.signal,
       });
       const data = await response.json();
+      if (data.conversation)
+        useWorkspace.getState().updateAiConversation(data.conversation);
       if (data.stopUnconfirmed) setStopRetry(requestId);
       if (data.actions?.length) useWorkspace.getState().notifyAiChange();
       if (!response.ok) throw new Error(data.error);
@@ -356,13 +379,82 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               </p>
             )}
           </header>
-          <p
-            className="matrix-ai-context"
-            title={`${context.projectName} · ${label}`}
-          >
-            {context.projectName ? `${context.projectName} · ` : ""}
-            {label}
-          </p>
+          <div className="matrix-ai-context-row">
+            <p
+              className="matrix-ai-context"
+              title={`${context.projectName} · ${label}`}
+            >
+              현재: {context.projectName ? `${context.projectName} · ` : ""}
+              {label}
+            </p>
+            <label className="matrix-ai-target">
+              <span>AI 대상 페이지</span>
+              <select
+                aria-label="AI 대상 페이지"
+                value={conversation.targetPage ?? ""}
+                disabled={
+                  generating ||
+                  stopping ||
+                  !!stopRetry ||
+                  target.saving ||
+                  target.initializing ||
+                  conversationState.loading
+                }
+                onChange={(event) => {
+                  if (isAiTargetPage(event.target.value))
+                    void target.change(event.target.value);
+                }}
+              >
+                {!conversation.targetPage && (
+                  <option value="">대상 확인 중…</option>
+                )}
+                {target.options.map((option) => (
+                  <option
+                    key={option.key}
+                    value={option.key}
+                    disabled={!option.supported || !option.allowed}
+                  >
+                    {option.label}
+                    {!option.supported
+                      ? " (미지원)"
+                      : !option.allowed
+                        ? " (접근 불가)"
+                        : option.readOnly
+                          ? " (조회 전용)"
+                          : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          {(target.saving || target.initializing) && (
+            <p className="matrix-ai-hint" role="status">
+              AI 대상을 저장하는 중입니다.
+            </p>
+          )}
+          {!target.supported && !!conversation.targetPage && (
+            <p className="matrix-ai-hint">
+              현재 대상은 AI 미지원입니다. 다른 AI 대상을 선택해 주세요.
+            </p>
+          )}
+          {target.error && (
+            <p className="matrix-ai-error" role="alert">
+              {target.error}{" "}
+              {!conversation.targetPage && (
+                <button type="button" onClick={target.retry}>
+                  다시 시도
+                </button>
+              )}
+            </p>
+          )}
+          {target.accessError && (
+            <p className="matrix-ai-error" role="alert">
+              {target.accessError}{" "}
+              <button type="button" onClick={target.retryAccess}>
+                권한 다시 확인
+              </button>
+            </p>
+          )}
           <textarea
             ref={promptInput}
             aria-label="AI 요청 내용"
@@ -460,7 +552,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             </p>
           )}
           <p className="matrix-ai-hint">
-            현재 화면을 조회하고, 요청한 문서 변경을 처리합니다.
+            선택한 AI 대상을 조회하고, 요청한 문서 변경을 처리합니다.
           </p>
           {error && (
             <p className="matrix-ai-error" role="alert">

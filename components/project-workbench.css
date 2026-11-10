@@ -217,19 +217,18 @@
   }
 }
 
-/* Match settings density only inside non-overview project tab content. */
+/* Shared settings density for project tabs and standalone database tools. */
 .matrix-tab-content {
   display: contents;
 }
-.matrix-workbench .matrix-tab-content-compact {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) {
   display: grid;
   min-width: 0;
   gap: 12px;
   font-size: 12px;
   line-height: 1.45;
 }
-.matrix-workbench
-  .matrix-tab-content-compact
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
   :is(
     h1,
     h2,
@@ -255,15 +254,15 @@
   font-size: 12px;
   line-height: 1.45;
 }
-.matrix-workbench .matrix-tab-content-compact :is(h2, h3, h4, legend) {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(h2, h3, h4, legend) {
   font-weight: 650;
 }
-.matrix-workbench .matrix-tab-content-compact p {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) p {
   margin: 0 0 8px;
 }
-.matrix-workbench
-  .matrix-tab-content-compact
-  :is(.button, button:not(.icon-button)) {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(.button, button:not(.icon-button, .theme-toggle)) {
   min-height: 26px;
   padding: 3px 8px;
   border-radius: 5px;
@@ -271,19 +270,20 @@
   line-height: 1.45;
   gap: 5px;
 }
-.matrix-workbench .matrix-tab-content-compact .button {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) .button {
   width: auto;
   flex-shrink: 0;
 }
-.matrix-workbench .matrix-tab-content-compact .icon-button {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  .icon-button,
+.database-tools .theme-toggle {
   width: 26px;
   height: 26px;
   min-height: 26px;
   padding: 4px;
   border-radius: 5px;
 }
-.matrix-workbench
-  .matrix-tab-content-compact
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
   :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
   min-width: 0;
   max-width: 100%;
@@ -294,38 +294,87 @@
   padding: 4px 8px;
   font: inherit;
 }
-.matrix-workbench
-  .matrix-tab-content-compact
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
   :is(
     input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
     select
   ) {
   min-height: 28px;
 }
-.matrix-workbench .matrix-tab-content-compact :is(th, td) {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(th, td) {
   padding: 6px 8px;
 }
-.matrix-workbench .matrix-tab-content-compact .matrix-section {
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  .matrix-section {
   padding: 12px;
   gap: 12px;
 }
 @media (max-width: 700px), (pointer: coarse) {
-  .matrix-workbench
-    .matrix-tab-content-compact
-    :is(.button, button:not(.icon-button)) {
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+    :is(.button, button:not(.icon-button, .theme-toggle)) {
     min-height: 32px;
   }
-  .matrix-workbench .matrix-tab-content-compact .icon-button {
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+    .icon-button,
+  .database-tools .theme-toggle {
     width: 32px;
     height: 32px;
     min-height: 32px;
   }
-  .matrix-workbench
-    .matrix-tab-content-compact
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
     :is(
       input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
       select
     ) {
     min-height: 32px;
   }
+}
+.database-domain-select {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.database-domain-trigger {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.database-domain-panel {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 0;
+}
+.database-domain-search-row {
+  display: flex;
+  gap: 6px;
+}
+.database-domain-search-row input {
+  min-width: 0;
+  flex: 1;
+}
+.database-domain-options {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.database-domain-options button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: inherit;
+  padding: 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.database-domain-options button[aria-selected="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+.database-domain-options button:disabled {
+  opacity: 0.55;
+  cursor: default;
 }

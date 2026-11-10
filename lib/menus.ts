@@ -1,4 +1,5 @@
 ﻿import type { MenuKey, NavigationMenu } from "./types";
+import type { User } from "./types";
 export const menus: {
   key: MenuKey;
   label: string;
@@ -76,7 +77,7 @@ export const navigationMenus: NavigationMenu[] = [
     key: "subscription",
     label: "요금제",
     en: "Subscription",
-    icon: "settings",
+    icon: "$",
     description: "요금제 안내",
     href: "/settings/subscription",
     action: "link",
@@ -122,6 +123,16 @@ export const navigationMenus: NavigationMenu[] = [
     action: "help",
     admin: false,
   },
+  {
+    key: "super-admin",
+    label: "슈퍼관리자설정",
+    en: "Super Administration",
+    icon: "lock",
+    description: "요금제와 Business·Team 상품 운영",
+    href: "/super-admin/settings",
+    action: "link",
+    admin: true,
+  },
 ];
 export const personalTabs = {
   usage: "토큰 사용량",
@@ -129,8 +140,24 @@ export const personalTabs = {
   account: "계정 설정",
 };
 export const adminTabs = {
-  plans: "요금제",
   members: "회원 관리",
   guardrails: "AI 가드레일 관리",
   history: "이력 관리",
 };
+export const superAdminTabs = {
+  plans: "요금제",
+  business: "Business",
+  team: "Team",
+};
+export function canUseNavigation(menu: NavigationMenu, user: User) {
+  if (menu.key === "super-admin" || menu.key === "viewer")
+    return user.accountRole === "master";
+  if (menu.key === "admin")
+    return (
+      user.accountRole === "master" ||
+      (["biz_admin", "team_admin"].includes(user.accountRole) &&
+        Boolean(user.productId))
+    );
+  if (menu.admin) return false;
+  return menu.key !== "team" || user.teamSharingEnabled;
+}

@@ -47,6 +47,9 @@ importers:
       '@tiptap/starter-kit':
         specifier: ^3.32.0
         version: 3.32.0
+      elkjs:
+        specifier: 0.9.3
+        version: 0.9.3
       fflate:
         specifier: ^0.8.3
         version: 0.8.3

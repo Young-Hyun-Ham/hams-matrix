@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   definitions,
   type Artifact,
@@ -8,6 +8,7 @@ import {
 import { jsonRequest } from "@/lib/client-request";
 import type { PermissionAction } from "@/lib/project-permission-model";
 type EditorSession = {
+  sessionId: number;
   kind: ArtifactKind;
   artifact: Artifact | null;
   draft: Artifact | null;
@@ -20,25 +21,46 @@ export function useArtifactActions(
     action: PermissionAction,
   ) => Promise<boolean>,
 ) {
+  const session = useRef(0);
+  const [saveFailure, setSaveFailure] = useState(0);
+  function reportSaveError(message: string) {
+    setError(message);
+    setSaveFailure((value) => value + 1);
+  }
   const [savedArtifact, setSavedArtifact] = useState<Artifact | null>(null);
   const [editor, setEditor] = useState<EditorSession | null>(null),
     [deleting, setDeleting] = useState<Artifact | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const openCreate = (kind: ArtifactKind, draft?: Artifact) => {
+    session.current++;
     setError("");
-    setEditor({ kind, artifact: null, draft: draft ?? null });
+    setEditor({
+      sessionId: session.current,
+      kind,
+      artifact: null,
+      draft: draft ?? null,
+    });
   };
   const openEdit = (artifact: Artifact) => {
+    session.current++;
     setError("");
-    setEditor({ kind: artifact.kind, artifact, draft: null });
+    setEditor({
+      sessionId: session.current,
+      kind: artifact.kind,
+      artifact,
+      draft: null,
+    });
   };
   const openDelete = (artifact: Artifact) => {
     setError("");
     setDeleting(artifact);
   };
   const closeEditor = () => {
-    if (!busy) setEditor(null);
+    if (!busy) {
+      session.current++;
+      setEditor(null);
+    }
   };
   const closeDelete = () => {
     if (!busy) setDeleting(null);
@@ -46,6 +68,7 @@ export function useArtifactActions(
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!editor) return;
+    const savingSession = session.current;
     const form = new FormData(event.currentTarget),
       fields: Record<string, string> = {},
       selected = editor.artifact,
@@ -99,11 +122,15 @@ export function useArtifactActions(
           }),
         },
       );
+      if (session.current !== savingSession) return;
       setSavedArtifact(result.artifact);
       setEditor(null);
       onChanged("저장했습니다.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장에 실패했습니다.");
+      if (session.current === savingSession)
+        reportSaveError(
+          e instanceof Error ? e.message : "저장에 실패했습니다.",
+        );
     } finally {
       setBusy(false);
     }
@@ -131,6 +158,8 @@ export function useArtifactActions(
     }
   }
   return {
+    saveFailure,
+    reportSaveError,
     savedArtifact,
     editor,
     deleting,

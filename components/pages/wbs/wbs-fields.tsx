@@ -1,4 +1,5 @@
 "use client";
+import { useWbsForm } from "./wbs-form-state";
 import { useState } from "react";
 import type { Artifact } from "@/lib/artifact-types";
 import {
@@ -14,6 +15,7 @@ export function WbsFields({
   isExisting: boolean;
   calendarOnly?: boolean;
 }) {
+  const shared = useWbsForm();
   const kind = "wbs";
   const [fields, setFields] = useState(() =>
     initialArtifactFields(kind, artifact),
@@ -43,8 +45,10 @@ export function WbsFields({
     <ArtifactFieldInputs
       kind={kind}
       isExisting={isExisting}
-      fields={fields}
-      change={change}
+      fields={shared?.fields ?? fields}
+      change={shared?.change ?? change}
+      dateRanges={shared?.ranges}
+      dateDescription={shared ? "wbs-date-constraints" : undefined}
       calendarOnly={calendarOnly}
     />
   );

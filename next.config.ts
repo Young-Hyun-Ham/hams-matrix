@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Isolate browser-test output from a developer's running server.
+  distDir: process.env.MATRIX_TEST_DIST_DIR || ".next",
   /* config options here */
   experimental: {
     agentFeedback: true,

@@ -2,7 +2,7 @@ import { requireUser, errorResponse } from "@/lib/auth";
 import { aiModels } from "@/lib/ai-server";
 export async function GET() {
   try {
-    await requireUser();
+    await requireUser({ allowPlanMismatch: true });
     const models = await aiModels();
     const preferred = process.env.OPENAI_MODEL;
     return Response.json(

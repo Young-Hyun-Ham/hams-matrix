@@ -222,6 +222,7 @@
   margin-bottom: 16px;
   max-height: 48dvh;
   overflow-y: auto;
+  overflow-anchor: none;
   overscroll-behavior: contain;
   padding: 2px;
   scrollbar-gutter: stable;
@@ -302,7 +303,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
-  margin-bottom: 9px;
+  margin-bottom: 4px;
 }
 .matrix-ai-card header strong {
   flex: 1;
@@ -342,6 +343,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.matrix-ai-context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.matrix-ai-context-row .matrix-ai-context { flex: 1 1 120px; margin: 0; min-width: 0; }
+.matrix-ai-target { display: flex; align-items: center; gap: 6px; max-width: 100%; color: var(--muted); font-size: 11px; }
+.matrix-ai-target > span { white-space: nowrap; }
+.matrix-ai-target select { min-width: 0; max-width: 180px; min-height: 36px; padding: 7px 24px 7px 8px; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--ink); font: inherit; }
 .matrix-ai-card textarea {
   display: block;
   width: 100%;

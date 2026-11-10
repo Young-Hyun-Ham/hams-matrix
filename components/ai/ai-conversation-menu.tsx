@@ -7,28 +7,48 @@ import { Icon } from "@/components/icon";
 import { AiConversationRoom } from "./ai-conversation-room";
 import { AiConversationDialog } from "./ai-conversation-dialog";
 import "./ai-chatbot.css";
+import { NavigationTooltip } from "@/components/shared/navigation-tooltip";
+import { targetFromLocation } from "@/lib/ai-target-pages";
 
-export function AiChatbotToggle() {
+export function AiChatbotToggle({
+  collapsed = false,
+  onExpand,
+  tooltipResetKey = "",
+  label = "AI Chatbot",
+}: {
+  collapsed?: boolean;
+  onExpand?: () => void;
+  tooltipResetKey?: string;
+  label?: string;
+}) {
   const { aiMenuOpen, setAiMenuOpen, aiContext, user, aiConversationVersion } =
     useWorkspace();
   return (
     <div className="matrix-ai-navigation">
-      <button
-        type="button"
-        className={`nav-item ${aiMenuOpen ? "active" : ""}`}
-        aria-expanded={aiMenuOpen}
-        aria-controls="matrix-ai-conversations"
-        onClick={() => setAiMenuOpen(!aiMenuOpen)}
-      >
-        <Icon name="chatbot" size={19} />
-        <span>AI Chatbot</span>
-        <Icon
-          name={aiMenuOpen ? "down" : "chevron"}
-          size={14}
-          className="matrix-ai-chevron"
-        />
-      </button>
-      {aiMenuOpen && (
+      <NavigationTooltip label={label} resetKey={tooltipResetKey}>
+        <button
+          type="button"
+          className={`nav-item ${aiMenuOpen ? "active" : ""}`}
+          aria-label={label}
+          aria-expanded={aiMenuOpen && !collapsed}
+          aria-controls="matrix-ai-conversations"
+          onClick={() => {
+            if (collapsed) {
+              onExpand?.();
+              setAiMenuOpen(true);
+            } else setAiMenuOpen(!aiMenuOpen);
+          }}
+        >
+          <Icon name="chatbot" size={19} />
+          <span className="nav-label">{label}</span>
+          <Icon
+            name={aiMenuOpen ? "down" : "chevron"}
+            size={14}
+            className="matrix-ai-chevron"
+          />
+        </button>
+      </NavigationTooltip>
+      {aiMenuOpen && !collapsed && (
         <ConversationList
           key={`${user?.id}:${user?.workspaceId}:${aiContext.projectId}:${aiContext.pathname}`}
           version={aiConversationVersion}
@@ -53,6 +73,11 @@ function ConversationList({ version }: { version: number }) {
   const ready =
     !!user &&
     aiContext.pathname === pathname &&
+    !!targetFromLocation(
+      aiContext.projectId,
+      aiContext.pathname,
+      aiContext.tab,
+    ) &&
     (!requiresProject || !!aiContext.projectId);
   const [rooms, setRooms] = useState<AiConversation[]>([]);
   const [expanded, setExpanded] = useState(false);
@@ -109,7 +134,15 @@ function ConversationList({ version }: { version: number }) {
       const response = await fetch("/api/ai/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ projectId }),
+        body: JSON.stringify({
+          projectId,
+          targetPage: targetFromLocation(
+            projectId,
+            aiContext.pathname,
+            aiContext.tab,
+          ),
+          sourceContext: { pathname: aiContext.pathname, tab: aiContext.tab },
+        }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);

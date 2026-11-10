@@ -10,7 +10,7 @@ import { isAccentColor } from "@/lib/personal-palette";
 import { noStore } from "@/lib/admin-query";
 export async function GET() {
   try {
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     if (user.accountRole === "guest")
       throw new HttpError(403, "게스트는 설정을 조회할 수 없습니다.");
     const row = (
@@ -39,7 +39,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     if (user.accountRole === "guest")
       throw new HttpError(403, "게스트는 저장할 수 없습니다.");
     const input = await body(request);

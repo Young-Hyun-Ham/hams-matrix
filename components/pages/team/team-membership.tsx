@@ -44,9 +44,9 @@ export function TeamMembership({
   const mutationBusy = useRef(false);
   const teamOwner = !projectId && user.role === "owner" && canManage;
   useEffect(() => {
-    if (transferTarget) transferDialog.current?.showModal();
+    if (transferTarget && !projectId) transferDialog.current?.showModal();
     else transferDialog.current?.close();
-  }, [transferTarget]);
+  }, [transferTarget, projectId]);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -149,7 +149,7 @@ export function TeamMembership({
           </h2>
           <p>
             {projectId
-              ? "프로젝트 owner만 권한 변경과 소유권 양도를 할 수 있습니다."
+              ? "프로젝트 owner만 구성원 권한을 변경할 수 있습니다. 프로젝트 소유권은 양도할 수 없습니다."
               : "팀 소속 권한입니다. 프로젝트별 권한과 소유권은 프로젝트를 선택해 관리합니다."}
           </p>
         </div>
@@ -245,7 +245,7 @@ export function TeamMembership({
                     disabled={!!busy}
                     onChange={(event) => changeRole(member, event.target.value)}
                   >
-                    <option value="owner">owner · 소유권 이전</option>
+                    {!projectId && <option value="owner">owner · 워크스페이스 소유권 이전</option>}
                     <option value="admin">admin</option>
                     <option value="member">member</option>
                     <option value="viewer">viewer · 조회 전용</option>

@@ -1,4 +1,5 @@
 import type { ProjectPermissions } from "./project-permission-model";
+import type { DomainBinding, DomainReference } from "./database-domain-types";
 import type { ProjectRole } from "./plan-types";
 export const kinds = [
   "wbs",
@@ -237,6 +238,9 @@ export const allowedLinks: Record<ArtifactKind, readonly ArtifactKind[]> = {
 };
 export type TableColumn = {
   id: string;
+  logicalName?: string;
+  domainBinding?: DomainBinding;
+  domainReference?: DomainReference;
   name: string;
   description: string;
   dataType: string;

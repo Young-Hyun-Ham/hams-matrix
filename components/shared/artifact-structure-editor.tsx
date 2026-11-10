@@ -6,6 +6,9 @@ import { ProgramStructureEditor } from "@/components/pages/specifications/progra
 import { VerificationStructureEditor } from "@/components/pages/verification/verification-structure-editor";
 import { ArchitectureStructureEditor } from "@/components/pages/architecture/architecture-structure-editor";
 export type StructureEditorProps = {
+  projectId?: string;
+  onModified?: () => void;
+  disabled?: boolean;
   artifact: Artifact | null;
   artifacts: Artifact[];
 };

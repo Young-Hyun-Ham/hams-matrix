@@ -14,6 +14,9 @@ function load(file){if(cache.has(file))return cache.get(file).exports;const load
 try {
  for(const name of (await readdir("db/migrations")).filter(name=>name.endsWith(".sql")).sort())await db.executeMultiple(await readFile(join("db/migrations",name),"utf8"));
  await db.executeMultiple("INSERT INTO users(id,name) VALUES ('one','One'),('two','Two');");
+ let workspaceSequence=0;
+ async function createWorkspace(userId){const id=`quota-workspace-${++workspaceSequence}`;await db.execute({sql:"INSERT INTO workspaces(id,name,owner_id) VALUES (?,?,?)",args:[id,id,userId]});await db.execute({sql:"INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,'owner')",args:[id,userId]});await db.execute({sql:"UPDATE users SET active_workspace_id=? WHERE id=?",args:[id,userId]});return id;}
+ await createWorkspace("one");await createWorkspace("two");
  const quota=load(resolve("lib/quotas.ts")),plans=load(resolve("lib/plans.ts")),images=load(resolve("lib/ai/chat-images.ts"));
  assert.notEqual(quota.quotaPeriod("images",new Date("2026-10-28T14:59:59Z")),quota.quotaPeriod("images",new Date("2026-10-28T15:00:00Z")));
  assert.equal(quota.quotaPeriod("tokens",new Date("2026-01-01")),quota.quotaPeriod("tokens",new Date("2027-01-01")));
@@ -24,13 +27,13 @@ try {
  await assert.rejects(quota.reserveQuota("one","image-4","images",1));
  await quota.reserveQuota("one","tokens-1","tokens",99999);await assert.rejects(quota.reserveQuota("one","tokens-2","tokens",2));
  await quota.settleQuota("tokens-1",100);await quota.reserveQuota("one","tokens-3","tokens",99900);await assert.rejects(quota.reserveQuota("one","tokens-3","tokens",1));
- await db.execute("UPDATE user_subscriptions SET plan_code='pro' WHERE user_id='one'");await quota.reserveQuota("one","tokens-4","tokens",1);
+ await db.execute("UPDATE user_subscriptions SET plan_code='pro' WHERE user_id='one'");await assert.rejects(quota.reserveQuota("one","mismatch","tokens",1),error=>error.details?.code==="WORKSPACE_PLAN_MISMATCH");await createWorkspace("one");await quota.reserveQuota("one","tokens-4","tokens",1);
  await db.execute("UPDATE user_subscriptions SET plan_code='free' WHERE user_id='one'");await assert.rejects(quota.reserveQuota("one","tokens-5","tokens",1));
- await db.execute("UPDATE user_subscriptions SET plan_code='business' WHERE user_id='two'");await quota.reserveQuota("two","unlimited","tokens",100000000);
+ await db.execute("UPDATE user_subscriptions SET plan_code='business' WHERE user_id='two'");await createWorkspace("two");await quota.reserveQuota("two","unlimited","tokens",100000000);
  const png="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQIoAAAAASUVORK5CYII=";
  const attachment={dataUrl:`data:image/png;base64,${png}`};
- for(const code of ["free","pro","team","business"]){await db.execute({sql:"UPDATE user_subscriptions SET plan_code=? WHERE user_id='two'",args:[code]});const plan=await plans.memberPlan("two");assert.equal(images.validateAiImages(Array(plan.attachmentLimit).fill(attachment),plan.attachmentLimit).length,plan.attachmentLimit);assert.throws(()=>images.validateAiImages(Array(plan.attachmentLimit+1).fill(attachment),plan.attachmentLimit));}
- await db.executeMultiple("INSERT INTO users(id,name) VALUES ('tracker','Tracker'); INSERT INTO workspaces(id,name) VALUES ('tracker-ws','Tracker'); UPDATE user_subscriptions SET plan_code='business' WHERE user_id='tracker';");
+ for(const code of ["free","pro","team","business"]){await db.execute({sql:"UPDATE user_subscriptions SET plan_code=? WHERE user_id='two'",args:[code]});const workspaceId=await createWorkspace("two");const plan=await plans.workspacePlan("two",workspaceId);assert.equal(images.validateAiImages(Array(plan.attachmentLimit).fill(attachment),plan.attachmentLimit).length,plan.attachmentLimit);assert.throws(()=>images.validateAiImages(Array(plan.attachmentLimit+1).fill(attachment),plan.attachmentLimit));}
+ await db.executeMultiple("INSERT INTO users(id,name) VALUES ('tracker','Tracker'); UPDATE user_subscriptions SET plan_code='business' WHERE user_id='tracker'; INSERT INTO workspaces(id,name,owner_id) VALUES ('tracker-ws','Tracker','tracker'); INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('tracker-ws','tracker','owner'); UPDATE users SET active_workspace_id='tracker-ws' WHERE id='tracker';");
  const {createTokenTracker}=load(resolve("lib/ai/token-usage.ts"));
  const makeTracker=requestId=>createTokenTracker({workspaceId:"tracker-ws",userId:"tracker",projectId:"",projectName:"",convId:"test",conversationTitle:"Test",chatId:requestId,requestId,model:"test",prompt:"Test"});
  const track=makeTracker("first");

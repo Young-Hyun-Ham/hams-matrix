@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
+  "$": "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   "book-open":
     "M12 5v16 M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z",
   pin: "m16 3 5 5-4 1-4 4v4l-2 2-6-6 2-2h4l4-4zM8 16l-5 5",
@@ -11,6 +12,8 @@ const paths: Record<string, string> = {
   "window-restore": "M8 3h13v13M3 8h13v13H3z",
   "window-popout": "M14 3h7v7m0-7L11 13M10 5H3v16h16v-7",
   "window-dock": "M3 4h18v16H3zM9 4v16m7-11-3 3 3 3",
+  "layout-split": "M3 4h18v16H3zM12 4v16",
+  "layout-stacked": "M3 4h18v16H3zM3 12h18",
   chatbot:
     "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-5 3V7a2 2 0 0 1 2-2ZM12 2v3M8 11h.01M16 11h.01M8 15h8",
   sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5",
@@ -87,7 +90,7 @@ export function Brand() {
         <i />
         <i />
       </span>
-      <span>
+      <span className="brand-name">
         hams<span className="brand-light">matrix</span>
       </span>
     </span>

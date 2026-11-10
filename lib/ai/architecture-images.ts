@@ -209,7 +209,7 @@ export async function createArchitectureImage(
         "저장 이미지가 변경되었습니다. 최신 이미지를 다시 불러와 주세요.",
       );
     const quotaId = `image:${token}`;
-    await reserveQuota(user.id, quotaId, "images", 1);
+    await reserveQuota(user.id, quotaId, "images", 1, user.workspaceId);
     const track = createTokenTracker({
       workspaceId: user.workspaceId,
       userId: user.id,

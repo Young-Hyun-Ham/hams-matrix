@@ -6,6 +6,7 @@ import { checkAiGuardrails } from "./check-ai-guardrails.mjs";
 import { checkAiConversationOptions } from "./check-ai-conversation-options.mjs";
 import { checkAiImages } from "./check-ai-images.mjs";
 import { checkAiCrud } from "./check-ai-crud.mjs";
+import { withAiTargetSelection } from "./lib/ai-target-client.mjs";
 import assert from "node:assert/strict";
 import { createClient } from "@libsql/client";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
@@ -61,7 +62,7 @@ let logs = "";
 server.stdout.on("data", (v) => (logs += v));
 server.stderr.on("data", (v) => (logs += v));
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
-const request = (
+const rawRequest = (
   path,
   { cookie, method = "GET", data, requestOrigin = origin } = {},
 ) =>
@@ -75,6 +76,7 @@ const request = (
     },
     ...(data ? { body: JSON.stringify(data) } : {}),
   });
+const request = withAiTargetSelection(rawRequest);
 try {
   for (let i = 0; i < 100; i++) {
     try {
@@ -188,7 +190,7 @@ try {
   assert.equal(generated.status, 200, await generated.clone().text());
   const chat = (await generated.json()).chat,
     generatedData = JSON.parse(chat.result);
-  assert.ok(generatedData.instructions.includes("현재 탭: 화면 설계"));
+  assert.ok(generatedData.instructions.includes("AI 대상 탭: 화면 설계"));
   assert.ok(generatedData.instructions.includes("화면설계 담당자"));
   assert.equal(generatedData.store, false);
   assert.ok(
@@ -199,7 +201,7 @@ try {
   assert.equal(wbsResponse.status, 200);
   assert.ok(
     JSON.parse((await wbsResponse.json()).chat.result).instructions.includes(
-      "현재 탭: WBS 일정",
+      "AI 대상 탭: WBS 일정",
     ),
   );
   const history = await (

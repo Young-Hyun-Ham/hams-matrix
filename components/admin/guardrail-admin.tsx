@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { MAX_GUARDRAIL_CHANGES } from "@/lib/ai/guardrail-types";
+import {
+  MAX_GUARDRAIL_CHANGES,
+  MAX_TOOL_ROUNDS,
+} from "@/lib/ai/guardrail-types";
 import type {
   GuardrailPolicy,
   GuardrailResult,
@@ -103,7 +106,7 @@ const stages: Record<string, string> = {
   "tool-result": "도구 결과",
   output: "출력",
 };
-export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
+export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardrails" }: { workspaceName: string; endpoint?: string }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [policy, setPolicy] = useState<GuardrailPolicy | null>(null);
   const [tab, setTab] = useState("policy"),
@@ -124,7 +127,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
   const attachments = useGuardrailAttachments(busy, () => setTestResult(null));
   const [models, setModels] = useState<string[]>([]);
   async function reload() {
-    const response = await fetch("/api/admin/ai-guardrails", {
+    const response = await fetch(endpoint, {
       cache: "no-store",
     });
     const data = await response.json();
@@ -134,7 +137,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
   }
   useEffect(() => {
     const controller = new AbortController();
-    fetch("/api/admin/ai-guardrails", {
+    fetch(endpoint, {
       cache: "no-store",
       signal: controller.signal,
     })
@@ -153,7 +156,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
           );
       });
     return () => controller.abort();
-  }, []);
+  }, [endpoint]);
   useEffect(() => {
     if (!policy?.classifierEnabled) return;
     const controller = new AbortController();
@@ -205,7 +208,7 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
     setError("");
     setNotice("");
     try {
-      const response = await fetch("/api/admin/ai-guardrails", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -449,6 +452,24 @@ export function GuardrailAdmin({ workspaceName }: { workspaceName: string }) {
                         update("maxChanges", Number(e.target.value))
                       }
                     />
+                  </div>
+
+                  <div>
+                    <strong>AI 실행 단계 한도 (최종 답변 포함)</strong>
+                    <input
+                      type="number"
+                      min={2}
+                      max={MAX_TOOL_ROUNDS}
+                      step={1}
+                      value={policy.maxToolRounds ?? 12}
+                      onChange={(e) =>
+                        update("maxToolRounds", Number(e.target.value))
+                      }
+                    />
+                    <small>
+                      기본 12회. 변경 건수와 별개이며 마지막 단계는 최종 답변에
+                      사용합니다. 전체 처리 시간 제한은 유지됩니다.
+                    </small>
                   </div>
 
                   <BlockedTermsEditor

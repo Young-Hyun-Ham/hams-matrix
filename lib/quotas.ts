@@ -2,7 +2,7 @@ import "server-only";
 import type { Transaction } from "@libsql/client";
 import { db } from "./db";
 import { HttpError } from "./auth";
-import { memberPlan } from "./plans";
+import { policyPlan } from "./plans";
 export const quotaPeriod = (resource: "tokens" | "images", now = new Date()) =>
   resource === "tokens"
     ? "lifetime"
@@ -18,12 +18,13 @@ export async function reserveQuota(
   id: string,
   resource: "tokens" | "images",
   amount: number,
+  workspaceId?: string,
 ) {
   if (!Number.isSafeInteger(amount) || amount < 0)
     throw new HttpError(400, "사용량 예약값이 올바르지 않습니다.");
   const tx = await db().transaction("write");
   try {
-    const plan = await memberPlan(userId, tx);
+    const plan = await policyPlan(userId, tx, workspaceId);
     const period = quotaPeriod(resource);
     const existing = (
       await tx.execute({
@@ -79,7 +80,7 @@ export async function releaseQuota(id: string) {
     args: [id],
   });
 }
-export async function quotaUsage(userId: string) {
+export async function quotaUsage(userId: string, workspaceId?: string) {
   const result: Record<string, number> = {};
   for (const resource of ["tokens", "images"] as const) {
     result[resource] = Number(
@@ -94,8 +95,8 @@ export async function quotaUsage(userId: string) {
   result.projects = Number(
     (
       await db().execute({
-        sql: "SELECT count(*) AS count FROM projects WHERE owner_id=?",
-        args: [userId],
+        sql: "SELECT count(*) AS count FROM projects WHERE owner_id=? AND (? IS NULL OR workspace_id=?)",
+        args: [userId, workspaceId ?? null, workspaceId ?? null],
       })
     ).rows[0].count,
   );

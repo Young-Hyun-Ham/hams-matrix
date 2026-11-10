@@ -60,6 +60,7 @@ export function createTokenTracker(scope: {
         quotaId,
         "tokens",
         event.reservedTokens ?? 65536,
+        scope.workspaceId,
       );
       // Reserve durable storage before the paid call. A crash leaves an explicit unknown record.
       try {

@@ -75,7 +75,7 @@ export default function Page() {
 }
 
 async function MarkdownViewerPage() {
-  const user = await requireUser();
+  const user = await requireUser({ allowPlanMismatch: true });
   requirePlatformAdmin(user);
 
   const documents = await loadDocuments();

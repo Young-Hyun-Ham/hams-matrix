@@ -1,0 +1,51 @@
+.database-tools {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.database-tool-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.database-tool-header h1 {
+  margin: 0;
+}
+.database-tool-header p {
+  color: var(--muted);
+}
+.database-tool-header nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.database-tools .matrix-section {
+  margin-bottom: 20px;
+}
+.database-tools .matrix-section > p {
+  overflow-wrap: anywhere;
+}
+.database-domain-dialog {
+  width: min(600px, calc(100vw - 24px));
+}
+.database-domain-dialog fieldset {
+  border: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.database-domain-dialog label {
+  display: grid;
+  gap: 6px;
+}
+.database-tools .matrix-column {
+  margin-top: 12px;
+}
+@media (max-width: 700px) {
+  .database-tools {
+    padding: 12px;
+  }
+}

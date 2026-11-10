@@ -166,6 +166,31 @@ try {
   await client.executeMultiple(
     `BEGIN IMMEDIATE;\n${await readFile("db/migrations/035_plan_codes_pro_team.sql", "utf8")}\nCOMMIT;`,
   );
+  for (const file of files.filter(
+    (name) => name > "035_plan_codes_pro_team.sql",
+  ))
+    await client.executeMultiple(
+      await readFile(join("db/migrations", file), "utf8"),
+    );
+  // Personal Free workspaces coexist with a fixed Team workspace.
+  for (const id of ["free-user", "operator"]) {
+    await client.execute({
+      sql: "INSERT INTO workspaces(id,name,owner_id) VALUES (?,?,?)",
+      args: [`personal-${id}`, `Personal ${id}`, id],
+    });
+    await client.execute({
+      sql: "INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,'owner')",
+      args: [`personal-${id}`, id],
+    });
+    await client.execute({
+      sql: "UPDATE users SET active_workspace_id=? WHERE id=?",
+      args: [`personal-${id}`, id],
+    });
+    await client.execute({
+      sql: "UPDATE sessions SET workspace_id=? WHERE user_id=?",
+      args: [`personal-${id}`, id],
+    });
+  }
   const plans = load(resolve("lib/plans.ts")),
     auth = load(resolve("lib/auth.ts"));
   const catalog = await plans.listPlans();
@@ -408,6 +433,29 @@ try {
   const freePlan = (await plans.listPlans()).find((p) => p.code === "free");
   await expect(patch({ ...freePlan, teamSharingEnabled: true }), 200);
   token = "free-user-token";
+  await expect(posts.GET(request("/api/team/posts?projectId=p")), 404);
+  await client.execute(
+    "UPDATE sessions SET workspace_id='ws' WHERE user_id='free-user'",
+  );
+  await client.execute(
+    "UPDATE users SET active_workspace_id='ws' WHERE id='free-user'",
+  );
+  const mismatch = await expect(
+    posts.GET(request("/api/team/posts?projectId=p")),
+    409,
+  );
+  assert.equal(mismatch.code, "WORKSPACE_PLAN_MISMATCH");
+  const target = (await plans.listPlans()).find((plan) => plan.code === "team");
+  await expect(
+    subscription.PATCH(
+      request("/api/me/subscription", "PATCH", {
+        plan: "team",
+        currentPlan: "free",
+        planVersion: target.version,
+      }),
+    ),
+    200,
+  );
   await expect(posts.GET(request("/api/team/posts?projectId=p")), 200);
   token = "operator-token";
   const team = (await plans.listPlans()).find((p) => p.code === "team");

@@ -27,6 +27,7 @@ export class HttpError extends Error {
   constructor(
     public status: number,
     message: string,
+    public details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -100,7 +101,7 @@ export async function rateLimit(key: string, limit = 10) {
       "시도 횟수를 초과했습니다. 15분 후 다시 시도해 주세요.",
     );
 }
-const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,m.role,(SELECT s.plan_code FROM user_subscriptions s WHERE s.user_id=u.id) AS plan,(SELECT p.team_sharing_enabled FROM user_subscriptions s JOIN plans p ON p.code=s.plan_code WHERE s.user_id=u.id) AS teamSharingEnabled FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
+const userSelect = `SELECT u.id,u.name,u.email,u.job_title,u.account_role,u.onboarding_complete,m.workspace_id as workspaceId,w.name as workspaceName,w.plan AS workspacePlan,w.product_id AS workspaceProductId,(SELECT product_id FROM user_subscriptions WHERE user_id=u.id) AS productId,(SELECT name FROM plan_products WHERE id=w.product_id) AS workspaceProductName,(SELECT p.name FROM user_subscriptions s JOIN plan_products p ON p.id=s.product_id WHERE s.user_id=u.id) AS productName,m.role,(SELECT s.plan_code FROM user_subscriptions s WHERE s.user_id=u.id) AS plan,(SELECT p.team_sharing_enabled FROM plans p WHERE p.code=w.plan) AS teamSharingEnabled FROM users u JOIN workspace_members m ON m.user_id=u.id JOIN workspaces w ON w.id=m.workspace_id`;
 // libSQL Row instances carry their own prototype; React server props must be plain DTOs.
 function toUser(row: Row | undefined): User | null {
   if (!row) return null;
@@ -113,6 +114,11 @@ function toUser(row: Row | undefined): User | null {
     workspaceName: String(row.workspaceName),
     role: String(row.role),
     plan: String(row.plan),
+    workspacePlan: String(row.workspacePlan),
+    productId: row.productId == null ? null : String(row.productId),
+    workspaceProductId: row.workspaceProductId == null ? null : String(row.workspaceProductId),
+    productName: row.productName == null ? null : String(row.productName),
+    workspaceProductName: row.workspaceProductName == null ? null : String(row.workspaceProductName),
     teamSharingEnabled: Number(row.teamSharingEnabled) === 1,
     accountRole: row.account_role as User["accountRole"],
     onboardingComplete: Number(row.onboarding_complete) === 1,
@@ -136,13 +142,19 @@ export async function currentUser(): Promise<User | null> {
   });
   return toUser(result.rows[0]);
 }
-export async function requireUser() {
+export async function requireUser(
+  options: { allowPlanMismatch?: boolean } = {},
+) {
   const user = await currentUser();
   if (!user) throw new HttpError(401, "로그인이 필요합니다.");
   if (user.accountRole === "guest")
     throw new HttpError(403, "게스트는 체험 화면만 조회할 수 있습니다.");
   if (!user.onboardingComplete)
     throw new HttpError(403, "가입 유형 선택을 완료해 주세요.");
+  if (!options.allowPlanMismatch) {
+    const { workspacePlan } = await import("./plans");
+    await workspacePlan(user.id, user.workspaceId);
+  }
   return user;
 }
 export function requireWriter(user: User) {
@@ -177,8 +189,8 @@ export function newUserStatements(
       ],
     },
     {
-      sql: "INSERT INTO workspaces(id,name,plan,subscription_plan,owner_id) VALUES (?,?,?,?,?)",
-      args: [workspaceId, `${name}의 워크스페이스`, "free", "free", id],
+      sql: "INSERT INTO workspaces(id,name,owner_id,plan,subscription_plan) SELECT ?,?,?,s.plan_code,s.plan_code FROM user_subscriptions s WHERE s.user_id=?",
+      args: [workspaceId, `${name}의 워크스페이스`, id, id],
     },
     {
       sql: "INSERT INTO workspace_members(workspace_id,user_id,role) VALUES (?,?,?)",
@@ -238,8 +250,16 @@ export async function signIn(
 export function errorResponse(error: unknown) {
   if (error instanceof HttpError)
     return Response.json(
-      { error: error.message },
-      { status: error.status, headers: { "Cache-Control": "no-store" } },
+      { error: error.message, ...error.details },
+      {
+        status: error.status,
+        headers: {
+          "Cache-Control": "no-store",
+          ...(error.details?.code === "WORKSPACE_PLAN_MISMATCH"
+            ? { "X-Workspace-Plan-Mismatch": "1" }
+            : {}),
+        },
+      },
     );
   console.error(
     "Request failed",

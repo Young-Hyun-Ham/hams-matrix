@@ -9,6 +9,8 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
     [loadingOlder, setLoadingOlder] = useState(false);
   const [error, setError] = useState(""),
     [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [olderError, setOlderError] = useState("");
+  const [loadedVersion, setLoadedVersion] = useState(0);
   const [version, setVersion] = useState(0);
   const olderRequest = useRef<AbortController | null>(null);
   const appended = useRef<AiChat[]>([]);
@@ -17,12 +19,15 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
   const url = `/api/ai/chats?projectId=${encodeURIComponent(projectId)}&convId=${encodeURIComponent(convId)}`;
   useEffect(() => {
     if (!open) return;
+    olderRequest.current?.abort();
+    olderRequest.current = null;
     const appendStart = appended.current.length;
     const controller = new AbortController();
     fetch(url, { signal: controller.signal, cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error);
+        if (controller.signal.aborted) return;
         const ids = new Set<string>(data.chats.map((chat: AiChat) => chat.id));
         setChats([
           ...data.chats,
@@ -32,6 +37,9 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
         ]);
         setNextCursor(data.nextCursor);
         setError("");
+        setOlderError("");
+        setLoadingOlder(false);
+        setLoadedVersion((value) => value + 1);
         useWorkspace.getState().updateAiConversation(data.conversation);
       })
       .catch((error) => {
@@ -45,36 +53,50 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
       .finally(() => {
         if (!controller.signal.aborted) setLoading(false);
       });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      olderRequest.current?.abort();
+      olderRequest.current = null;
+    };
   }, [url, open, version]);
-  useEffect(() => () => olderRequest.current?.abort(), []);
   async function loadOlder() {
-    if (!nextCursor || olderRequest.current) return;
+    if (!open || loading || !nextCursor || olderRequest.current) return;
     const controller = new AbortController();
     olderRequest.current = controller;
     setLoadingOlder(true);
-    setError("");
+    setOlderError("");
     try {
-      const response = await fetch(`${url}&before=${nextCursor}`, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
+      const response = await fetch(
+        `${url}&before=${encodeURIComponent(nextCursor)}`,
+        {
+          signal: controller.signal,
+          cache: "no-store",
+        },
+      );
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       if (!controller.signal.aborted) {
-        setChats((current) => [...data.chats, ...current]);
+        setChats((current) => {
+          const ids = new Set(current.map((chat) => chat.id));
+          return [
+            ...data.chats.filter((chat: AiChat) => !ids.has(chat.id)),
+            ...current,
+          ];
+        });
         setNextCursor(data.nextCursor);
       }
     } catch (error) {
       if (!controller.signal.aborted)
-        setError(
+        setOlderError(
           error instanceof Error
             ? error.message
             : "이전 대화를 불러오지 못했습니다.",
         );
     } finally {
-      olderRequest.current = null;
-      if (!controller.signal.aborted) setLoadingOlder(false);
+      if (olderRequest.current === controller) {
+        olderRequest.current = null;
+        setLoadingOlder(false);
+      }
     }
   }
   const append = useCallback((chat: AiChat) => {
@@ -91,6 +113,8 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
     loading,
     loadingOlder,
     error,
+    olderError,
+    loadedVersion,
     nextCursor,
     loadOlder,
     append,

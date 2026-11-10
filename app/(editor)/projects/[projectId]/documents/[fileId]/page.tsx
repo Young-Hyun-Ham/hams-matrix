@@ -1,3 +1,4 @@
+import { WorkspacePlanGuard } from "@/components/workspace-plan-guard";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
@@ -14,7 +15,7 @@ async function Content({ params }: Props) {
   if (!user) redirect("/login");
   if (!user.onboardingComplete) redirect("/onboarding");
   const { projectId, fileId } = await params;
-  return <OnlyofficeEditor projectId={projectId} fileId={fileId} />;
+  return <WorkspacePlanGuard user={user}><OnlyofficeEditor projectId={projectId} fileId={fileId} /></WorkspacePlanGuard>;
 }
 
 export default function Page(props: Props) {

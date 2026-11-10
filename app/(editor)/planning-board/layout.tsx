@@ -1,3 +1,4 @@
+import { WorkspacePlanGuard } from "@/components/workspace-plan-guard";
 import type { ReactNode } from "react";
 import { EditorProvider } from "./stores/editor-provider";
 import { Suspense } from "react";
@@ -52,7 +53,7 @@ async function AuthenticatedEditor({ children }: { children: ReactNode }) {
   return (
     <>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      <EditorProvider initialUser={user}>{children}</EditorProvider>
+      <WorkspacePlanGuard user={user}><EditorProvider initialUser={user}>{children}</EditorProvider></WorkspacePlanGuard>
     </>
   );
 }

@@ -1,4 +1,5 @@
-﻿import type {
+import { validateWbsDates } from "./wbs-date-constraints";
+import type {
   Artifact,
   ArtifactKind,
   ArtifactStructure,
@@ -7,6 +8,7 @@
 } from "./artifact-types";
 import { HttpError } from "./auth";
 import { topologyFor, validateTopology } from "./architecture";
+import type { DomainBinding, DomainReference } from "./database-domain-types";
 const fail = (message: string): never => {
   throw new HttpError(400, message);
 };
@@ -79,6 +81,8 @@ export function prepareStructure(
   input: Record<string, unknown>,
   artifacts: Artifact[],
   previous?: ArtifactStructure,
+  domainBindings?: Map<string, DomainBinding>,
+  domainReferences?: Map<string, DomainReference | null>,
 ): ArtifactStructure {
   const raw = record(input.structure),
     structure: ArtifactStructure = {};
@@ -211,6 +215,40 @@ export function prepareStructure(
         primaryKey: r.primaryKey as boolean,
         unique: r.unique as boolean,
       };
+      const previousColumn = previous?.columns?.find((c) => c.id === id);
+      if (r.logicalName !== undefined)
+        column.logicalName = text(r.logicalName, "논리 컬럼명", 100).trim();
+      else if (previousColumn?.logicalName !== undefined)
+        column.logicalName = previousColumn.logicalName;
+      const previousBinding = previousColumn?.domainBinding;
+      if (
+        r.domainBinding !== undefined &&
+        JSON.stringify(r.domainBinding) !== JSON.stringify(previousBinding)
+      )
+        fail("도메인 적용 정보는 서버가 생성하며 변경할 수 없습니다.");
+      const binding = domainBindings?.get(id) ?? previousBinding;
+      if (binding) column.domainBinding = binding;
+      const previousReference = previousColumn?.domainReference;
+      if (
+        r.domainReference !== undefined &&
+        JSON.stringify(r.domainReference) !== JSON.stringify(previousReference)
+      )
+        fail("도메인 선택 정보는 서버가 생성하며 변경할 수 없습니다.");
+      if (r.domainSelection !== undefined && !domainReferences?.has(id))
+        fail("도메인 선택을 서버에서 확인하지 못했습니다.");
+      const reference = domainReferences?.has(id)
+        ? domainReferences.get(id)
+        : previousReference;
+      if (reference) {
+        if (
+          column.logicalName !== reference.logicalName ||
+          column.name !== reference.physicalName ||
+          column.dataType !== reference.dataType ||
+          column.length !== reference.length
+        )
+          fail("도메인 선택을 해제하거나 다시 선택한 뒤 컬럼을 수정해 주세요.");
+        column.domainReference = reference;
+      }
       if (r.reference) {
         const ref = record(r.reference);
         column.reference = {
@@ -316,6 +354,8 @@ export function validateProjectGraph(artifacts: Artifact[]) {
     for (const a of wbs) visit(a.id, new Set(), seen, next);
   }
   for (const a of wbs) {
+    const dateError = validateWbsDates(a, artifacts);
+    if (dateError) fail(dateError);
     const parent = a.structure?.parentId
       ? byId.get(a.structure.parentId)
       : undefined;

@@ -6,14 +6,15 @@ import type { User } from "../types";
 import {
   defaultGuardrailPolicy,
   MAX_GUARDRAIL_CHANGES,
+  MAX_TOOL_ROUNDS,
   type GuardrailPolicy,
 } from "./guardrail-types";
 
 export function isGuardrailAdmin(user: User) {
   return (
-    ["master", "admin"].includes(user.accountRole) &&
+    ["biz_admin", "team_admin"].includes(user.accountRole) &&
     user.onboardingComplete &&
-    ["owner", "admin"].includes(user.role)
+    Boolean(user.productId) && user.productId === user.workspaceProductId
   );
 }
 export function requireGuardrailAdmin(user: User) {
@@ -91,6 +92,12 @@ export function validateGuardrailPolicy(value: unknown): GuardrailPolicy {
     policy.maxChanges > MAX_GUARDRAIL_CHANGES
   )
     throw new HttpError(400, `변경 건수는 0~${MAX_GUARDRAIL_CHANGES}건입니다.`);
+  if (
+    !Number.isInteger(policy.maxToolRounds) ||
+    policy.maxToolRounds < 2 ||
+    policy.maxToolRounds > MAX_TOOL_ROUNDS
+  )
+    throw new HttpError(400, `AI 실행 단계는 2~${MAX_TOOL_ROUNDS}회입니다.`);
   if (
     typeof policy.classifierModel !== "string" ||
     policy.classifierModel.length > 100 ||

@@ -1,15 +1,16 @@
 import "server-only";
 import type { Row } from "@libsql/client";
-import { memberPlan } from "@/lib/plans";
+import { workspacePlan } from "@/lib/plans";
 import { db } from "@/lib/db";
 import { HttpError } from "@/lib/auth";
 import { projectAccess } from "@/lib/artifacts";
 import type { User } from "@/lib/types";
 import type { AiConversation } from "@/lib/ai-context";
 import { decryptAiImage, imageInfo } from "./chat-images";
+import { isAiTargetPage } from "../ai-target-pages";
 
 export const conversationColumns =
-  "conv_id AS convId,title,is_pinned AS isPinned,project_id AS projectId,created_at AS createdAt,updated_at AS updatedAt";
+  "conv_id AS convId,title,is_pinned AS isPinned,project_id AS projectId,created_at AS createdAt,updated_at AS updatedAt,target_page AS targetPage,target_version AS targetVersion";
 export function conversationInfo(row: Row): AiConversation {
   return {
     convId: String(row.convId),
@@ -18,6 +19,8 @@ export function conversationInfo(row: Row): AiConversation {
     projectId: String(row.projectId ?? ""),
     createdAt: String(row.createdAt),
     updatedAt: String(row.updatedAt),
+    targetPage: isAiTargetPage(row.targetPage) ? row.targetPage : null,
+    targetVersion: Number(row.targetVersion ?? 0),
   };
 }
 export function conversationId(value: unknown) {
@@ -31,7 +34,7 @@ export async function requireConversation(
   convId: string,
 ) {
   if (projectId) await projectAccess(db(), user, projectId);
-  if (!(await memberPlan(user.id)).historyEnabled) {
+  if (!(await workspacePlan(user.id, user.workspaceId)).historyEnabled) {
     if (!/^temporary-[0-9a-f-]{36}$/.test(convId))
       throw new HttpError(404, "새 임시 채팅을 시작해 주세요.");
     const now = new Date().toISOString();
@@ -42,6 +45,8 @@ export async function requireConversation(
       isPinned: false,
       createdAt: now,
       updatedAt: now,
+      targetPage: null,
+      targetVersion: 0,
     };
   }
   const found = await db().execute({
@@ -58,11 +63,11 @@ export async function conversationChats(
   convId: string,
   before?: string,
 ) {
-  if (!(await memberPlan(user.id)).historyEnabled)
+  if (!(await workspacePlan(user.id, user.workspaceId)).historyEnabled)
     return { chats: [], nextCursor: null };
   // Stable rowid cursor also handles requests committed in the same millisecond.
   const result = await db().execute({
-    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 51`,
+    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result,target_page AS targetPage,target_version AS targetVersion FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 11`,
     args: [
       user.workspaceId,
       user.id,
@@ -71,8 +76,8 @@ export async function conversationChats(
       ...(before ? [before] : []),
     ],
   });
-  const hasMore = result.rows.length > 50;
-  const rows = result.rows.slice(0, 50).reverse();
+  const hasMore = result.rows.length > 10;
+  const rows = result.rows.slice(0, 10).reverse();
   const ids = rows.map((row) => String(row.id));
   const attachments = ids.length
     ? await db().execute({
@@ -89,6 +94,9 @@ export async function conversationChats(
       screenTitle: String(row.screenTitle),
       createdAt: String(row.createdAt),
       result: String(row.result),
+      targetPage: isAiTargetPage(row.targetPage) ? row.targetPage : null,
+      targetVersion:
+        row.targetVersion === null ? null : Number(row.targetVersion),
       images: attachments.rows
         .filter((image) => image.chat_id === row.id)
         .map(imageInfo),
@@ -101,7 +109,8 @@ export async function conversationHistory(
   projectId: string,
   convId: string,
 ) {
-  if (!(await memberPlan(user.id)).historyEnabled) return [];
+  if (!(await workspacePlan(user.id, user.workspaceId)).historyEnabled)
+    return [];
   const result = await db().execute({
     sql: "SELECT id,prompt,result FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ORDER BY rowid DESC LIMIT 20",
     args: [user.workspaceId, user.id, projectId || null, convId],

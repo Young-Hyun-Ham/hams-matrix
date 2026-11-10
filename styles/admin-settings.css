@@ -76,6 +76,16 @@
 .admin-settings-page .plan-admin label.check { display: flex; align-items: flex-start; gap: 6px; }
 .admin-settings-page .plan-admin button { justify-self: start; }
 
+/* Shared settings spacing for product selection, contract cards and account forms. */
+.admin-settings-page .admin-settings-stack { display: grid; min-width: 0; gap: 12px; }
+.admin-settings-page .admin-settings-panel { min-width: 0; padding: 12px; }
+.admin-settings-page .admin-settings-form { display: grid; min-width: 0; gap: 8px; margin: 0; }
+.admin-settings-page :is(.admin-settings-form label, .admin-settings-field) { display: grid; min-width: 0; gap: 4px; margin: 0; }
+.admin-settings-page :is(.admin-settings-form, .admin-settings-field) :is(input, select, textarea) { width: 100%; box-sizing: border-box; }
+.admin-settings-page :is(.admin-settings-stack, .admin-settings-form) > :is(h2, h3, p) { margin: 0; }
+.admin-settings-page :is(.admin-settings-stack, .admin-settings-form) > .button { justify-self: start; }
+.admin-settings-page .admin-settings-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
 /* Explicit layouts prevent generic fieldset/label rules from turning toggles into columns. */
 .admin-settings-page .guardrail-admin { max-width: none; padding: 0; margin: 0; }
 .admin-settings-page .guardrail-heading { gap: 12px; margin-bottom: 12px; }

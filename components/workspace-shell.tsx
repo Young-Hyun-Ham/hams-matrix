@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/stores/workspace";
-import { navigationMenus, personalTabs, adminTabs } from "@/lib/menus";
+import { navigationMenus, personalTabs, adminTabs, superAdminTabs, canUseNavigation } from "@/lib/menus";
 import {
   projectSections,
   projectTabLabels,
@@ -17,9 +17,12 @@ import { AiChatbotToggle } from "./ai/ai-conversation-menu";
 import { AiWorkspaceLayout } from "./ai/ai-workspace-layout";
 import { emptyAiContext } from "@/lib/ai-context";
 
-import { isPlatformAdmin } from "@/lib/plan-types";
+import { SuperNotifications } from "./super-admin/notifications";
+import { WorkspacePlanGuard } from "./workspace-plan-guard";
 import { WorkspacePicker } from "./workspace-picker";
 import { teamAccessDeniedEvent } from "@/lib/team-request";
+import { NavigationTooltip } from "./shared/navigation-tooltip";
+import { toast } from "@/stores/toast";
 export function WorkspaceShell({
   user,
   children,
@@ -39,22 +42,25 @@ export function WorkspaceShell({
     [busy, setBusy] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const logoutPending = useRef(false);
+  const logoutCollapsed = useRef(false);
+  const menuToggleRef = useRef<HTMLButtonElement>(null);
+  const collapsed = !isMobile && !desktopSidebarOpen;
   const dialogRef = useRef<HTMLDialogElement>(null);
   const query = useSearchParams();
-  const menus = navigationMenus.filter(
-    (m) =>
-      (!m.admin || isPlatformAdmin(activeUser.accountRole)) &&
-      (m.key !== "team" || activeUser.teamSharingEnabled === true),
-  );
+  const tooltipResetKey = `${pathname}?${query}:${isMobile}:${desktopSidebarOpen}:${sidebarOpen}:${modal}`;
+  const menus = navigationMenus.filter((m) => canUseNavigation(m, activeUser));
   const selected = menus.find((m) => m.href === pathname) ?? menus[0];
   const tabLabels: Record<string, string> | null =
     pathname === "/settings"
       ? personalTabs
-      : pathname === "/admin/settings"
+      : pathname === "/super-admin/settings"
+        ? superAdminTabs
+        : pathname === "/admin/settings"
         ? adminTabs
         : null;
   const tab =
-    query.get("tab") ?? (pathname === "/settings" ? "usage" : "plans");
+    query.get("tab") ?? (pathname === "/settings" ? "usage" : pathname === "/admin/settings" ? "members" : "plans");
   const menu = {
     ...selected,
     label: tabLabels
@@ -63,7 +69,7 @@ export function WorkspaceShell({
   };
   const titleHref = pathname.startsWith("/projects/")
     ? pathname
-    : pathname === "/admin/settings" || pathname === "/settings"
+    : pathname === "/admin/settings" || pathname === "/super-admin/settings" || pathname === "/settings"
       ? `${pathname}?tab=${tab}`
       : selected.action === "link"
         ? selected.href
@@ -102,11 +108,17 @@ export function WorkspaceShell({
   }
   useEffect(() => {
     const media = window.matchMedia("(max-width: 700px)");
-    const update = () => setIsMobile(media.matches);
+    const update = () => {
+      setIsMobile(media.matches);
+      if (!media.matches && !desktopSidebarOpen && error) {
+        toast(error, true);
+        setError("");
+      }
+    };
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
-  }, []);
+  }, [desktopSidebarOpen, error]);
   useEffect(() => {
     setUser(user);
   }, [user, setUser]);
@@ -128,7 +140,7 @@ export function WorkspaceShell({
           return;
         }
         setUser(result.user);
-        if (pathname === "/team" && !result.user.teamSharingEnabled)
+        if (pathname === "/team" && result.user.plan === result.user.workspacePlan && !result.user.teamSharingEnabled)
           router.replace("/settings/subscription?reason=team-sharing");
       } catch {
         // Preserve the current page on a network interruption; APIs enforce live access.
@@ -170,16 +182,38 @@ export function WorkspaceShell({
   }, [modal]);
   useEffect(() => {
     const original = document.body.style.overflow;
-    if (sidebarOpen) document.body.style.overflow = "hidden";
+    if (isMobile && sidebarOpen) document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = original;
     };
-  }, [sidebarOpen]);
+  }, [isMobile, sidebarOpen]);
+  useEffect(() => {
+    // Async logout results must use the current layout, not the click-time one.
+    logoutCollapsed.current = collapsed;
+  }, [collapsed]);
+  function toggleNavigation() {
+    if (isMobile) {
+      setSidebarOpen(!sidebarOpen);
+    } else {
+      if (desktopSidebarOpen) {
+        setAiMenuOpen(false);
+        // Restore focus after any conversation dialog/list has unmounted.
+        requestAnimationFrame(() => menuToggleRef.current?.focus());
+        if (error) {
+          toast(error, true);
+          setError("");
+        }
+      }
+      setDesktopSidebarOpen(!desktopSidebarOpen);
+    }
+  }
   function openModal(value: "help") {
     setError("");
     setModal(value);
   }
   async function logout() {
+    if (logoutPending.current) return;
+    logoutPending.current = true;
     setBusy(true);
     setError("");
     try {
@@ -190,8 +224,11 @@ export function WorkspaceShell({
       router.replace("/login");
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "연결을 확인해 주세요.");
+      const message = e instanceof Error ? e.message : "연결을 확인해 주세요.";
+      if (logoutCollapsed.current) toast(message, true);
+      else setError(message);
     } finally {
+      logoutPending.current = false;
       setBusy(false);
     }
   }
@@ -200,32 +237,48 @@ export function WorkspaceShell({
       m.key === "ai" ? (
         <AiChatbotToggle
           key={`${m.key}:${activeUser.id}:${activeUser.workspaceId}`}
+          collapsed={collapsed}
+          onExpand={() => setDesktopSidebarOpen(true)}
+          tooltipResetKey={tooltipResetKey}
+          label={m.label}
         />
       ) : m.action === "help" ? (
-        <button
-          className="nav-item secondary"
+        <NavigationTooltip
           key={m.key}
-          onClick={() => openModal("help")}
+          label={m.label}
+          resetKey={tooltipResetKey}
         >
-          <Icon name={m.icon} size={19} />
-          {m.label}
-        </button>
+          <button
+            className="nav-item secondary"
+            aria-label={m.label}
+            onClick={() => openModal("help")}
+          >
+            <Icon name={m.icon} size={19} />
+            <span className="nav-label">{m.label}</span>
+          </button>
+        </NavigationTooltip>
       ) : (
-        <Link
+        <NavigationTooltip
           key={m.key}
-          href={m.href}
-          className={`nav-item ${m.key === menu.key ? "active" : ""}`}
-          aria-current={m.key === menu.key ? "page" : undefined}
-          onClick={() => {
-            setSidebarOpen(false);
-            setSearch("");
-          }}
+          label={m.label}
+          resetKey={tooltipResetKey}
         >
-          <Icon name={m.icon} size={19} />
-          {m.label}
-          {m.key === "dashboard" && <span className="nav-dot" />}
-          {m.key === "team" && <span className="nav-new">NEW</span>}
-        </Link>
+          <Link
+            aria-label={m.label}
+            href={m.href}
+            className={`nav-item ${m.key === menu.key ? "active" : ""}`}
+            aria-current={m.key === menu.key ? "page" : undefined}
+            onClick={() => {
+              setSidebarOpen(false);
+              setSearch("");
+            }}
+          >
+            <Icon name={m.icon} size={19} />
+            <span className="nav-label">{m.label}</span>
+            {m.key === "dashboard" && <span className="nav-dot" />}
+            {m.key === "team" && <span className="nav-new">NEW</span>}
+          </Link>
+        </NavigationTooltip>
       ),
     );
   return (
@@ -235,7 +288,7 @@ export function WorkspaceShell({
       <a className="skip-link" href="#main-content">
         본문으로 이동
       </a>
-      {sidebarOpen && (
+      {isMobile && sidebarOpen && (
         <button
           className="sidebar-overlay"
           aria-label="메뉴 닫기"
@@ -245,11 +298,13 @@ export function WorkspaceShell({
       <aside
         id="workspace-navigation"
         className={`sidebar ${sidebarOpen ? "is-open" : ""}`}
+        inert={isMobile && !sidebarOpen}
       >
         <div className="sidebar-content">
           <Link
             href="/dashboard"
             className="sidebar-brand"
+            aria-label="HAMS Matrix 대시보드"
             onClick={() => setSidebarOpen(false)}
           >
             <Brand />
@@ -260,7 +315,7 @@ export function WorkspaceShell({
               menus.filter(
                 (m) =>
                   m.key !== "subscription" &&
-                  m.key !== "admin" &&
+                  m.key !== "admin" && m.key !== "super-admin" &&
                   m.key !== "settings" &&
                   m.key !== "viewer" &&
                   m.key !== "help",
@@ -273,7 +328,7 @@ export function WorkspaceShell({
                 menus.filter(
                   (m) =>
                     m.key === "subscription" ||
-                    m.key === "admin" ||
+                    m.key === "admin" || m.key === "super-admin" ||
                     m.key === "settings" ||
                     m.key === "viewer" ||
                     m.key === "help",
@@ -292,16 +347,18 @@ export function WorkspaceShell({
                 <strong>{activeUser.name}</strong>
                 <span>{activeUser.email ?? "소셜 계정"}</span>
               </button>
-              <button
-                onClick={logout}
-                disabled={busy}
-                className="icon-button"
-                aria-label="로그아웃"
-              >
-                <Icon name="logout" size={17} />
-              </button>
+              <NavigationTooltip label="로그아웃" resetKey={tooltipResetKey}>
+                <button
+                  onClick={logout}
+                  disabled={busy}
+                  className="icon-button sidebar-logout"
+                  aria-label="로그아웃"
+                >
+                  <Icon name="logout" size={17} />
+                </button>
+              </NavigationTooltip>
             </div>
-            {error && !modal && (
+            {error && !modal && !collapsed && (
               <p className="error-message" role="alert">
                 {error}
               </p>
@@ -313,16 +370,17 @@ export function WorkspaceShell({
         <header className="topbar">
           <nav className="breadcrumb" aria-label="현재 위치">
             <button
+              ref={menuToggleRef}
               className="icon-button menu-toggle"
-              onClick={() =>
-                isMobile
-                  ? setSidebarOpen(!sidebarOpen)
-                  : setDesktopSidebarOpen(!desktopSidebarOpen)
-              }
+              onClick={toggleNavigation}
               aria-label={
-                (isMobile ? sidebarOpen : desktopSidebarOpen)
-                  ? "메뉴 닫기"
-                  : "메뉴 열기"
+                isMobile
+                  ? sidebarOpen
+                    ? "메뉴 닫기"
+                    : "메뉴 열기"
+                  : desktopSidebarOpen
+                    ? "메뉴 축소"
+                    : "메뉴 펼치기"
               }
               aria-expanded={isMobile ? sidebarOpen : desktopSidebarOpen}
               aria-controls="workspace-navigation"
@@ -382,6 +440,7 @@ export function WorkspaceShell({
             </label>
             <span className="topbar-divider" />
             <ThemeToggle />
+            {activeUser.accountRole === "master" && <SuperNotifications />}
             <div className="notification-wrap" ref={notificationRef}>
               <button
                 className="icon-button"
@@ -438,7 +497,8 @@ export function WorkspaceShell({
                       if (m.key === "ai") {
                         e.preventDefault();
                         setAiMenuOpen(true);
-                        setSidebarOpen(true);
+                        if (isMobile) setSidebarOpen(true);
+                        else setDesktopSidebarOpen(true);
                       }
                     }}
                   >
@@ -455,10 +515,11 @@ export function WorkspaceShell({
             </div>
           )}
         </header>
+        <WorkspacePlanGuard user={activeUser}>
         <AiWorkspaceLayout>
           <main
             id="main-content"
-            className={`main-content ${pathname === "/admin/settings" ? "admin-main-content" : ""} ${pathname === "/viewer" ? "viewer-main-content" : ""}`}
+            className={`main-content ${(pathname === "/admin/settings" || pathname === "/super-admin/settings") ? "admin-main-content" : ""} ${pathname === "/viewer" ? "viewer-main-content" : ""}`}
           >
             {activeUser.role === "viewer" && (
               <p className="sample-notice">
@@ -477,6 +538,7 @@ export function WorkspaceShell({
             <Link href="/policies">서비스 안내</Link>
           </footer>
         </AiWorkspaceLayout>
+        </WorkspacePlanGuard>
       </div>
       <dialog
         ref={dialogRef}

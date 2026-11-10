@@ -1,0 +1,42 @@
+.database-erd-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.database-erd-section-header h2 {
+  margin: 0;
+}
+.workspace-dialog.admin-detail-dialog.database-erd-preview {
+  width: min(1500px, calc(100vw - 32px));
+  max-width: 1500px;
+}
+.database-erd-preview-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.database-erd-preview-canvas {
+  overflow: auto;
+  max-height: 65dvh;
+  background: #f6f8fc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.database-erd-preview-canvas img {
+  display: block;
+  max-width: none;
+}
+.database-erd-preview-canvas.is-fit {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.database-erd-preview-canvas.is-fit img {
+  max-width: 100%;
+  max-height: 65dvh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}

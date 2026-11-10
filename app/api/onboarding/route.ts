@@ -40,8 +40,8 @@ export async function POST(request: Request) {
         args: [choice.role, jobTitle, new Date().toISOString(), user.id],
       });
       await tx.execute({
-        sql: "UPDATE workspaces SET name=?,plan=?,subscription_plan=?,owner_id=? WHERE id=?",
-        args: [name, "free", choice.plan, user.id, user.workspaceId],
+        sql: "UPDATE workspaces SET name=?,owner_id=? WHERE id=?",
+        args: [name, user.id, user.workspaceId],
       });
       await tx.execute({
         sql: "UPDATE workspace_members SET role=? WHERE workspace_id=? AND user_id=?",

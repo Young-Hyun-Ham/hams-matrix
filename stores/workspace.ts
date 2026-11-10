@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import type { User } from "@/lib/types";
+import { mergeConversationTarget } from "@/lib/ai-target-pages";
 import {
   emptyAiContext,
   type AiContext,
@@ -47,7 +48,12 @@ export const useWorkspace = create<State>((set) => ({
   updateAiConversation: (conversation) =>
     set((state) => ({
       ...(state.aiConversation?.convId === conversation.convId
-        ? { aiConversation: conversation }
+        ? {
+            aiConversation: mergeConversationTarget(
+              state.aiConversation,
+              conversation,
+            ),
+          }
         : {}),
       aiConversationVersion: state.aiConversationVersion + 1,
     })),

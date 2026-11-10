@@ -35,7 +35,7 @@
   transition-delay: 0s;
 }
 .matrix-ai-drawer-inner {
-  padding: 20px 16px;
+  padding: 10px 16px;
   opacity: 0;
   transform: translateX(-20px);
   transition:
@@ -51,8 +51,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding-bottom: 18px;
-  margin-bottom: 18px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
   border-bottom: 1px solid var(--line);
 }
 .matrix-ai-drag-handle {
@@ -137,7 +137,7 @@
   font-size: 12px;
 }
 .matrix-ai-drawer .matrix-ai-model {
-  margin: 14px 0;
+  margin: 0;
   font-size: 11px;
 }
 .matrix-ai-drawer .matrix-ai-model select {
@@ -165,11 +165,11 @@
   .matrix-ai-drawer {
     position: fixed;
     z-index: 31;
-    left: 210px;
+    left: var(--workspace-sidebar-width);
     top: 73px;
     bottom: 0;
     height: auto;
-    width: min(440px, calc(100vw - 210px));
+    width: min(440px, calc(100vw - var(--workspace-sidebar-width)));
     transform: translateX(-100%);
     opacity: 0;
     box-shadow: 8px 0 30px #17122b25;
@@ -191,7 +191,7 @@
     display: block;
     position: fixed;
     z-index: 30;
-    inset: 73px 0 0 210px;
+    inset: 73px 0 0 var(--workspace-sidebar-width);
     border: 0;
     background: #17122b55;
     opacity: 0;
@@ -271,7 +271,7 @@
 .ai-is-floating .matrix-ai-drawer-header {
   flex-shrink: 0;
   margin: 0;
-  padding: 14px 16px;
+  padding: 8px 16px;
 }
 .ai-is-floating .matrix-ai-drawer-inner > .matrix-ai {
   min-height: 0;
@@ -316,9 +316,11 @@
 .matrix-ai-drawer-inner > .matrix-ai,
 .ai-is-floating .matrix-ai-drawer-inner > .matrix-ai {
   flex: 1;
+  min-width: 0;
   min-height: 0;
   overflow: hidden;
   margin: 0;
+  container: ai-chat / inline-size;
 }
 .matrix-ai-panel-content {
   height: 100%;
@@ -357,5 +359,76 @@
   }
   .matrix-ai-drawer .matrix-ai-model {
     margin: 8px 0;
+  }
+}
+
+/* Keep controls readable in either a narrow stacked card or a split column. */
+.matrix-ai-drawer .matrix-ai-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-drawer .matrix-ai-card header {
+  flex-wrap: wrap;
+}
+.matrix-ai-drawer .matrix-ai-card header strong {
+  flex: 1 1 0;
+  min-width: 0;
+  font-size: 12px;
+}
+.matrix-ai-drawer .matrix-ai-model {
+  flex: 0 1 108px;
+  width: 108px;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+.matrix-ai-drawer .matrix-ai-model select {
+  padding: 5px 4px;
+  font-size: 11px;
+}
+.matrix-ai-drawer .matrix-ai-target {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.matrix-ai-drawer .matrix-ai-target select {
+  max-width: 100%;
+}
+
+/* A single chat DOM changes layout only when its own content width permits it. */
+@container ai-chat (min-width: 560px) {
+  .ai-is-split .matrix-ai-panel-content {
+    display: grid;
+    grid-template-columns: minmax(0, 3fr) minmax(240px, 2fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "title title" "messages composer";
+    column-gap: 12px;
+  }
+  .ai-is-split .matrix-ai-panel-content > .matrix-ai-conversation-title {
+    grid-area: title;
+    min-width: 0;
+  }
+  .ai-is-split .matrix-ai-drawer .matrix-ai-messages {
+    grid-area: messages;
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: 0;
+  }
+  .ai-is-split .matrix-ai-drawer .matrix-ai-card {
+    grid-area: composer;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: none;
+    overscroll-behavior: contain;
+  }
+  .ai-is-split .matrix-ai-drawer .matrix-ai-card > * {
+    flex-shrink: 0;
+  }
+  .ai-is-split .matrix-ai-drawer .matrix-ai-card textarea {
+    flex: 1 0 100px;
+    height: auto;
+    min-height: 100px;
+    max-height: 100%;
   }
 }

@@ -2,15 +2,28 @@
 import { useState } from "react";
 import type { TableColumn } from "@/lib/artifact-types";
 import type { StructureEditorProps } from "@/components/shared/artifact-structure-editor";
+import type {
+  DatabaseDomain,
+  DomainSelection,
+} from "@/lib/database-domain-types";
+import { databaseTypeLabel } from "@/lib/database-data-types";
+import { DatabaseDomainSelect } from "./database-domain-select";
+type ColumnDraft = TableColumn & { domainSelection?: DomainSelection | null };
 export function DatabaseStructureEditor({
   artifact,
   artifacts,
+  projectId,
+  onModified,
+  disabled,
 }: StructureEditorProps) {
-  const [columns, setColumns] = useState<TableColumn[]>(
+  const [columns, setColumns] = useState<ColumnDraft[]>(
     artifact?.structure?.columns ?? [],
   );
+  const [selectedDomains, setSelectedDomains] = useState<
+    Record<string, DatabaseDomain>
+  >({});
   const tables = artifacts.filter((a) => a.kind === "database");
-  const update = (index: number, patch: Partial<TableColumn>) =>
+  const update = (index: number, patch: Partial<ColumnDraft>) =>
     setColumns((cols) =>
       cols.map((c, i) => (i === index ? { ...c, ...patch } : c)),
     );
@@ -23,6 +36,12 @@ export function DatabaseStructureEditor({
       </p>
       <input type="hidden" name="columns" value={JSON.stringify(columns)} />
       {columns.map((c, index) => {
+        const linked =
+          c.domainSelection !== null &&
+          !!(c.domainSelection || c.domainReference);
+        const selectedDomain = c.domainSelection
+          ? selectedDomains[c.id]
+          : c.domainReference;
         const referenceTables = [
           ...tables.filter((a) => a.id !== artifact?.id),
           ...(artifact
@@ -39,14 +58,56 @@ export function DatabaseStructureEditor({
             </legend>
             <div className="matrix-field-grid">
               <label>
+                논리 컬럼명
+                <input
+                  maxLength={100}
+                  value={c.logicalName ?? ""}
+                  readOnly={linked}
+                  onChange={(e) =>
+                    update(index, { logicalName: e.target.value })
+                  }
+                />
+              </label>
+              <label>
                 컬럼명 *
                 <input
                   required
                   maxLength={100}
                   value={c.name}
+                  readOnly={linked}
                   onChange={(e) => update(index, { name: e.target.value })}
                 />
               </label>
+              {projectId && (
+                <DatabaseDomainSelect
+                  key={`${projectId}:${c.id}`}
+                  projectId={projectId}
+                  columnName={c.name.trim() || c.logicalName?.trim() || ""}
+                  disabled={disabled}
+                  selected={linked}
+                  value={
+                    linked && selectedDomain
+                      ? `${c.logicalName} / ${c.name} / ${databaseTypeLabel(selectedDomain.databaseType)} / ${c.dataType}${c.length ? `(${c.length})` : ""}`
+                      : ""
+                  }
+                  onSelect={(domain) => {
+                    if (domain) {
+                      setSelectedDomains((old) => ({ ...old, [c.id]: domain }));
+                      update(index, {
+                        logicalName: domain.logicalName,
+                        name: domain.physicalName,
+                        dataType: domain.dataType,
+                        length: domain.length,
+                        domainSelection: {
+                          domainId: domain.id,
+                          domainVersion: domain.version,
+                        },
+                      });
+                    } else update(index, { domainSelection: null });
+                    onModified?.();
+                  }}
+                />
+              )}
               <label>
                 자료형 *
                 <input
@@ -54,6 +115,7 @@ export function DatabaseStructureEditor({
                   placeholder="VARCHAR, BIGINT 등"
                   maxLength={80}
                   value={c.dataType}
+                  readOnly={linked}
                   onChange={(e) => update(index, { dataType: e.target.value })}
                 />
               </label>
@@ -62,6 +124,7 @@ export function DatabaseStructureEditor({
                 <input
                   maxLength={40}
                   value={c.length}
+                  readOnly={linked}
                   onChange={(e) => update(index, { length: e.target.value })}
                 />
               </label>
@@ -77,13 +140,24 @@ export function DatabaseStructureEditor({
               </label>
             </div>
             <label>
-              논리명 / 설명
+              설명
               <input
                 maxLength={1000}
                 value={c.description}
                 onChange={(e) => update(index, { description: e.target.value })}
               />
             </label>
+            {c.domainBinding && (
+              <p>
+                생성 메타 v{c.domainBinding.domainVersion} ·{" "}
+                {c.domainBinding.sourceLogicalName} →{" "}
+                {c.domainBinding.physicalName} · {c.domainBinding.dataType}
+                {c.domainBinding.length
+                  ? `(${c.domainBinding.length})`
+                  : ""}{" "}
+                (생성 당시 기준)
+              </p>
+            )}
             <div className="matrix-check-row">
               <label>
                 <input

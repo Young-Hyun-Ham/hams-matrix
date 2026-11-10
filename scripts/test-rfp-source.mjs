@@ -4,6 +4,10 @@ import { checkRfpGenerationScope } from "./check-rfp-generation-scope.mjs";
 import { checkRfpGenerationHistory } from "./check-rfp-generation-history.mjs";
 import { checkWbsRfpContext } from "./check-wbs-rfp-context.mjs";
 import { checkGuardrailChangeLimit } from "./check-guardrail-change-limit.mjs";
+import { checkAiTargets } from "./check-ai-targets.mjs";
+import { checkAiToolExecution } from "./check-ai-tool-execution.mjs";
+import { checkDatabaseDomains } from "./check-database-domains.mjs";
+import { checkDatabaseErdImages } from "./check-database-erd-images.mjs";
 import { createHash } from "node:crypto";
 import { readFileSync, existsSync } from "node:fs";
 import { mkdtemp, readdir, readFile } from "node:fs/promises";
@@ -101,7 +105,15 @@ try {
     if(afterGenerate)await afterGenerate();
     return Response.json({id:`synthetic-rfp-${calls}`,status:"completed",model:"gpt-5.6-sol",usage:{input_tokens:20,output_tokens:40,total_tokens:60},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({complete,document:draft})}]}]});
   };
-  if(process.argv.includes("--change-limit-only")){
+  if(process.argv.includes("--database-erd-only")){
+    await checkDatabaseErdImages({load,client,setToken:value=>{token=value;}});
+  }else if(process.argv.includes("--database-domains-only")){
+    await checkDatabaseDomains({load,client,setToken:value=>{token=value;}});
+  }else if(process.argv.includes("--tool-execution-only")){
+    await checkAiToolExecution({load,client});
+  }else if(process.argv.includes("--targets-only")){
+    await checkAiTargets({load,client,setToken:value=>{token=value;}});
+  }else if(process.argv.includes("--change-limit-only")){
     await checkGuardrailChangeLimit({load});
   }else if(process.argv.includes("--wbs-context-only")){
     await checkWbsRfpContext({load,client,setToken:value=>{token=value;}});

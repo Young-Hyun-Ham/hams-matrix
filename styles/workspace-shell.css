@@ -1,12 +1,13 @@
 /* Workspace layout, sidebar, navigation, header, footer and their responsive rules. */
 
 .workspace {
+  --workspace-sidebar-width: 240px;
   min-height: max(600px, 100dvh);
 }
 .sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  width: 240px;
+  width: var(--workspace-sidebar-width);
   background: #fff;
   border-right: 1px solid var(--line);
   height: 100dvh;
@@ -202,7 +203,7 @@
   text-overflow: ellipsis;
 }
 .workspace-body {
-  margin-left: 240px;
+  margin-left: var(--workspace-sidebar-width);
 }
 .topbar {
   height: 54px;
@@ -393,10 +394,33 @@
 }
 .menu-toggle { display: grid; }
 @media (min-width: 701px) {
-  .sidebar { transition: transform 0.2s ease; }
+  .sidebar { transition: width 0.2s ease; }
   .workspace-body { transition: margin-left 0.2s ease; }
-  .sidebar-collapsed .sidebar { transform: translateX(-100%); }
-  .sidebar-collapsed .workspace-body { margin-left: 0; }
+  .workspace.sidebar-collapsed { --workspace-sidebar-width: 64px; }
+  .sidebar-collapsed .sidebar-content { padding-left: 0; padding-right: 0; }
+  .sidebar-collapsed .sidebar-brand { display: flex; justify-content: center; padding: 0; }
+  .sidebar-collapsed .brand { gap: 0; }
+  .sidebar-collapsed .brand-name,
+  .sidebar-collapsed .nav-caption,
+  .sidebar-collapsed .nav-label,
+  .sidebar-collapsed .nav-dot,
+  .sidebar-collapsed .nav-new,
+  .sidebar-collapsed .matrix-ai-chevron,
+  .sidebar-collapsed .user-avatar,
+  .sidebar-collapsed .user-summary { display: none; }
+  .sidebar-collapsed .nav-item,
+  .sidebar-collapsed .sidebar-logout {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    justify-content: center;
+    padding: 0;
+    gap: 0;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .sidebar-collapsed .sidebar-user { justify-content: center; padding-left: 0; padding-right: 0; }
 }
 @media (min-width: 1600px) {
   .main-content {
@@ -404,15 +428,10 @@
   }
 }
 @media (max-width: 1200px) {
-  .sidebar {
-    width: 214px;
-  }
+  .workspace { --workspace-sidebar-width: 214px; }
   .sidebar-content {
     padding-left: 13px;
     padding-right: 13px;
-  }
-  .workspace-body {
-    margin-left: 214px;
   }
   .brand {
     font-size: 21px;
@@ -425,12 +444,7 @@
   }
 }
 @media (max-width: 960px) {
-  .sidebar {
-    width: 210px;
-  }
-  .workspace-body {
-    margin-left: 210px;
-  }
+  .workspace { --workspace-sidebar-width: 210px; }
   .main-content {
     padding: 25px 22px;
   }
@@ -448,6 +462,7 @@
   }
 }
 @media (max-width: 700px) {
+  .workspace { --workspace-sidebar-width: 0px; }
   .sidebar {
     transform: translateX(-100%);
     transition: transform 0.2s;
@@ -524,6 +539,22 @@
   .search-results {
     right: 18px;
   }
+}
+
+.navigation-tooltip-trigger { display: contents; }
+.navigation-tooltip {
+  position: fixed;
+  z-index: 60;
+  max-width: min(240px, calc(100vw - 16px));
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: 0 4px 16px #17122b25;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 @media (max-width: 420px) {
   .main-content {

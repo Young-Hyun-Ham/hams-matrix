@@ -12,7 +12,7 @@ import { connection } from "next/server";
 export async function GET(request: Request) {
   await connection();
   try {
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     await audit(request, {
       user,
       action: "READ",
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     const data = await body(request),
       name = nameInput(data.name);
     if (user.accountRole === "master" && name !== "master")

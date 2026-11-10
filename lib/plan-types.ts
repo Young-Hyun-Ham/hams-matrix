@@ -1,4 +1,10 @@
-export type AccountRole = "master" | "admin" | "user" | "guest";
+export type AccountRole =
+  | "master"
+  | "admin"
+  | "user"
+  | "guest"
+  | "biz_admin"
+  | "team_admin";
 export type ProjectRole = "owner" | "admin" | "member" | "viewer";
 export type PlanCode = "free" | "pro" | "team" | "business";
 export type Plan = {
@@ -10,6 +16,7 @@ export type Plan = {
   monthlyDiscountPrice: number | null;
   yearlyDiscountPrice: number | null;
   projectLimit: number | null;
+  projectInviteLimit: number | null;
   tokenLimit: number | null;
   dailyImageLimit: number | null;
   attachmentLimit: number;
@@ -18,5 +25,7 @@ export type Plan = {
   recommended: boolean;
   version: number;
 };
-export const isPlatformAdmin = (role: AccountRole) =>
-  role === "master" || role === "admin";
+export const isPlatformAdmin = (role: AccountRole) => role === "master";
+
+export const isProductAdmin = (role: AccountRole) =>
+  role === "biz_admin" || role === "team_admin";

@@ -1,0 +1,64 @@
+.wbs-date-picker {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 2px;
+}
+.matrix-workbench .wbs-date-picker > input[type="text"] {
+  width: 88px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  font-size: 11px;
+}
+.wbs-date-picker > button {
+  flex-shrink: 0;
+  padding: 3px;
+  border: 0;
+  background: transparent;
+  color: var(--primary);
+}
+.workspace-dialog.wbs-calendar-dialog {
+  max-width: 320px;
+}
+.wbs-calendar-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.wbs-calendar-heading > button {
+  border: 0;
+}
+.wbs-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  margin-bottom: 12px;
+  text-align: center;
+}
+.wbs-calendar-dialog .wbs-calendar-grid button {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 2px;
+}
+.wbs-calendar-grid button[aria-selected="true"] {
+  background: var(--primary);
+  color: white;
+}
+.wbs-calendar-grid button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 1px;
+}
+
+.wbs-calendar-dialog button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.project-registration-dialog .matrix-error:focus {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+}

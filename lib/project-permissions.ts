@@ -4,6 +4,7 @@ import type { User } from "./types";
 import type { ProjectRole } from "./plan-types";
 import type { ProjectTab } from "./project-tabs";
 import { HttpError } from "./auth";
+import { workspacePlan } from "./plans";
 import { projectRoleSql } from "./team-permissions";
 import {
   defaultPermissions,
@@ -22,6 +23,7 @@ export async function projectPermissionAccess(
 ) {
   if (user.accountRole === "guest" || !user.onboardingComplete)
     throw new HttpError(403, "프로젝트 접근 권한이 없습니다.");
+  await workspacePlan(user.id, user.workspaceId, executor);
   const row = (
     await executor.execute({
       sql: `SELECT p.owner_id,${projectRoleSql} AS role FROM projects p JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id JOIN workspace_members w ON w.workspace_id=m.workspace_id AND w.user_id=m.user_id JOIN users u ON u.id=m.user_id WHERE p.id=? AND p.workspace_id=? AND m.user_id=? AND u.account_role!='guest' AND u.onboarding_complete=1`,

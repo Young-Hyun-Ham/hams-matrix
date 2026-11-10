@@ -261,7 +261,7 @@ export function exportSheets(data: ProjectData): Sheet[] {
             a.fields.physicalName,
             c.id,
             c.name,
-            c.description,
+            [c.logicalName, c.description].filter(Boolean).join(" / "),
             c.dataType,
             c.length,
             c.nullable ? "Y" : "N",

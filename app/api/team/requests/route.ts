@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   await connection();
   try {
     const user = await requireUser();
-    await assertTeamSharingEnabled(user.id);
+    await assertTeamSharingEnabled(user.id, db(), user.workspaceId);
     const owner = user.role === "owner";
     const result = await db().execute({
       sql: `SELECT r.id,r.status,r.requested_at,r.reviewed_at,u.name,w.name AS team_name FROM team_join_requests r JOIN users u ON u.id=r.user_id JOIN workspaces w ON w.id=r.workspace_id WHERE ${owner ? "r.workspace_id=? AND w.owner_id=?" : "r.user_id=?"} ORDER BY CASE WHEN r.status='pending' THEN 0 ELSE 1 END,r.requested_at DESC,r.id LIMIT 100`,
@@ -58,7 +58,7 @@ export async function PATCH(request: Request) {
       throw new HttpError(400, "처리할 신청과 승인 여부를 확인해 주세요.");
     const tx = await db().transaction("write");
     try {
-      await assertTeamSharingEnabled(user.id, tx);
+      await assertTeamSharingEnabled(user.id, tx, user.workspaceId);
       const result = await tx.execute({
         sql: "SELECT r.user_id,r.status FROM team_join_requests r JOIN workspaces w ON w.id=r.workspace_id JOIN workspace_members m ON m.workspace_id=w.id AND m.user_id=? AND m.role='owner' WHERE r.id=? AND r.workspace_id=? AND w.owner_id=?",
         args: [user.id, data.id, user.workspaceId, user.id],

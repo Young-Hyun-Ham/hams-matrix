@@ -12,6 +12,10 @@ import {
   conversationColumns,
   conversationInfo,
 } from "@/lib/ai/conversations";
+import {
+  ConversationTargetConflict,
+  saveConversationTarget,
+} from "@/lib/ai/conversation-targets";
 
 export async function PATCH(
   request: Request,
@@ -26,6 +30,25 @@ export async function PATCH(
       typeof input.projectId === "string" ? input.projectId : "";
     const hasTitle = Object.hasOwn(input, "title"),
       hasPin = Object.hasOwn(input, "isPinned");
+    if (Object.hasOwn(input, "targetPage")) {
+      if (hasTitle || hasPin)
+        throw new HttpError(
+          400,
+          "AI 대상 변경은 제목·고정 변경과 별도로 요청해 주세요.",
+        );
+      const conversation = await saveConversationTarget(
+        user,
+        projectId,
+        convId,
+        input.targetPage,
+        input.expectedTargetVersion,
+        input.expectedTargetVersion === 0,
+      );
+      return Response.json(
+        { conversation },
+        { headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const title = typeof input.title === "string" ? input.title.trim() : "";
     if (hasTitle && (!title || title.length > 100))
       throw new HttpError(400, "채팅방 제목은 1~100자로 입력해 주세요.");
@@ -53,6 +76,11 @@ export async function PATCH(
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (error) {
+    if (error instanceof ConversationTargetConflict)
+      return Response.json(
+        { error: error.message, conversation: error.conversation },
+        { status: 409, headers: { "Cache-Control": "no-store" } },
+      );
     return errorResponse(error);
   }
 }

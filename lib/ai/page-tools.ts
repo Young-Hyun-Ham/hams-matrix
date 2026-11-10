@@ -14,10 +14,17 @@ import type { AiContext } from "../ai-context";
 import type { AiPage } from "./page-prompts";
 import { readAiPage } from "./page-data";
 import { definitions } from "../artifact-types";
+import { domainCatalog, readDatabaseDomains } from "../database-domains";
+import { prepareDatabaseInput } from "../database-domain-generation";
 import type { Client, Transaction } from "@libsql/client";
 import { GenerationCancelled } from "./generation-control";
 import { GuardrailBlocked } from "./guardrails";
 import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
+import {
+  applyDatabaseBatch,
+  databaseBatchItems,
+  type DatabaseBatchItem,
+} from "./database-batch";
 export type AiAction = {
   target?: "artifact" | "rfp";
   action: string;
@@ -45,6 +52,7 @@ export function createPageAgent(
     policy: GuardrailPolicy;
     inspect: (stage: GuardrailStage, value: unknown) => Promise<unknown>;
   },
+  initialDomainRevision?: number,
 ) {
   if (page.key === "rfp")
     return createRfpAgent(
@@ -58,11 +66,36 @@ export function createPageAgent(
     );
   const actions: AiAction[] = [],
     seen = new Set<string>();
+  let observedDomainRevision = initialDomainRevision;
+  async function generationCatalog(executor: Pick<Client, "execute">) {
+    const catalog = await domainCatalog(executor, user, context.projectId);
+    if (
+      observedDomainRevision !== undefined &&
+      observedDomainRevision !== catalog.catalogRevision
+    )
+      throw new HttpError(
+        409,
+        "도메인 메타가 변경되었습니다. read_page로 다시 조회한 뒤 재생성해 주세요.",
+      );
+    observedDomainRevision = catalog.catalogRevision;
+    return catalog;
+  }
   const pending: {
     input: Record<string, unknown>;
     action: "CREATE" | "UPDATE" | "DELETE";
     id?: string;
+    batch?: DatabaseBatchItem[];
   }[] = [];
+  const pendingCount = () =>
+    pending.reduce((count, change) => count + (change.batch?.length ?? 1), 0);
+  const progress = () => ({
+    pendingCount: pendingCount(),
+    remainingChanges: Math.max(
+      0,
+      (guard?.policy.maxChanges ?? 3) - pendingCount(),
+    ),
+    persisted: false,
+  });
   const tools: Record<string, unknown>[] = [
     {
       type: "function",
@@ -76,6 +109,23 @@ export function createPageAgent(
       },
     },
   ];
+  if (page.kind === "database")
+    tools.push({
+      type: "function",
+      name: "read_database_domains",
+      strict: false,
+      description:
+        "현재 프로젝트 도메인 메타를 논리명·물리명으로 검색하고 페이지별로 조회합니다. 잘린 domainMeta는 이 도구로 추가 확인하세요.",
+      parameters: {
+        type: "object",
+        properties: {
+          q: { type: "string" },
+          page: { type: "integer", minimum: 1 },
+          pageSize: { type: "integer", minimum: 1, maximum: 100 },
+        },
+        additionalProperties: false,
+      },
+    });
   if (page.kind && canWrite)
     tools.push({
       type: "function",
@@ -106,18 +156,162 @@ export function createPageAgent(
         additionalProperties: false,
       },
     });
+  if (page.kind === "database" && canWrite)
+    tools.push({
+      type: "function",
+      name: "save_database_tables",
+      strict: false,
+      description:
+        "여러 DB 테이블 정의서를 한 번에 신규 등록하는 변경안을 검증합니다. 항목 수가 변경 건수로 계산됩니다. clientRef는 배치 내 고유 별칭, 신규 FK reference.tableId는 @clientRef, columnId는 해당 테이블 입력 컬럼 id입니다. 기존 테이블 FK는 실제 ID를 사용합니다. 순환·자기 참조 FK도 같은 배치의 별칭으로 연결할 수 있습니다. 오류 시 이 배치 전체가 취소됩니다.",
+      parameters: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            minItems: 1,
+            maxItems: 100,
+            items: {
+              type: "object",
+              properties: {
+                clientRef: { type: "string" },
+                title: { type: "string" },
+                status: { type: "string" },
+                fields: {
+                  type: "object",
+                  description: "현재 database 필드 정의. 값은 문자열",
+                },
+                links: { type: "array", items: { type: "string" } },
+                structure: {
+                  type: "object",
+                  description:
+                    "columns: 1~100개. 일반 save_artifact와 동일한 컬럼 형식",
+                },
+              },
+              required: ["clientRef", "title", "fields", "structure"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["items"],
+        additionalProperties: false,
+      },
+    });
   async function execute(name: string, input: Record<string, unknown>) {
     try {
       await checkpoint?.();
       await guard?.inspect("tool", { name, input });
+      if (name === "read_database_domains") {
+        if (
+          page.kind !== "database" ||
+          Object.keys(input).some((k) => !["q", "page", "pageSize"].includes(k))
+        )
+          throw new HttpError(400, "도메인 메타 조회 요청을 확인해 주세요.");
+        const data = await readDatabaseDomains(user, context.projectId, input);
+        observedDomainRevision = data.catalogRevision;
+        await guard?.inspect("tool-result", data);
+        return { success: true, data, ...progress() };
+      }
+      if (name === "save_database_tables") {
+        if (page.kind !== "database" || !canWrite)
+          throw new HttpError(403, "DB 설계 편집 권한이 필요합니다.");
+        await requireProjectPermission(
+          db(),
+          user,
+          context.projectId,
+          "database",
+          "CREATE",
+        );
+        if (
+          (guard && !guard.policy.allowedActions.includes("CREATE")) ||
+          !intents.CREATE.test(prompt) ||
+          /(?:등록|저장|추가|수정|변경|삭제|제거).{0,6}(?:하지\s*마|하지\s*말|금지|하지\s*않)/.test(
+            prompt,
+          )
+        )
+          throw new HttpError(
+            403,
+            "명시적으로 허용된 등록 요청만 실행할 수 있습니다.",
+          );
+        if (
+          Object.keys(input).some((key) => key !== "items") ||
+          JSON.stringify(input).length > 1000000
+        )
+          throw new HttpError(400, "일괄 등록 입력 크기·항목을 확인해 주세요.");
+        const batch = databaseBatchItems(input.items);
+        if (pendingCount() + batch.length > (guard?.policy.maxChanges ?? 3))
+          throw new HttpError(
+            400,
+            `남은 변경 가능 건수는 ${progress().remainingChanges}건입니다. 배치 크기를 줄여 주세요.`,
+          );
+        const signature = JSON.stringify(input);
+        if (seen.has(signature))
+          throw new HttpError(
+            409,
+            "동일한 일괄 등록 변경안이 이미 있습니다. 추가 조회 없이 최종 설명을 작성해 주세요.",
+          );
+        const tx = await db().transaction("write");
+        let normalized;
+        try {
+          const catalog = await generationCatalog(tx);
+          normalized = batch.map((item) => ({
+            clientRef: item.clientRef,
+            ...prepareDatabaseInput(
+              item,
+              item.structure.columns,
+              catalog,
+              user,
+              context.projectId,
+            ),
+          }));
+          await applyDatabaseBatch(
+            request,
+            user,
+            context.projectId,
+            batch,
+            tx,
+            checkpoint,
+          );
+        } finally {
+          await tx.rollback();
+          tx.close();
+        }
+        pending.push({
+          input: { title: batch.map((item) => item.title).join(", ") },
+          action: "CREATE",
+          batch,
+        });
+        seen.add(signature);
+        return {
+          success: true,
+          pending: true,
+          ...progress(),
+          items: batch.map((item) => ({
+            clientRef: item.clientRef,
+            title: item.title,
+          })),
+          domainResults: normalized?.map(
+            ({ clientRef, columns, matched, unmatched }) => ({
+              clientRef,
+              columns,
+              matched,
+              unmatched,
+            }),
+          ),
+          message:
+            "배치 전체 검증 완료. 최종 출력 검사 후 저장합니다. 아직 조회에 나타나지 않으므로 저장 확인 조회를 반복하지 말고 최종 설명을 작성하세요.",
+        };
+      }
       if (name === "read_page") {
         if (Object.keys(input).length)
           throw new HttpError(400, "조회 도구에는 인자를 지정할 수 없습니다.");
         const data = await readAiPage(user, context, page);
+        if ("domainMeta" in data && data.domainMeta)
+          observedDomainRevision = data.domainMeta.catalogRevision;
         await guard?.inspect("tool-result", data);
         return {
           success: true,
           data,
+          ...progress(),
           pendingChanges: pending.map((change) => ({
             action: change.action,
             title: change.input.title,
@@ -160,7 +354,7 @@ export function createPageAgent(
           403,
           "사용자가 해당 등록·수정·삭제 작업을 명시적으로 요청하지 않았습니다.",
         );
-      if (pending.length >= (guard?.policy.maxChanges ?? 3))
+      if (pendingCount() >= (guard?.policy.maxChanges ?? 3))
         throw new HttpError(
           400,
           `한 요청에서는 최대 ${guard?.policy.maxChanges ?? 3}건까지 변경할 수 있습니다.`,
@@ -259,7 +453,18 @@ export function createPageAgent(
       // No transaction remains open while waiting for the model or guardrail classifier.
       const previewTx = await db().transaction("write");
       let saved;
+      let normalized;
       try {
+        if (page.kind === "database" && action === "CREATE") {
+          const catalog = await generationCatalog(previewTx);
+          normalized = prepareDatabaseInput(
+            change,
+            change.structure.columns,
+            catalog,
+            user,
+            context.projectId,
+          );
+        }
         saved = await mutateArtifact(
           request,
           user,
@@ -289,8 +494,18 @@ export function createPageAgent(
       return {
         success: true,
         pending: true,
+        ...progress(),
         action: result.action,
         title: result.title,
+        ...(normalized
+          ? {
+              domainResult: {
+                columns: normalized.columns,
+                matched: normalized.matched,
+                unmatched: normalized.unmatched,
+              },
+            }
+          : {}),
         message:
           "검증된 변경안입니다. 최종 출력 검사 후 저장되며 아직 DB에 반영되지 않았습니다.",
       };
@@ -302,6 +517,7 @@ export function createPageAgent(
         throw error;
       return {
         success: false,
+        ...progress(),
         status: error instanceof HttpError ? error.status : 500,
         error:
           error instanceof HttpError
@@ -336,6 +552,26 @@ export function createPageAgent(
     currentUser.role = String(access.role);
     for (const change of pending) {
       await checkpoint?.(tx);
+      if (change.batch) {
+        const results = await applyDatabaseBatch(
+          request,
+          currentUser,
+          context.projectId,
+          change.batch,
+          tx,
+          checkpoint,
+        );
+        committed.push(
+          ...results.map((saved) => ({
+            action: "CREATE",
+            id: saved.id,
+            code: saved.code,
+            title: saved.title,
+            version: saved.version,
+          })),
+        );
+        continue;
+      }
       const saved = await mutateArtifact(
         request,
         currentUser,
@@ -361,6 +597,6 @@ export function createPageAgent(
     execute,
     actions,
     commit,
-    pendingCount: () => pending.length,
+    pendingCount,
   };
 }

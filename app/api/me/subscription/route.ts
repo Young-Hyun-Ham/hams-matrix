@@ -11,13 +11,13 @@ import { listPlans, memberPlan } from "@/lib/plans";
 import { quotaPeriod } from "@/lib/quotas";
 export async function GET() {
   try {
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     const plan = await memberPlan(user.id);
     const projects = Number(
       (
         await db().execute({
-          sql: "SELECT count(*) AS count FROM projects WHERE owner_id=?",
-          args: [user.id],
+          sql: "SELECT count(*) AS count FROM projects WHERE owner_id=? AND workspace_id=?",
+          args: [user.id, user.workspaceId],
         })
       ).rows[0].count,
     );
@@ -34,6 +34,7 @@ export async function GET() {
     return Response.json(
       {
         plan,
+        workspacePlan: user.workspacePlan,
         plans: await listPlans(),
         usage: { ...usage, projects },
         tokenPeriod: "total",
@@ -49,7 +50,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     if (user.accountRole === "guest")
       throw new HttpError(403, "게스트는 요금제를 변경할 수 없습니다.");
     const input = await body(request);
@@ -66,8 +67,32 @@ export async function PATCH(request: Request) {
       Number(input.planVersion) < 1
     )
       throw new HttpError(400, "요금제 정보를 확인해 주세요.");
+    const isMaster = user.accountRole === "master";
+    if (!isMaster && input.plan === "team")
+      throw new HttpError(409, "Team은 결제 성공 확인 후 이용할 수 있습니다.", {
+        code: "TEAM_PAYMENT_REQUIRED",
+      });
+    if (!isMaster && input.plan === "business")
+      throw new HttpError(
+        409,
+        "Business 계약 신청을 통해 슈퍼관리자와 계약을 진행해 주세요.",
+        {
+          code: "BUSINESS_REQUEST_REQUIRED",
+        },
+      );
     const tx = await db().transaction("write");
     try {
+      const support = (
+        await tx.execute({
+          sql: "SELECT product_id FROM user_subscriptions WHERE user_id=?",
+          args: [user.id],
+        })
+      ).rows[0];
+      if (support?.product_id)
+        throw new HttpError(
+          409,
+          "상품 지원 중에는 개인 요금제를 변경할 수 없습니다. 상품 관리자에게 지원 종료를 요청해 주세요.",
+        );
       const current = await memberPlan(user.id, tx);
       const target = (await listPlans(tx)).find(
         (plan) => plan.code === input.plan,
@@ -105,7 +130,11 @@ export async function PATCH(request: Request) {
             "subscription",
             user.id,
             JSON.stringify({ plan: current.code }),
-            JSON.stringify({ plan: target.code, paymentMode: "none" }),
+            JSON.stringify({
+              plan: target.code,
+              paymentMode: "none",
+              ...(isMaster ? { changeMode: "master_direct" } : {}),
+            }),
           ],
         });
       }
@@ -121,6 +150,18 @@ export async function PATCH(request: Request) {
       tx.close();
     }
   } catch (error) {
+    if (
+      error !== null &&
+      typeof error === "object" &&
+      "code" in error &&
+      (error.code === "SQLITE_BUSY" || error.code === "SQLITE_LOCKED")
+    )
+      return errorResponse(
+        new HttpError(
+          409,
+          "다른 요금제 변경이 처리 중입니다. 새로고침 후 다시 선택해 주세요.",
+        ),
+      );
     return errorResponse(error);
   }
 }

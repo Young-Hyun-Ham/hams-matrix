@@ -1,4 +1,5 @@
 export const MAX_GUARDRAIL_CHANGES = 100;
+export const MAX_TOOL_ROUNDS = 40;
 
 export type GuardrailPolicy = {
   mode: "monitor" | "enforce";
@@ -13,6 +14,7 @@ export type GuardrailPolicy = {
   blockedTerms: string[];
   allowedActions: ("CREATE" | "UPDATE" | "DELETE")[];
   maxChanges: number;
+  maxToolRounds: number;
   imageMode: "block" | "read-only" | "scan";
   classifierEnabled: boolean;
   classifierModel: string;
@@ -31,6 +33,7 @@ export const defaultGuardrailPolicy: GuardrailPolicy = {
   blockedTerms: [],
   allowedActions: ["CREATE", "UPDATE", "DELETE"],
   maxChanges: 3,
+  maxToolRounds: 12,
   imageMode: "read-only",
   classifierEnabled: false,
   classifierModel: "",

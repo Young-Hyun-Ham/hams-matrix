@@ -53,6 +53,10 @@ globalThis.fetch = async (input, init) => {
     ? content.filter((item) => item.type === "input_image")
     : [];
   const userInput = JSON.parse(rawInput);
+  if (data.text?.format?.name === "database_erd_layout") {
+    return Response.json({ id: `erd_${randomUUID()}`, status: "completed", usage: { input_tokens: 100, output_tokens: 100, total_tokens: 200 },
+      output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify({ tableIds: userInput.tables.map(table => table.id) }) }] }] });
+  }
   const usage = rawInput.includes("[NO_USAGE]")
     ? {}
     : {

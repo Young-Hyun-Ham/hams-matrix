@@ -159,7 +159,10 @@ export function AiTokenStatistics() {
             {data?.conversations
               .filter((item) => project === "all" || item.projectId === project)
               .map((item) => (
-                <option key={item.id} value={item.id}>
+                <option
+                  key={JSON.stringify([item.projectId, item.id])}
+                  value={item.id}
+                >
                   {item.deleted ? "[삭제됨] " : ""}
                   {item.title}
                 </option>

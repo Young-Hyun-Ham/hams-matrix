@@ -7,7 +7,7 @@ import type { Client, Row, Transaction } from "@libsql/client";
 import { HttpError, requireWriter } from "./auth";
 import { audit } from "./audit";
 import { db } from "./db";
-import { projectHistoryEnabled } from "./plans";
+import { projectHistoryEnabled, workspacePlan } from "./plans";
 import { projectRoleSql } from "./team-permissions";
 import type { User } from "./types";
 import {
@@ -30,6 +30,8 @@ import {
   mermaidSource,
 } from "./architecture-mermaid";
 import { createHash } from "node:crypto";
+import { preparedDatabaseInput } from "./database-domain-generation";
+import { resolveDomainSelections } from "./database-domain-selection";
 import type { ArchitectureMermaid } from "./artifact-types";
 const preparedMermaids = new WeakMap<
   object,
@@ -100,6 +102,7 @@ export async function projectAccess(
 ) {
   if (user.accountRole === "guest")
     throw new HttpError(403, "게스트는 실제 프로젝트에 접근할 수 없습니다.");
+  await workspacePlan(user.id, user.workspaceId, executor);
   const result = await executor.execute({
     sql: `SELECT p.id,p.name,p.description,p.status,p.owner_id,${projectRoleSql} AS role FROM projects p
       JOIN project_members m ON m.project_id=p.id AND m.workspace_id=p.workspace_id
@@ -344,6 +347,25 @@ export async function mutateArtifact(
     const now = new Date().toISOString();
     let after: Artifact;
     if (action === "DELETE") {
+      if (kind === "database") {
+        const tables = await tx.execute({
+          sql: "SELECT id,code,structure_json FROM project_artifacts WHERE project_id=? AND workspace_id=? AND kind='database' AND deleted_at IS NULL",
+          args: [projectId, user.workspaceId],
+        });
+        for (const table of tables.rows) {
+          const columns =
+            JSON.parse(String(table.structure_json ?? "{}")).columns ?? [];
+          for (const column of columns)
+            if (
+              column.reference &&
+              (table.id === id || column.reference.tableId === id)
+            )
+              throw new HttpError(
+                409,
+                `FK 연결을 먼저 해제해 주세요. ${table.code}.${column.name}`,
+              );
+        }
+      }
       const edges = await tx.execute({
         sql: "SELECT source_id FROM artifact_links WHERE (source_id=? OR target_id=?) AND project_id=? AND workspace_id=? LIMIT 1",
         args: [id!, id!, projectId, user.workspaceId],
@@ -421,11 +443,28 @@ export async function mutateArtifact(
         ),
       );
       const candidate = [...all.filter((a) => a.id !== after.id), after];
+      const domainResult =
+        kind === "database" && action === "CREATE"
+          ? await preparedDatabaseInput(input, tx, user, projectId)
+          : undefined;
+      const selectionResult =
+        kind === "database"
+          ? await resolveDomainSelections(
+              tx,
+              user,
+              projectId,
+              domainResult
+                ? { ...input, structure: { columns: domainResult.columns } }
+                : input,
+            )
+          : undefined;
       after.structure = prepareStructure(
         after,
-        input,
+        selectionResult?.input ?? input,
         candidate,
         before?.structure,
+        domainResult?.bindings,
+        selectionResult?.references,
       );
       if (after.kind === "architecture" && !preview) {
         const prepared = preparedMermaids.get(input);

@@ -15,6 +15,7 @@ import { db } from "@/lib/db";
 import type { Project } from "@/lib/project-types";
 import {
   assertProjectCapacity,
+  assertProjectInviteCapacity,
   assertTeamSharingEnabled,
   projectHistoryEnabled,
 } from "@/lib/plans";
@@ -159,9 +160,15 @@ export async function POST(request: Request) {
       );
     const tx = await db().transaction("write");
     try {
-      await assertProjectCapacity(user.id, tx);
+      await assertProjectCapacity(user.id, tx, user.workspaceId);
+      await assertProjectInviteCapacity(
+        user.id,
+        memberIds.filter((id) => id !== user.id).length,
+        tx,
+        user.workspaceId,
+      );
       if (memberIds.some((id) => id !== user.id))
-        await assertTeamSharingEnabled(user.id, tx);
+        await assertTeamSharingEnabled(user.id, tx, user.workspaceId);
       const selected = await tx.execute({
         sql: `SELECT u.id,u.name,m.role FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE m.workspace_id=? AND m.user_id IN (${memberIds.map(() => "?").join(",")}) ORDER BY u.name,u.id`,
         args: [user.workspaceId, ...memberIds],

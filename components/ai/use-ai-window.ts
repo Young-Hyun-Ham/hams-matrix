@@ -20,10 +20,21 @@ export function useAiWindow(
   open: boolean,
 ) {
   const [floating, setFloating] = useState(false),
-    [expanded, setExpanded] = useState(false),
+    [stackedExpanded, setStackedExpanded] = useState(false),
+    [split, setSplit] = useState(false),
+    [splitExpanded, setSplitExpanded] = useState(true),
     [position, setPosition] = useState<Position>({ x: 24, y: 88 }),
     [dragging, setDragging] = useState(false);
   const drag = useRef<Drag | null>(null);
+  const expanded = split ? splitExpanded : stackedExpanded;
+  function toggleSplit() {
+    if (!split) setSplitExpanded(true);
+    setSplit((current) => !current);
+  }
+  function toggleExpanded() {
+    if (split) setSplitExpanded((current) => !current);
+    else setStackedExpanded((current) => !current);
+  }
   function bounded(x: number, y: number): Position {
     const rect = panel.current?.getBoundingClientRect();
     return {
@@ -144,10 +155,12 @@ export function useAiWindow(
   return {
     floating,
     expanded,
+    split,
     position,
     dragging,
     toggleFloating,
-    toggleExpanded: () => setExpanded((value) => !value),
+    toggleSplit,
+    toggleExpanded,
     dragHandleProps: {
       onPointerDown,
       onPointerMove,

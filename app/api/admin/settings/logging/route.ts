@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { noStore } from "@/lib/admin-query";
 export async function GET() {
   try {
-    requirePlatformAdmin(await requireUser());
+    requirePlatformAdmin(await requireUser({ allowPlanMismatch: true }));
     return Response.json(await getAppSetting("DB_LOGGING_ENABLED"), noStore);
   } catch (e) {
     return errorResponse(e);
@@ -21,7 +21,7 @@ export async function GET() {
 export async function PATCH(request: Request) {
   try {
     checkOrigin(request);
-    const user = await requireUser();
+    const user = await requireUser({ allowPlanMismatch: true });
     requirePlatformAdmin(user);
     const input = await body(request);
     if (

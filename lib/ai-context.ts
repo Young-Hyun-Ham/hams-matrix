@@ -1,4 +1,5 @@
 import type { AiImageInfo } from "./ai-image-types";
+import type { AiTargetPage } from "./ai-target-pages";
 import { projectTabLabels, type ProjectTab } from "./project-tabs";
 
 export type AiContext = {
@@ -17,6 +18,8 @@ export type AiChat = {
   createdAt: string;
   result: string;
   images?: AiImageInfo[];
+  targetPage?: AiTargetPage | null;
+  targetVersion?: number | null;
 };
 export type AiConversation = {
   convId: string;
@@ -25,6 +28,8 @@ export type AiConversation = {
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
+  targetPage?: AiTargetPage | null;
+  targetVersion?: number;
 };
 export const emptyAiContext: AiContext = {
   pathname: "",
@@ -40,7 +45,7 @@ const examples: Partial<Record<ProjectTab, string>> = {
   requirement: "회원 가입 기능의 요구사항과 검수 기준을 작성해줘",
   screen: "관리자 회원 관리 화면의 구성과 동작을 설계해줘",
   database: "회원 관리에 필요한 테이블과 PK·FK 관계를 설계해줘",
-  program: "회원 조회 API의 프로그램 명세를 작성해줘",
+  program: "화면설계서의 데이터를 확인 하여 API의 프로그램 명세를 작성해줘",
   test: "회원 가입 요구사항의 테스트와 검수 시나리오를 만들어줘",
   trace: "요구사항과 화면·DB·프로그램의 연결 누락을 검토해줘",
   acceptance: "검수 준비 상태와 보완할 항목을 정리해줘",
@@ -49,24 +54,24 @@ const examples: Partial<Record<ProjectTab, string>> = {
 };
 export function aiPresentation(context: AiContext) {
   const label = context.tab ? projectTabLabels[context.tab] : context.screen;
-  const title =
-    context.tab === "screen"
-      ? "AI로 화면 생성"
-      : context.tab === "wbs"
-        ? "AI로 WBS 생성"
-        : context.tab === "architecture"
-          ? "AI로 아키텍처 생성"
-          : context.tab === "requirement"
-            ? "AI로 요구사항 생성"
-            : context.tab === "database"
-              ? "AI로 DB설계서 생성"
-              : context.tab === "program"
-                ? "AI로 프로그램 정의서 생성"
-                : context.tab === "test"
-                  ? "AI로 검수/검증 생성"
-                  : context.tab === "trace"
-                    ? "AI로 요구사항 추적표 생성"
-                    : "AI로 설계하기";
+  const title = "AI";
+    // context.tab === "screen"
+    //   ? "AI로 화면 생성"
+    //   : context.tab === "wbs"
+    //     ? "AI로 WBS 생성"
+    //     : context.tab === "architecture"
+    //       ? "AI로 아키텍처 생성"
+    //       : context.tab === "requirement"
+    //         ? "AI로 요구사항 생성"
+    //         : context.tab === "database"
+    //           ? "AI로 DB설계서 생성"
+    //           : context.tab === "program"
+    //             ? "AI로 프로그램 정의서 생성"
+    //             : context.tab === "test"
+    //               ? "AI로 검수/검증 생성"
+    //               : context.tab === "trace"
+    //                 ? "AI로 요구사항 추적표 생성"
+    //                 : "AI로 설계하기";
   return {
     title,
     label,

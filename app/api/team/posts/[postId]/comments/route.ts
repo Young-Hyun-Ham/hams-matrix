@@ -20,7 +20,7 @@ async function access(
   id: string,
   write = false,
 ) {
-  await assertTeamSharingEnabled(user.id, executor);
+  await assertTeamSharingEnabled(user.id, executor, user.workspaceId);
   const post = (
     await executor.execute({
       sql: "SELECT project_id FROM team_posts WHERE id=? AND workspace_id=?",

@@ -29,7 +29,13 @@ export function SettingsTabs({
   return (
     <nav
       ref={nav}
-      aria-label={base === "/admin/settings" ? "관리자 설정 탭" : "설정 탭"}
+      aria-label={
+        base === "/super-admin/settings"
+          ? "슈퍼관리자 설정 탭"
+          : base === "/admin/settings"
+            ? "관리자 설정 탭"
+            : "개인 설정 탭"
+      }
       className={variant === "admin" ? "admin-settings-tabs" : undefined}
       style={
         variant === "default"

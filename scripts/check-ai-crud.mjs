@@ -23,7 +23,7 @@ export async function checkAiCrud({
     });
     assert.equal(response.status, 200, await response.clone().text());
     const result = await response.json();
-    const first = result.chat.result.split("\n\n[서버 확인 실행 결과]")[0];
+    const first = result.chat.result.split(/\n\n\[서버 확인 (?:실행 결과|도구 오류)\]/)[0];
     return {
       ...result,
       tool: first.startsWith("{") ? JSON.parse(first) : null,
@@ -155,7 +155,7 @@ export async function checkAiCrud({
     const response = await post({ tab, prompt: "현재 자료를 설명해줘" });
     assert.equal(response.status, 200);
     const data = JSON.parse((await response.json()).chat.result);
-    assert.ok(data.instructions.includes("현재 탭:"));
+    assert.ok(data.instructions.includes("AI 대상 탭:"));
     if (tab === "history") {
       assert.ok(Array.isArray(data.input.pageContext.revisions));
       assert.equal(data.input.pageContext.artifacts, undefined);
@@ -215,8 +215,10 @@ export async function checkAiCrud({
   });
   assert.equal(denied.status, 200, 'project viewers may ask AI to read or explain');
   const deniedResult = await denied.json();
-  assert.equal(JSON.parse(deniedResult.chat.result).success, false);
-  assert.equal(JSON.parse(deniedResult.chat.result).status, 403);
+  const deniedTool = JSON.parse(deniedResult.chat.result.split("\n\n[서버 확인 도구 오류]")[0]);
+  assert.equal(deniedTool.success, false);
+  assert.equal(deniedTool.status, 403);
+  assert.match(deniedResult.chat.result, /서버 확인 도구 오류/);
   assert.deepEqual(deniedResult.actions, []);
   const rfp = {schemaVersion:1,projectId:project.id,title:'AI RFP',basic:{organization:'',startDate:'',endDate:'',budget:'',background:'AI draft background',objectives:''},scope:{currentState:'',targetUsers:'',included:'',excluded:'',expectedEffects:''},requirements:[],delivery:{schedule:[],organization:'',quality:'',security:'',risks:'',support:''},proposalGuide:{documents:'',method:'',deadline:'',contact:'',outline:''},evaluation:[],appendix:{glossary:'',references:'',notes:''}};
   const rfpResult=await tool({action:'CREATE',draft:rfp},'제안요청서를 작성해줘',{tab:'rfp',pathname:`/projects/${project.id}`},'save_rfp_document');

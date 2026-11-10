@@ -8,6 +8,11 @@ export type User = {
   workspaceName: string;
   role: string;
   plan: string;
+  workspacePlan?: string;
+  productId?: string | null;
+  workspaceProductId?: string | null;
+  productName?: string | null;
+  workspaceProductName?: string | null;
   teamSharingEnabled: boolean;
   accountRole: AccountRole;
   onboardingComplete: boolean;
@@ -18,6 +23,7 @@ export type NavigationMenuKey =
   | MenuKey
   | "subscription"
   | "admin"
+  | "super-admin"
   | "viewer"
   | "settings"
   | "help";

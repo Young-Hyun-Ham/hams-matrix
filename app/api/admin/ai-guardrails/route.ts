@@ -1,16 +1,17 @@
+import { guardrailAdminUser } from "@/lib/guardrail-admin-access";
+import { productAdminScope, productWorkspace } from "@/lib/product-access";
+import { masterWorkspaceScope } from "@/lib/master-workspace-admin";
 import { randomUUID } from "node:crypto";
 import {
   body,
   checkOrigin,
   errorResponse,
   HttpError,
-  requireUser,
   rateLimit,
 } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   activeGuardrailPolicy,
-  requireGuardrailAdmin,
   validateGuardrailPolicy,
 } from "@/lib/ai/guardrail-policy";
 import { createGuardrailSession } from "@/lib/ai/guardrails";
@@ -23,13 +24,12 @@ import { validateAiImages } from "@/lib/ai/chat-images";
 import { extractGuardrailFiles } from "@/lib/ai/guardrail-files";
 import { createTokenTracker } from "@/lib/ai/token-usage";
 import { aiModels } from "@/lib/ai-server";
-import { memberPlan } from "@/lib/plans";
+import { workspacePlan } from "@/lib/plans";
 
 const headers = { "Cache-Control": "private, no-store" };
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const user = await requireUser();
-    requireGuardrailAdmin(user);
+    const user = await guardrailAdminUser(request);
     const results = await Promise.all([
       activeGuardrailPolicy(user.workspaceId),
       db().execute({
@@ -50,7 +50,7 @@ export async function GET() {
       {
         active: results[0],
         draft: row
-          ? JSON.parse(String(row.draft_json))
+          ? { ...defaultGuardrailPolicy, ...JSON.parse(String(row.draft_json)) }
           : defaultGuardrailPolicy,
         revision: Number(row?.draft_revision ?? 0),
         versions: results[2].rows,
@@ -69,8 +69,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     checkOrigin(request);
-    const user = await requireUser();
-    requireGuardrailAdmin(user);
+    const user = await guardrailAdminUser(request);
     const input = await body(request, 20 * 1024 * 1024);
     if (input.action === "test") {
       await rateLimit(`guardrail-test:${user.workspaceId}:${user.id}`, 20);
@@ -93,7 +92,7 @@ export async function POST(request: Request) {
       ]);
       const images = validateAiImages(
         input.images,
-        (await memberPlan(user.id)).attachmentLimit,
+        (await workspacePlan(user.id, user.billingWorkspaceId)).attachmentLimit,
       );
       const files = await extractGuardrailFiles(input.files, signal);
       if (!text.trim() && !images.length && !files.length)
@@ -115,7 +114,7 @@ export async function POST(request: Request) {
         policy,
         checkpoint,
         track: createTokenTracker({
-          workspaceId: user.workspaceId,
+          workspaceId: user.billingWorkspaceId,
           userId: user.id,
           projectId: "",
           projectName: "",
@@ -196,14 +195,17 @@ export async function POST(request: Request) {
       throw new HttpError(400, "사용 가능한 검사 모델을 선택해 주세요.");
     const tx = await db().transaction("write");
     try {
-      const role = (
-        await tx.execute({
-          sql: "SELECT role FROM workspace_members WHERE workspace_id=? AND user_id=?",
-          args: [user.workspaceId, user.id],
-        })
-      ).rows[0];
-      if (!role || !["owner", "admin"].includes(String(role.role)))
-        throw new HttpError(403, "관리 권한이 변경되었습니다.");
+      if (user.workspaceMode)
+        await masterWorkspaceScope(user, user.workspaceId, tx);
+      else {
+        await productAdminScope(
+          user,
+          user.managedProductId,
+          tx,
+          user.superMode,
+        );
+        await productWorkspace(user.managedProductId, user.workspaceId, tx);
+      }
       const current = (
         await tx.execute({
           sql: "SELECT * FROM ai_guardrail_configs WHERE workspace_id=?",

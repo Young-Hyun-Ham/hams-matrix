@@ -12,9 +12,9 @@ import { db } from "@/lib/db";
 import { connection } from "next/server";
 import { projectAccess } from "@/lib/artifacts";
 import {
-  assertProjectCapacity,
   assertTeamSharingEnabled,
-  memberPlan,
+  assertProjectInviteCapacity,
+  workspacePlan,
 } from "@/lib/plans";
 import {
   projectRoleSql,
@@ -27,8 +27,10 @@ export async function GET(request: Request) {
   try {
     const user = await requireUser();
     const projectId = new URL(request.url).searchParams.get("projectId") || "";
-    const enabled = (await memberPlan(user.id)).teamSharingEnabled;
-    if (projectId) await assertTeamSharingEnabled(user.id);
+    const enabled = (await workspacePlan(user.id, user.workspaceId))
+      .teamSharingEnabled;
+    if (projectId)
+      await assertTeamSharingEnabled(user.id, db(), user.workspaceId);
     const access = projectId
       ? await projectAccess(db(), user, projectId)
       : null;
@@ -84,7 +86,7 @@ export async function POST(request: Request) {
     await rateLimit(`team-add:${user.workspaceId}:${user.id}`, 30);
     const tx = await db().transaction("write");
     try {
-      await assertTeamSharingEnabled(user.id, tx);
+      await assertTeamSharingEnabled(user.id, tx, user.workspaceId);
       const access = await projectAccess(tx, user, projectId);
       if (!["owner", "admin"].includes(String(access.role)))
         throw new HttpError(
@@ -93,7 +95,7 @@ export async function POST(request: Request) {
         );
       const target = (
         await tx.execute({
-          sql: "SELECT id FROM users WHERE email=? AND account_role IN ('master','admin','user') AND onboarding_complete=1",
+          sql: "SELECT id FROM users WHERE email=? AND account_role IN ('master','admin','user','biz_admin','team_admin') AND onboarding_complete=1",
           args: [email],
         })
       ).rows[0];
@@ -118,6 +120,20 @@ export async function POST(request: Request) {
           409,
           "이미 구성원인 사용자입니다. 권한 변경을 이용해 주세요.",
         );
+      const invited = Number(
+        (
+          await tx.execute({
+            sql: "SELECT count(*) AS n FROM project_members m JOIN projects p ON p.id=m.project_id AND p.workspace_id=m.workspace_id WHERE p.id=? AND p.workspace_id=? AND m.user_id!=p.owner_id",
+            args: [projectId, user.workspaceId],
+          })
+        ).rows[0].n,
+      );
+      await assertProjectInviteCapacity(
+        user.id,
+        invited + 1,
+        tx,
+        user.workspaceId,
+      );
       await tx.execute({
         sql: "INSERT INTO workspace_members(workspace_id,user_id,role,join_source) VALUES (?,?,'viewer',?) ON CONFLICT(workspace_id,user_id) DO NOTHING",
         args: [user.workspaceId, id, projectId ? "project" : "direct"],
@@ -147,6 +163,18 @@ export async function POST(request: Request) {
     }
     return Response.json({ ok: true }, { status: 201 });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      String(error.code).startsWith("SQLITE_BUSY")
+    )
+      return errorResponse(
+        new HttpError(
+          409,
+          "다른 초대를 처리 중입니다. 잠시 후 다시 시도해 주세요.",
+          { code: "INVITE_RETRY" },
+        ),
+      );
     return errorResponse(error);
   }
 }
@@ -157,6 +185,8 @@ export async function PATCH(request: Request) {
     const user = await requireUser(),
       data = await body(request);
     const projectId = typeof data.projectId === "string" ? data.projectId : "";
+    if (projectId && (data.role === "owner" || data.confirmTransfer === true))
+      throw new HttpError(403, "프로젝트 소유권 양도는 허용되지 않습니다.");
     if (
       typeof data.userId !== "string" ||
       !["owner", "admin", "member", "viewer"].includes(String(data.role))
@@ -164,7 +194,7 @@ export async function PATCH(request: Request) {
       throw new HttpError(400, "구성원과 변경할 권한을 확인해 주세요.");
     const tx = await db().transaction("write");
     try {
-      await assertTeamSharingEnabled(user.id, tx);
+      await assertTeamSharingEnabled(user.id, tx, user.workspaceId);
       if (projectId) await requireProjectOwner(tx, user, projectId);
       else await requireTeamOwner(tx, user);
       const target = (
@@ -190,23 +220,8 @@ export async function PATCH(request: Request) {
           );
         if (data.userId === user.id)
           throw new HttpError(400, "현재 소유자에게 다시 양도할 수 없습니다.");
-        if (projectId) {
-          await assertProjectCapacity(String(data.userId), tx);
-          await tx.execute({
-            sql: "UPDATE project_members SET role='member' WHERE project_id=? AND user_id=?",
-            args: [projectId, user.id],
-          });
-          await tx.execute({
-            sql: "UPDATE projects SET owner_id=?,updated_at=? WHERE id=? AND workspace_id=? AND owner_id=?",
-            args: [
-              data.userId,
-              new Date().toISOString(),
-              projectId,
-              user.workspaceId,
-              user.id,
-            ],
-          });
-        } else {
+        if (!projectId) {
+          await workspacePlan(String(data.userId), user.workspaceId, tx);
           await tx.execute({
             sql: "UPDATE workspace_members SET role='member' WHERE workspace_id=? AND user_id=?",
             args: [user.workspaceId, user.id],
@@ -226,7 +241,9 @@ export async function PATCH(request: Request) {
         )
           throw new HttpError(
             400,
-            "owner는 직접 해제할 수 없습니다. 다른 구성원에게 소유권을 이전하세요.",
+            projectId
+              ? "프로젝트 owner는 변경할 수 없습니다."
+              : "워크스페이스 owner는 소유권 이전 절차를 이용해 주세요.",
           );
         if (typeof data.expectedRole !== "string")
           throw new HttpError(400, "현재 권한을 확인해 주세요.");
