@@ -1,3 +1,12 @@
+import {
+  QueryClient,
+  dehydrate,
+  HydrationBoundary,
+} from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { getWorkspaceSystemSettings } from "@/lib/system-settings/server";
+import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
+import { serverGetJson } from "@/lib/query/server-fetch";
 import "@/styles/admin-settings.css";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -31,22 +40,67 @@ async function Content({
   const { tab = "plans" } = await searchParams;
   if (!items.some(([key]) => key === tab))
     redirect("/super-admin/settings?tab=plans");
+  const client = new QueryClient();
+  const scope = { userId: user.id, workspaceId: user.workspaceId };
+  const plans = tab === "plans" ? await listPlans() : [];
+  if (tab === "plans")
+    client.setQueryData([...matrixKeys.scope(scope), "super-admin", "plans"], {
+      plans,
+    });
+  else {
+    const settings = await getWorkspaceSystemSettings(user);
+    const policy = createWorkspaceQueryPolicy(settings);
+    const tasks = [
+      client
+        .query({
+          queryKey: [
+            ...matrixKeys.scope(scope),
+            "super-admin",
+            tab,
+            "products",
+          ],
+          queryFn: ({ signal }) =>
+            serverGetJson(`/api/super-admin/${tab}/products`, { signal }),
+          ...policy,
+        })
+        .catch(() => undefined),
+    ];
+    if (tab === "business")
+      tasks.push(
+        client
+          .query({
+            queryKey: [
+              ...matrixKeys.scope(scope),
+              "super-admin",
+              "business",
+              "requests",
+            ],
+            queryFn: ({ signal }) =>
+              serverGetJson("/api/super-admin/business/requests", { signal }),
+            ...policy,
+          })
+          .catch(() => undefined),
+      );
+    await Promise.all(tasks);
+  }
   return (
-    <section className="admin-settings-page">
-      <h1>슈퍼관리자설정</h1>
-      <SettingsTabs
-        base="/super-admin/settings"
-        tab={tab}
-        items={items}
-        variant="admin"
-      />
-      <div className="admin-settings-content">
-        {tab === "plans" ? (
-          <PlanAdmin initialPlans={await listPlans()} />
-        ) : (
-          <SuperProductConsole key={tab} type={tab as "business" | "team"} />
-        )}
-      </div>
-    </section>
+    <HydrationBoundary state={dehydrate(client)}>
+      <section className="admin-settings-page">
+        <h1>슈퍼관리자설정</h1>
+        <SettingsTabs
+          base="/super-admin/settings"
+          tab={tab}
+          items={items}
+          variant="admin"
+        />
+        <div className="admin-settings-content">
+          {tab === "plans" ? (
+            <PlanAdmin initialPlans={plans} />
+          ) : (
+            <SuperProductConsole key={tab} type={tab as "business" | "team"} />
+          )}
+        </div>
+      </section>
+    </HydrationBoundary>
   );
 }

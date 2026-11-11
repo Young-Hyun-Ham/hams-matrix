@@ -1,8 +1,13 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { TokenStatistics, TokenBucket } from "@/lib/ai/token-types";
 import "./ai-token-statistics.css";
 
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 const number = (value: number) => value.toLocaleString("ko-KR");
 export function AiTokenStatistics() {
   const now = new Date(
@@ -13,10 +18,6 @@ export function AiTokenStatistics() {
   const [group, setGroup] = useState("monthly"),
     [project, setProject] = useState("all"),
     [room, setRoom] = useState("");
-  const [data, setData] = useState<TokenStatistics | null>(null),
-    [error, setError] = useState(""),
-    [loading, setLoading] = useState(true),
-    [version, setVersion] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const from =
     group === "monthly"
@@ -34,42 +35,18 @@ export function AiTokenStatistics() {
     ...(room ? { convId: room } : {}),
   });
   const query = params.toString();
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === "visible")
-        setVersion((value) => value + 1);
-    }, 5000);
-    return () => window.clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch(`/api/ai/usage?${query}`, {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error);
-        if (!controller.signal.aborted) {
-          setData(result);
-          setError("");
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setError(
-            error instanceof Error
-              ? error.message
-              : "통계를 불러오지 못했습니다.",
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [query, version]);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const result = useQuery({
+    queryKey: [...matrixKeys.scope(scope), "ai-usage", query],
+    queryFn: ({ signal }) =>
+      requestJson<TokenStatistics>(`/api/ai/usage?${query}`, { signal }),
+    ...policy,
+    refetchInterval: 5000,
+  });
+  const data = result.data,
+    loading = result.isLoading,
+    error = resolveWorkspaceError(result.error, settings.errorMessages);
   function change(update: () => void) {
-    setLoading(true);
     setSelected(null);
     update();
   }
@@ -88,7 +65,7 @@ export function AiTokenStatistics() {
           type="button"
           className="button"
           disabled={loading}
-          onClick={() => change(() => setVersion((v) => v + 1))}
+          onClick={() => change(() => void result.refetch())}
         >
           새로고침
         </button>

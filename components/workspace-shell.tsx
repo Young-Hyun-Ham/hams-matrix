@@ -1,10 +1,27 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { HelpContent } from "./help-content";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/stores/workspace";
-import { navigationMenus, personalTabs, adminTabs, superAdminTabs, canUseNavigation } from "@/lib/menus";
+import {
+  navigationMenus,
+  personalTabs,
+  adminTabs,
+  superAdminTabs,
+  canUseNavigation,
+} from "@/lib/menus";
 import {
   projectSections,
   projectTabLabels,
@@ -17,6 +34,7 @@ import { AiChatbotToggle } from "./ai/ai-conversation-menu";
 import { AiWorkspaceLayout } from "./ai/ai-workspace-layout";
 import { emptyAiContext } from "@/lib/ai-context";
 
+import { HeaderNotifications } from "./header-notifications";
 import { SuperNotifications } from "./super-admin/notifications";
 import { WorkspacePlanGuard } from "./workspace-plan-guard";
 import { WorkspacePicker } from "./workspace-picker";
@@ -37,8 +55,7 @@ export function WorkspaceShell({
   const { setAiContext, setAiMenuOpen } = useWorkspace();
   const activeUser = useWorkspace((s) => s.user) ?? user;
   const [modal, setModal] = useState<"help" | null>(null),
-    [notifications, setNotifications] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useWorkspaceErrorState(""),
     [busy, setBusy] = useState(false);
   const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
@@ -57,10 +74,15 @@ export function WorkspaceShell({
       : pathname === "/super-admin/settings"
         ? superAdminTabs
         : pathname === "/admin/settings"
-        ? adminTabs
-        : null;
+          ? adminTabs
+          : null;
   const tab =
-    query.get("tab") ?? (pathname === "/settings" ? "usage" : pathname === "/admin/settings" ? "members" : "plans");
+    query.get("tab") ??
+    (pathname === "/settings"
+      ? "usage"
+      : pathname === "/admin/settings"
+        ? "members"
+        : "plans");
   const menu = {
     ...selected,
     label: tabLabels
@@ -69,7 +91,9 @@ export function WorkspaceShell({
   };
   const titleHref = pathname.startsWith("/projects/")
     ? pathname
-    : pathname === "/admin/settings" || pathname === "/super-admin/settings" || pathname === "/settings"
+    : pathname === "/admin/settings" ||
+        pathname === "/super-admin/settings" ||
+        pathname === "/settings"
       ? `${pathname}?tab=${tab}`
       : selected.action === "link"
         ? selected.href
@@ -82,25 +106,6 @@ export function WorkspaceShell({
     requestedProjectTab && Object.hasOwn(projectTabLabels, requestedProjectTab)
       ? (requestedProjectTab as ProjectTab)
       : (projectSections[pathname.slice(1)] ?? "overview");
-  const notificationRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!notifications) return;
-
-    function handleOutside(event: PointerEvent) {
-      if (
-        event.target instanceof Node &&
-        !notificationRef.current?.contains(event.target)
-      ) {
-        setNotifications(false);
-      }
-    }
-
-    document.addEventListener("pointerdown", handleOutside, true);
-
-    return () => {
-      document.removeEventListener("pointerdown", handleOutside, true);
-    };
-  }, [notifications]);
   function tabHref(value: string) {
     const params = new URLSearchParams(query.toString());
     params.set("tab", value);
@@ -118,47 +123,69 @@ export function WorkspaceShell({
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
-  }, [desktopSidebarOpen, error]);
+  }, [desktopSidebarOpen, error, setError]);
   useEffect(() => {
     setUser(user);
   }, [user, setUser]);
-  useEffect(() => {
-    const controller = new AbortController();
-    let pending = false;
-    async function refreshUser() {
-      if (document.hidden || pending) return;
-      pending = true;
+  const {
+    scope: queryScope,
+    policy,
+    settings,
+  } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const queryClient = useQueryClient();
+  const seenPath = useRef(pathname);
+  const meQuery = useQuery({
+    queryKey: matrixKeys.me(queryScope),
+    queryFn: ({ signal }) => requestJson<{ user: User }>("/api/me", { signal }),
+    ...policy,
+    refetchOnWindowFocus: "always",
+  });
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
       try {
-        const response = await fetch("/api/me", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const result = await response.json();
-        if (controller.signal.aborted) return;
-        if (!response.ok) {
-          setUser({ ...user, teamSharingEnabled: false });
-          return;
-        }
-        setUser(result.user);
-        if (pathname === "/team" && result.user.plan === result.user.workspacePlan && !result.user.teamSharingEnabled)
-          router.replace("/settings/subscription?reason=team-sharing");
-      } catch {
-        // Preserve the current page on a network interruption; APIs enforce live access.
-      } finally {
-        pending = false;
+        return await requestJson("/api/auth/logout", { method: "POST" });
+      } catch (e) {
+        if (!(e instanceof RequestError && e.status === 401)) throw e;
       }
+    },
+    retry: false,
+  });
+  useEffect(() => {
+    if (meQuery.isError) {
+      setUser({ ...(meQuery.data?.user ?? user), teamSharingEnabled: false });
+      return;
     }
-    void refreshUser();
-    window.addEventListener("focus", refreshUser);
-    window.addEventListener(teamAccessDeniedEvent, refreshUser);
-    document.addEventListener("visibilitychange", refreshUser);
-    return () => {
-      controller.abort();
-      window.removeEventListener("focus", refreshUser);
-      window.removeEventListener(teamAccessDeniedEvent, refreshUser);
-      document.removeEventListener("visibilitychange", refreshUser);
+    if (meQuery.data?.user) {
+      setUser(meQuery.data.user);
+      if (
+        pathname === "/team" &&
+        meQuery.data.user.plan === meQuery.data.user.workspacePlan &&
+        !meQuery.data.user.teamSharingEnabled
+      )
+        router.replace("/settings/subscription?reason=team-sharing");
+    }
+  }, [meQuery.data, meQuery.isError, pathname, router, setUser, user]);
+  useEffect(() => {
+    const refresh = () => {
+      if (!document.hidden)
+        void queryClient.invalidateQueries({
+          queryKey: matrixKeys.me(queryScope),
+        });
     };
-  }, [pathname, user, setUser, router]);
+    if (seenPath.current !== pathname) {
+      seenPath.current = pathname;
+      refresh();
+    }
+    window.addEventListener(teamAccessDeniedEvent, refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener(teamAccessDeniedEvent, refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [queryClient, queryScope, pathname]);
   useEffect(() => {
     if (
       pathname.startsWith("/projects/") ||
@@ -217,15 +244,16 @@ export function WorkspaceShell({
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok && response.status !== 401)
-        throw new Error("로그아웃하지 못했습니다. 다시 시도해 주세요.");
+      await logoutMutation.mutateAsync();
+      await queryClient.cancelQueries();
+      queryClient.clear();
       setUser(null);
       router.replace("/login");
       router.refresh();
     } catch (e) {
-      const message = e instanceof Error ? e.message : "연결을 확인해 주세요.";
-      if (logoutCollapsed.current) toast(message, true);
+      const message = resolveWorkspaceError(e, settings.errorMessages);
+      if (logoutCollapsed.current)
+        toast(e instanceof RequestError ? e : message, true);
       else setError(message);
     } finally {
       logoutPending.current = false;
@@ -315,7 +343,8 @@ export function WorkspaceShell({
               menus.filter(
                 (m) =>
                   m.key !== "subscription" &&
-                  m.key !== "admin" && m.key !== "super-admin" &&
+                  m.key !== "admin" &&
+                  m.key !== "super-admin" &&
                   m.key !== "settings" &&
                   m.key !== "viewer" &&
                   m.key !== "help",
@@ -328,7 +357,8 @@ export function WorkspaceShell({
                 menus.filter(
                   (m) =>
                     m.key === "subscription" ||
-                    m.key === "admin" || m.key === "super-admin" ||
+                    m.key === "admin" ||
+                    m.key === "super-admin" ||
                     m.key === "settings" ||
                     m.key === "viewer" ||
                     m.key === "help",
@@ -441,29 +471,7 @@ export function WorkspaceShell({
             <span className="topbar-divider" />
             <ThemeToggle />
             {activeUser.accountRole === "master" && <SuperNotifications />}
-            <div className="notification-wrap" ref={notificationRef}>
-              <button
-                className="icon-button"
-                aria-label="알림"
-                aria-expanded={notifications}
-                onClick={() => setNotifications((open) => !open)}
-              >
-                <Icon name="bell" size={19} />
-              </button>
-              {notifications && activeUser.teamSharingEnabled && (
-                <div className="notification-popover">
-                  <strong>알림</strong>
-                  <p>
-                    {activeUser.role === "owner"
-                      ? "팀 공유 메뉴에서 가입 신청을 검토할 수 있습니다."
-                      : "팀 공유 메뉴에서 가입 신청 상태를 확인할 수 있습니다."}
-                  </p>
-                  <Link href="/team" onClick={() => setNotifications(false)}>
-                    팀 가입 신청 확인
-                  </Link>
-                </div>
-              )}
-            </div>
+            <HeaderNotifications user={activeUser} />
             {/* <button
               className="topbar-avatar"
               onClick={() => {
@@ -516,28 +524,28 @@ export function WorkspaceShell({
           )}
         </header>
         <WorkspacePlanGuard user={activeUser}>
-        <AiWorkspaceLayout>
-          <main
-            id="main-content"
-            className={`main-content ${(pathname === "/admin/settings" || pathname === "/super-admin/settings") ? "admin-main-content" : ""} ${pathname === "/viewer" ? "viewer-main-content" : ""}`}
-          >
-            {activeUser.role === "viewer" && (
-              <p className="sample-notice">
-                {activeUser.workspaceName} · viewer 권한은 조회 전용입니다.
-                {activeUser.teamSharingEnabled &&
-                  " 팀 가입 신청 상태는 팀 공유 메뉴에서 확인하세요."}
-              </p>
-            )}
-            {children}
-          </main>
-          <footer className="workspace-footer">
-            <span>© {new Date().getFullYear()} HAMS Matrix</span>
-            <span>
-              <i /> All systems connected
-            </span>
-            <Link href="/policies">서비스 안내</Link>
-          </footer>
-        </AiWorkspaceLayout>
+          <AiWorkspaceLayout>
+            <main
+              id="main-content"
+              className={`main-content ${pathname === "/admin/settings" || pathname === "/super-admin/settings" ? "admin-main-content" : ""} ${pathname === "/viewer" ? "viewer-main-content" : ""}`}
+            >
+              {activeUser.role === "viewer" && (
+                <p className="sample-notice">
+                  {activeUser.workspaceName} · viewer 권한은 조회 전용입니다.
+                  {activeUser.teamSharingEnabled &&
+                    " 팀 가입 신청 상태는 팀 공유 메뉴에서 확인하세요."}
+                </p>
+              )}
+              {children}
+            </main>
+            <footer className="workspace-footer">
+              <span>© {new Date().getFullYear()} HAMS Matrix</span>
+              <span>
+                <i /> All systems connected
+              </span>
+              <Link href="/policies">서비스 안내</Link>
+            </footer>
+          </AiWorkspaceLayout>
         </WorkspacePlanGuard>
       </div>
       <dialog

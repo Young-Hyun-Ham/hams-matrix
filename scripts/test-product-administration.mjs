@@ -270,6 +270,57 @@ try {
       );
     }
   }
+  await client.executeMultiple(
+    "INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('history-project','master-ws','History project','master','master'); INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id,role) VALUES ('history-project','master-ws','master','admin');",
+  );
+  for (const [id, actor, name] of [
+    ["history-master", "master", "History_100%"],
+    ["history-other", "candidate", "Other history actor"],
+  ])
+    await client.execute({
+      sql: "INSERT INTO audit_logs(id,occurred_at,request_id,workspace_id,actor_id,actor_name,actor_type,action,resource_type,outcome,source,http_method,route,before_json,after_json) VALUES (?,?,'history-test','master-ws',?,?,'user','UPDATE','test','success','web','PATCH','/test','{\"name\":\"before\"}','{\"name\":\"after\"}')",
+      args: [id, new Date().toISOString(), actor, name],
+    });
+  const searchHistory = async (query) =>
+    json(productCall("workspace", "history", "GET", undefined, query));
+  assert.deepEqual(
+    (
+      await searchHistory("?q=History_100%25&projectId=history-project")
+    ).entries.map((e) => e.id),
+    ["history-master"],
+  );
+  assert.deepEqual(
+    (
+      await searchHistory("?q=candidate%40example.test&projectId=unassigned")
+    ).entries.map((e) => e.id),
+    ["history-other"],
+  );
+  assert.equal((await searchHistory("?q=not-found")).total, 0);
+  await json(
+    productCall(
+      "workspace",
+      "history",
+      "GET",
+      undefined,
+      "?projectId=foreign-project",
+    ),
+    404,
+  );
+  await json(
+    productCall(
+      "workspace",
+      "history",
+      "GET",
+      undefined,
+      "?q=" + "x".repeat(101),
+    ),
+    400,
+  );
+  const historyDetail = await json(
+    productCall("workspace", "history/audit/history-master"),
+  );
+  assert.equal(historyDetail.beforeJson.name, "before");
+  assert.equal(historyDetail.afterJson.name, "after");
   const workspaceOverview = await json(productCall("workspace"));
   assert.equal(workspaceOverview.workspaces[0].id, "master-ws");
   const workspaceMembers = await json(productCall("workspace", "members"));
@@ -310,6 +361,9 @@ try {
   assert.equal((await auth.currentUser()).accountRole, "user");
   assert.equal((await auth.currentUser()).plan, "free");
   token = "master-session";
+  assert.deepEqual(await json(superCall(["notifications", "count"])), {
+    unread: 1,
+  });
   const notices = await json(superCall(["notifications"]));
   assert.equal(notices.unread, 1);
   await json(
@@ -320,6 +374,9 @@ try {
       .status,
     "submitted",
   );
+  assert.deepEqual(await json(superCall(["notifications", "count"])), {
+    unread: 0,
+  });
   const a = await json(
       superCall(["business", "products"], "POST", { name: "Business A" }),
       201,
@@ -385,6 +442,38 @@ try {
   await json(superCall(["business", "products"]), 403);
   await json(productCall(b.id), 403);
   await json(productCall(a.id));
+  await client.execute({
+    sql: "INSERT INTO product_events(id,product_id,actor_id,action,target_id,before_json,after_json) VALUES ('history-product',?,?,'UPDATE','candidate','{}','{}')",
+    args: [a.id, bizAdmin.id],
+  });
+  const productHistory = await json(
+    productCall(a.id, "history", "GET", undefined, "?q=biz-0%40example.test"),
+  );
+  assert.ok(productHistory.entries.some((e) => e.id === "history-product"));
+  assert.equal(
+    (
+      await json(
+        productCall(
+          a.id,
+          "history",
+          "GET",
+          undefined,
+          "?q=no-such-history-actor",
+        ),
+      )
+    ).total,
+    0,
+  );
+  await json(
+    productCall(
+      a.id,
+      "history",
+      "GET",
+      undefined,
+      "?projectId=foreign-project",
+    ),
+    404,
+  );
   const candidate = await json(
     productCall(
       a.id,
@@ -679,6 +768,25 @@ try {
       true,
     );
   }
+  token = "master-session";
+  const notificationCount = load(
+    resolve("app/api/me/notifications/count/route.ts"),
+  );
+  assert.deepEqual(await json(notificationCount.GET()), { unread: 0 });
+  await client.executeMultiple(
+    "UPDATE plans SET team_sharing_enabled=1 WHERE code='free'; INSERT INTO team_join_requests(id,workspace_id,user_id,status,requested_at) VALUES ('header-pending','master-ws','applicant','pending','2026-11-11T00:00:00.000Z'),('header-foreign','candidate-ws','buyer','pending','2026-11-11T00:00:00.000Z'); INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('master-ws','applicant','viewer');",
+  );
+  assert.deepEqual(await json(notificationCount.GET()), { unread: 1 });
+  token = "applicant-session";
+  await client.execute(
+    "UPDATE sessions SET workspace_id='master-ws' WHERE user_id='applicant'",
+  );
+  assert.deepEqual(await json(notificationCount.GET()), { unread: 1 });
+  await json(superCall(["notifications", "count"]), 403);
+  await client.execute(
+    "UPDATE team_join_requests SET status='rejected' WHERE id='header-pending'",
+  );
+  assert.deepEqual(await json(notificationCount.GET()), { unread: 0 });
   const mapped = await one(
     "SELECT product_id FROM workspaces WHERE id='master-ws'",
   );

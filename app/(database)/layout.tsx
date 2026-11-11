@@ -1,3 +1,5 @@
+import { isThemePreset } from "@/lib/theme-presets";
+import { WorkspaceQueryBoundary } from "@/components/query/workspace-query-boundary";
 import { WorkspacePlanGuard } from "@/components/workspace-plan-guard";
 import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -33,6 +35,7 @@ async function AuthenticatedDatabase({ children }: { children: ReactNode }) {
   const initial: Preferences = {
     toastPosition: row?.toast_position === "top" ? "top" : "bottom",
     defaultTheme: row?.default_theme === "dark" ? "dark" : "light",
+    themePreset: isThemePreset(row?.theme_preset) ? row.theme_preset : "custom",
     toastBackgroundColor: String(row?.toast_background_color ?? "#ffffff"),
     toastFontColor: String(row?.toast_font_color ?? "#262138"),
     toastCloseButtonColor: row?.toast_close_button_color
@@ -45,9 +48,9 @@ async function AuthenticatedDatabase({ children }: { children: ReactNode }) {
     version: Number(row?.version ?? 0),
   };
   return (
-    <>
+    <WorkspaceQueryBoundary user={user} preferences={initial}>
       <PreferencesRuntime userId={user.id} initial={initial} />
       <WorkspacePlanGuard user={user}>{children}</WorkspacePlanGuard>
-    </>
+    </WorkspaceQueryBoundary>
   );
 }

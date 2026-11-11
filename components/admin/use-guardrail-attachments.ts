@@ -1,4 +1,8 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+
+import { useSubscription } from "@/components/query/use-subscription";
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { useAiImages } from "@/components/ai/use-ai-images";
 import {
@@ -13,29 +17,17 @@ export function useGuardrailAttachments(
   disabled: boolean,
   invalidate: () => void,
 ) {
-  const [attachmentLimit, setAttachmentLimit] = useState(0);
+  const subscription = useSubscription();
+  const attachmentLimit = subscription.data?.plan.attachmentLimit ?? 0;
   const imageState = useAiImages(
     disabled || attachmentLimit === 0,
     attachmentLimit,
   );
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/me/subscription", {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (response.ok)
-          setAttachmentLimit((await response.json()).plan.attachmentLimit);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
   const [files, setFiles] = useState<(GuardrailTestFile & { id: string })[]>(
     [],
   );
   const [filesLoading, setFilesLoading] = useState(false),
-    [fileError, setFileError] = useState("");
+    [fileError, setFileError] = useWorkspaceErrorState("");
   const current = useRef(files),
     busy = useRef(false),
     mounted = useRef(true);
@@ -111,9 +103,11 @@ export function useGuardrailAttachments(
     } catch (error) {
       if (mounted.current)
         setFileError(
-          error instanceof Error
-            ? error.message
-            : "파일을 첨부하지 못했습니다.",
+          error instanceof RequestError
+            ? error
+            : error instanceof Error
+              ? error.message
+              : "파일을 첨부하지 못했습니다.",
         );
     } finally {
       busy.current = false;

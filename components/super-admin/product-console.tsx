@@ -1,6 +1,14 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useState } from "react";
 import { ProductAdmin } from "../admin/product-admin";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 type Product = {
   id: string;
   name: string;
@@ -20,44 +28,77 @@ type RequestRow = {
   version: number;
 };
 export function SuperProductConsole({ type }: { type: "business" | "team" }) {
-  const [products, setProducts] = useState<Product[]>([]),
-    [requests, setRequests] = useState<RequestRow[]>([]),
-    [legacy, setLegacy] = useState<{ id: string; name: string }[]>([]);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
   const [selected, setSelected] = useState(""),
     [section, setSection] = useState("members"),
     [revision, setRevision] = useState(0),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [localError, setError] = useWorkspaceErrorState(""),
     [notice, setNotice] = useState("");
   const base = `/api/super-admin/${type}/products`;
+  const productKey = [
+    ...matrixKeys.scope(scope),
+    "super-admin",
+    type,
+    "products",
+  ];
+  const listing = useQuery({
+    queryKey: productKey,
+    queryFn: ({ signal }) =>
+      requestJson<{
+        products: Product[];
+        legacyWorkspaces: { id: string; name: string }[];
+      }>(base, { signal }),
+    ...policy,
+  });
+  const applications = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "super-admin",
+      "business",
+      "requests",
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<{ requests: RequestRow[] }>(
+        "/api/super-admin/business/requests",
+        { signal },
+      ),
+    ...policy,
+    enabled: type === "business",
+  });
+  const products = listing.data?.products ?? [],
+    legacy = listing.data?.legacyWorkspaces ?? [],
+    requests = applications.data?.requests ?? [];
+  const error =
+    localError ||
+    resolveWorkspaceError(
+      listing.error ?? applications.error,
+      settings.errorMessages,
+    );
+  const command = useMutation({
+    mutationFn: ({
+      path,
+      method,
+      input,
+    }: {
+      path: string;
+      method: string;
+      input: object;
+    }) =>
+      requestJson(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   useEffect(() => {
-    const c = new AbortController();
-    async function load() {
-      try {
-        const r = await fetch(base, { cache: "no-store", signal: c.signal });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
-        if (!c.signal.aborted) {
-          setProducts(d.products);
-          setLegacy(d.legacyWorkspaces);
-        }
-        if (type === "business") {
-          const a = await fetch("/api/super-admin/business/requests", {
-            cache: "no-store",
-            signal: c.signal,
-          });
-          const b = await a.json();
-          if (!a.ok) throw new Error(b.error);
-          if (!c.signal.aborted) setRequests(b.requests);
-        }
-      } catch (e) {
-        if (!c.signal.aborted)
-          setError(e instanceof Error ? e.message : "조회 실패");
-      }
-    }
-    void load();
-    return () => c.abort();
-  }, [base, type, revision]);
+    if (!revision) return;
+    void client.invalidateQueries({
+      queryKey: [...matrixKeys.scope(scope), "super-admin", type],
+    });
+  }, [client, scope, type, revision]);
   async function mutate(
     path: string,
     method: string,
@@ -68,20 +109,14 @@ export function SuperProductConsole({ type }: { type: "business" | "team" }) {
     setError("");
     setNotice("");
     try {
-      const r = await fetch(path, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
-      });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      await command.mutateAsync({ path, method, input });
       if (path.startsWith("/api/super-admin/business/requests/"))
         window.dispatchEvent(new Event("business-notifications-refresh"));
       setNotice("처리했습니다.");
       setRevision((n) => n + 1);
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "처리 실패");
+      setError(e);
       return false;
     } finally {
       setBusy(false);

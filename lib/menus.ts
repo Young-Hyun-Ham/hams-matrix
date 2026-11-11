@@ -142,6 +142,7 @@ export const personalTabs = {
 export const adminTabs = {
   members: "회원 관리",
   guardrails: "AI 가드레일 관리",
+  system: "시스템설정",
   history: "이력 관리",
 };
 export const superAdminTabs = {

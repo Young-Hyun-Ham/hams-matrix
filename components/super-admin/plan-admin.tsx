@@ -3,9 +3,34 @@ import { toast } from "@/stores/toast";
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { Plan } from "@/lib/plan-types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
   const router = useRouter();
-  const [plans, setPlans] = useState(initialPlans);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [...matrixKeys.scope(scope), "super-admin", "plans"];
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ plans: Plan[] }>("/api/super-admin/plans", { signal }),
+    ...policy,
+    initialData: { plans: initialPlans },
+  });
+  const plans = query.data.plans;
+  const mutation = useMutation({
+    mutationFn: (data: object) =>
+      requestJson<{ plans: Plan[] }>("/api/super-admin/plans", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
   const [busy, setBusy] = useState(false),
     [notice, setNotice] = useState("");
   async function save(event: FormEvent<HTMLFormElement>, plan: Plan) {
@@ -16,35 +41,35 @@ export function PlanAdmin({ initialPlans }: { initialPlans: Plan[] }) {
     const numeric = (key: string) =>
       form.get(key) === "" ? null : Number(form.get(key));
     try {
-      const response = await fetch("/api/super-admin/plans", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: plan.code,
-          version: plan.version,
-          priceMode: form.get("priceMode"),
-          monthlyPrice: numeric("monthlyPrice"),
-          yearlyPrice: numeric("yearlyPrice"),
-          monthlyDiscountPrice: numeric("monthlyDiscountPrice"),
-          yearlyDiscountPrice: numeric("yearlyDiscountPrice"),
-          projectLimit: numeric("projectLimit"),
-          projectInviteLimit: numeric("projectInviteLimit"),
-          tokenLimit: numeric("tokenLimit"),
-          dailyImageLimit: numeric("dailyImageLimit"),
-          attachmentLimit: numeric("attachmentLimit"),
-          historyEnabled: form.has("historyEnabled"),
-          teamSharingEnabled: form.has("teamSharingEnabled"),
-          recommended: form.has("recommended"),
-        }),
+      const result = await mutation.mutateAsync({
+        code: plan.code,
+        version: plan.version,
+        priceMode: form.get("priceMode"),
+        monthlyPrice: numeric("monthlyPrice"),
+        yearlyPrice: numeric("yearlyPrice"),
+        monthlyDiscountPrice: numeric("monthlyDiscountPrice"),
+        yearlyDiscountPrice: numeric("yearlyDiscountPrice"),
+        projectLimit: numeric("projectLimit"),
+        projectInviteLimit: numeric("projectInviteLimit"),
+        tokenLimit: numeric("tokenLimit"),
+        dailyImageLimit: numeric("dailyImageLimit"),
+        attachmentLimit: numeric("attachmentLimit"),
+        historyEnabled: form.has("historyEnabled"),
+        teamSharingEnabled: form.has("teamSharingEnabled"),
+        recommended: form.has("recommended"),
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
-      setPlans(result.plans);
+      client.setQueryData(queryKey, result);
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "subscription"],
+      });
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "workspaces"],
+      });
       router.refresh();
       setNotice("플랜 설정을 저장했습니다.");
       toast("플랜 설정을 저장했습니다.");
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : "저장 실패");
+      setNotice(resolveWorkspaceError(error, settings.errorMessages));
     } finally {
       setBusy(false);
     }

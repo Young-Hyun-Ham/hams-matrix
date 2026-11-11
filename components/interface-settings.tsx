@@ -1,13 +1,42 @@
 "use client";
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+  type CSSProperties,
+} from "react";
 import {
   preferenceKeys,
   usePreferences,
   type PreferenceEdits,
   type Preferences,
 } from "@/stores/preferences";
+import { themePresets, type ThemePreset } from "@/lib/theme-presets";
 import { isAccentColor } from "@/lib/personal-palette";
 import { toast } from "@/stores/toast";
+const themeOptions: {
+  id: string;
+  label: string;
+  theme: "light" | "dark";
+  preset: ThemePreset;
+  color: string | null;
+}[] = (["light", "dark"] as const).flatMap((theme) => [
+  ...themePresets
+    .filter((item) => item.theme === theme)
+    .map((item) => ({ ...item, preset: item.id })),
+  {
+    id: `${theme}-custom`,
+    label: `${theme === "light" ? "라이트" : "다크"} 커스텀`,
+    theme,
+    preset: "custom" as const,
+    color: null,
+  },
+]);
 export function InterfaceSettings({ userId }: { userId: string }) {
   const initialized = usePreferences((state) => state.userId === userId);
   return initialized ? (
@@ -20,13 +49,17 @@ function InterfaceForm({ userId }: { userId: string }) {
   const { saved, preview, save, busy, reload, owner } = usePreferences();
   const [edits, setEdits] = useState<PreferenceEdits>({}),
     [tab, setTab] = useState(0),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const [hexInput, setHexInput] = useState<string | null>(null),
     [refreshing, setRefreshing] = useState(false);
   const mounted = useRef(true),
     id = useId();
   const draft: Preferences = { ...saved, ...edits };
-  const invalidHex = hexInput !== null && !isAccentColor(hexInput);
+  const custom = draft.themePreset === "custom";
+  const selectedTheme = custom
+    ? `${draft.defaultTheme}-custom`
+    : draft.themePreset;
+  const invalidHex = custom && hexInput !== null && !isAccentColor(hexInput);
   const dirty = preferenceKeys.some((key) => draft[key] !== saved[key]);
   useEffect(() => {
     mounted.current = true;
@@ -50,6 +83,20 @@ function InterfaceForm({ userId }: { userId: string }) {
     preview({ ...saved, ...next }, userId);
     setError("");
   }
+  function selectPreset(presetId: string) {
+    const preset = themeOptions.find((item) => item.id === presetId);
+    if (!preset) return;
+    const next = {
+      ...edits,
+      themePreset: preset.preset,
+      defaultTheme: preset.theme,
+      ...(preset.color ? { accentColor: preset.color } : {}),
+    };
+    setHexInput(null);
+    setEdits(next);
+    preview({ ...saved, ...next }, userId);
+    setError("");
+  }
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (invalidHex) return;
@@ -68,7 +115,11 @@ function InterfaceForm({ userId }: { userId: string }) {
     } catch (reason) {
       if (mounted.current)
         setError(
-          reason instanceof Error ? reason.message : "저장하지 못했습니다.",
+          reason instanceof RequestError
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : "저장하지 못했습니다.",
         );
     }
   }
@@ -118,23 +169,90 @@ function InterfaceForm({ userId }: { userId: string }) {
           aria-labelledby={`${id}-tab-0`}
           hidden={tab !== 0}
         >
-          <label>
-            기본 테마
-            <select
-              value={draft.defaultTheme}
-              onChange={(event) =>
-                change("defaultTheme", event.target.value as "light" | "dark")
-              }
+          <div className="personal-theme-picker">
+            <span id={`${id}-theme-label`}>테마 선택</span>
+            <div
+              className="personal-theme-swatches"
+              role="radiogroup"
+              aria-labelledby={`${id}-theme-label`}
+              onKeyDown={(event) => {
+                const keys = [
+                  "ArrowLeft",
+                  "ArrowRight",
+                  "ArrowUp",
+                  "ArrowDown",
+                  "Home",
+                  "End",
+                ];
+                if (!keys.includes(event.key)) return;
+                event.preventDefault();
+                const options = themeOptions.map((item) => item.id);
+                const current = options.indexOf(selectedTheme);
+                const offset =
+                  event.key === "ArrowUp"
+                    ? -4
+                    : event.key === "ArrowDown"
+                      ? 4
+                      : event.key === "ArrowLeft"
+                        ? -1
+                        : 1;
+                const next =
+                  event.key === "Home"
+                    ? 0
+                    : event.key === "End"
+                      ? options.length - 1
+                      : (current + offset + options.length) % options.length;
+                selectPreset(options[next]);
+                event.currentTarget
+                  .querySelectorAll<HTMLButtonElement>('[role="radio"]')
+                  [next]?.focus();
+              }}
             >
-              <option value="light">라이트</option>
-              <option value="dark">다크</option>
-            </select>
-          </label>
+              {themeOptions.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  role="radio"
+                  aria-label={preset.label}
+                  title={preset.label}
+                  aria-checked={selectedTheme === preset.id}
+                  tabIndex={selectedTheme === preset.id ? 0 : -1}
+                  className={`personal-theme-swatch is-${preset.theme}${preset.preset === "custom" ? " is-custom" : ""}`}
+                  style={
+                    {
+                      "--swatch-accent":
+                        preset.color ?? draft.accentColor ?? "#6d51e8",
+                    } as CSSProperties
+                  }
+                  onClick={() => selectPreset(preset.id)}
+                >
+                  {preset.preset === "custom" ? (
+                    <>
+                      <span className="theme-custom-icon" aria-hidden="true" />
+                      <span className="theme-custom-label">커스텀</span>
+                    </>
+                  ) : (
+                    <span className="theme-swatch-lines" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                  )}
+                  {selectedTheme === preset.id && (
+                    <span className="theme-swatch-check" aria-hidden="true">
+                      ✓
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="personal-accent-controls">
             <label>
               강조 색상
               <input
                 type="color"
+                disabled={!custom}
                 value={draft.accentColor ?? "#6d51e8"}
                 onChange={(event) => {
                   setHexInput(null);
@@ -147,6 +265,7 @@ function InterfaceForm({ userId }: { userId: string }) {
               <input
                 type="text"
                 aria-label="강조 색상 HEX 코드"
+                disabled={!custom}
                 value={hexInput ?? draft.accentColor ?? "#6d51e8"}
                 pattern="#[0-9a-fA-F]{6}"
                 maxLength={7}
@@ -160,6 +279,7 @@ function InterfaceForm({ userId }: { userId: string }) {
             <button
               type="button"
               className="button"
+              disabled={!custom}
               onClick={() => {
                 setHexInput(null);
                 change("accentColor", null);
@@ -169,9 +289,11 @@ function InterfaceForm({ userId }: { userId: string }) {
             </button>
           </div>
           <p>
-            {draft.accentColor === null
-              ? "기본 보라색을 사용합니다."
-              : "선택한 색상을 라이트·다크 화면과 글자 대비에 맞게 조정해 적용합니다."}
+            {!custom
+              ? "프리셋의 강조 색상은 고정됩니다. 직접 변경하려면 커스텀을 선택해 주세요."
+              : draft.accentColor === null
+                ? "기본 보라색을 사용합니다."
+                : "선택한 색상을 라이트·다크 화면과 글자 대비에 맞게 조정해 적용합니다."}
           </p>
           <div className="personal-accent-sample">
             <span className="badge purple">선택된 항목</span>
@@ -311,7 +433,11 @@ function InterfaceForm({ userId }: { userId: string }) {
               } catch (reason) {
                 if (mounted.current)
                   setError(
-                    reason instanceof Error ? reason.message : "조회 실패",
+                    reason instanceof RequestError
+                      ? reason
+                      : reason instanceof Error
+                        ? reason.message
+                        : "조회 실패",
                   );
               } finally {
                 if (mounted.current) setRefreshing(false);

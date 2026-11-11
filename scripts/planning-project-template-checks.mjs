@@ -277,11 +277,12 @@ export async function checkProjectTemplates({
   );
   setStorageFailure(false);
   await ok(await project("POST", failureInput));
-  // Role changes during storage writes are checked again before publication.
+  // Project ownership is immutable. Make the source screen unavailable during
+  // storage copying and verify access is checked again before publication.
   setOnPut(async () => {
     setOnPut(undefined);
     await client.execute(
-      "UPDATE projects SET owner_id='member' WHERE id='tpl-project'",
+      "UPDATE project_artifacts SET deleted_at='2026-11-11T00:00:00.000Z' WHERE id='tpl-source'",
     );
   });
   assert.equal(
@@ -292,10 +293,10 @@ export async function checkProjectTemplates({
         requestId: randomUUID(),
       })
     ).status,
-    403,
+    404,
   );
   await client.execute(
-    "UPDATE projects SET owner_id='owner' WHERE id='tpl-project'",
+    "UPDATE project_artifacts SET deleted_at=NULL WHERE id='tpl-source'",
   );
   setOnPut(undefined);
   assert.equal(

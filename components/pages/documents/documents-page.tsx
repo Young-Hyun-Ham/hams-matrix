@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import {
   useEffect,
   useRef,
@@ -7,7 +9,16 @@ import {
   type FormEvent,
 } from "react";
 import { useProjectPage } from "@/components/shared/project-page-context";
-import { jsonRequest } from "@/lib/client-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson, requestBlob } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
+
 import {
   MAX_DOCUMENT_BYTES,
   type DocumentFolder,
@@ -41,14 +52,39 @@ export function DocumentsPage() {
   const canUpdate = can("documents", "UPDATE"),
     canDelete = can("documents", "DELETE");
   const [current, setCurrent] = useState<string | null>(null);
-  const [listing, setListing] = useState<DocumentListing>({
-    folders: [],
-    files: [],
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "project",
+      data.project.id,
+      "documents",
+      { folderId: current ?? "" },
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<DocumentListing>(
+        `${base}?${new URLSearchParams({ folderId: current ?? "" })}`,
+        { signal },
+      ),
+    ...policy,
   });
-  const [loading, setLoading] = useState(true),
-    [busy, setBusy] = useState(false);
-  const [error, setError] = useState(""),
+  const listing = query.data ?? { folders: [], files: [] };
+  const loading = query.isLoading;
+  const [busy, setBusy] = useState(false);
+  const [localError, setError] = useWorkspaceErrorState(""),
     [notice, setNotice] = useState("");
+  const error =
+    localError || resolveWorkspaceError(query.error, settings.errorMessages);
+  const describe = (error: unknown) =>
+    error instanceof RequestError
+      ? resolveWorkspaceError(error, settings.errorMessages)
+      : message(error);
+  const command = useMutation({
+    mutationFn: ({ url, init }: { url: string; init: RequestInit }) =>
+      requestJson(url, init),
+    retry: false,
+  });
   const [revision, setRevision] = useState(0);
   const [action, setAction] = useState<LibraryAction | null>(null),
     [name, setName] = useState("");
@@ -91,26 +127,16 @@ export function DocumentsPage() {
   }
 
   useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const result = await jsonRequest(
-          `${base}?${new URLSearchParams({ folderId: current ?? "" })}`,
-          { signal: controller.signal },
-        );
-        if (!controller.signal.aborted) setListing(result);
-      } catch (error) {
-        if (!controller.signal.aborted) setError(message(error));
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [base, current, revision, aiVersion]);
-
+    if (!revision && !aiVersion) return;
+    void client.invalidateQueries({
+      queryKey: [
+        ...matrixKeys.scope(scope),
+        "project",
+        data.project.id,
+        "documents",
+      ],
+    });
+  }, [client, scope, data.project.id, revision, aiVersion]);
   const ancestors: DocumentFolder[] = [];
   const seen = new Set<string>();
   let ancestor = current;
@@ -127,7 +153,6 @@ export function DocumentsPage() {
     setAction(null);
     setNotice("");
     setError("");
-    setLoading(true);
   }
   function openAction(next: LibraryAction) {
     if (
@@ -164,9 +189,9 @@ export function DocumentsPage() {
         ))
       )
         throw new Error("현재 프로젝트 권한으로 문서를 변경할 수 없습니다.");
-      await jsonRequest(
-        action.file ? `${base}/files/${action.file.id}` : base,
-        {
+      await command.mutateAsync({
+        url: action.file ? `${base}/files/${action.file.id}` : base,
+        init: {
           method:
             action.kind === "create"
               ? "POST"
@@ -180,7 +205,7 @@ export function DocumentsPage() {
             parentId: current,
           }),
         },
-      );
+      });
       const target = action.file ? "파일" : "폴더";
       setNotice(
         action.kind === "create"
@@ -192,7 +217,7 @@ export function DocumentsPage() {
       setAction(null);
       setRevision((r) => r + 1);
     } catch (error) {
-      setError(message(error));
+      setError(error instanceof RequestError ? error : describe(error));
     } finally {
       setBusy(false);
     }
@@ -219,17 +244,17 @@ export function DocumentsPage() {
           throw new Error(
             "현재 프로젝트 권한으로 파일을 업로드할 수 없습니다.",
           );
-        await jsonRequest(
-          `${base}/files?${new URLSearchParams({ folderId: current ?? "", name: file.name })}`,
-          {
+        await command.mutateAsync({
+          url: `${base}/files?${new URLSearchParams({ folderId: current ?? "", name: file.name })}`,
+          init: {
             method: "POST",
             headers: { "Content-Type": "application/octet-stream" },
             body: file,
           },
-        );
+        });
         uploaded++;
       } catch (error) {
-        failures.push(`${file.name}: ${message(error)}`);
+        failures.push(`${file.name}: ${describe(error)}`);
       }
     }
     setNotice(
@@ -245,14 +270,9 @@ export function DocumentsPage() {
     setError("");
     setNotice(`${file.name} 다운로드 준비 중…`);
     try {
-      const response = await fetch(`${base}/files/${file.id}`, {
-        cache: "no-store",
-      });
-      if (!response.ok)
-        throw new Error(
-          (await response.json()).error || "다운로드에 실패했습니다.",
-        );
-      const url = URL.createObjectURL(await response.blob()),
+      const url = URL.createObjectURL(
+          await requestBlob(`${base}/files/${file.id}`),
+        ),
         link = document.createElement("a");
       link.href = url;
       link.download = file.name;
@@ -263,7 +283,7 @@ export function DocumentsPage() {
       setNotice(`${file.name} 다운로드를 시작했습니다.`);
     } catch (error) {
       setNotice("");
-      setError(message(error));
+      setError(error instanceof RequestError ? error : describe(error));
     } finally {
       setBusy(false);
     }

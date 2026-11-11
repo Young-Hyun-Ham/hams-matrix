@@ -1,17 +1,45 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { RegistrationChoiceDialog } from "./registration-choice-dialog";
 import type { RegistrationChoice } from "@/lib/registration";
 import { useWorkspace } from "@/stores/workspace";
 
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
+import type { User } from "@/lib/types";
 export function OnboardingForm() {
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: (data: object) =>
+      requestJson<{ user: User }>("/api/onboarding", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
+  const logoutCommand = useMutation({
+    mutationFn: async () => {
+      try {
+        await requestJson("/api/auth/logout", { method: "POST" });
+      } catch (error) {
+        if (!(error instanceof RequestError && error.status === 401))
+          throw error;
+      }
+    },
+    retry: false,
+  });
   const router = useRouter();
   const setUser = useWorkspace((state) => state.setUser);
   const [role, setRole] = useState<"owner" | "user" | null>(null);
   const [choice, setChoice] = useState<RegistrationChoice | null>(null);
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useWorkspaceErrorState("");
   const [pending, setPending] = useState(false);
   const [jobTitle, setJobTitle] = useState("");
   async function logout() {
@@ -19,16 +47,14 @@ export function OnboardingForm() {
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/auth/logout", { method: "POST" });
-      if (!response.ok && response.status !== 401)
-        throw new Error("로그아웃하지 못했습니다.");
+      await logoutCommand.mutateAsync();
+      await client.cancelQueries();
+      client.clear();
       setUser(null);
       router.replace("/login");
       router.refresh();
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "연결을 확인해 주세요.",
-      );
+      setError(error);
     } finally {
       setPending(false);
     }
@@ -38,20 +64,14 @@ export function OnboardingForm() {
     setPending(true);
     setError("");
     try {
-      const response = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...choice, jobTitle }),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      const result = await command.mutateAsync({ ...choice, jobTitle });
+      await client.cancelQueries();
+      client.clear();
       setUser(result.user);
       router.replace("/dashboard");
       router.refresh();
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "가입을 완료하지 못했습니다.",
-      );
+      setError(error);
     } finally {
       setPending(false);
     }

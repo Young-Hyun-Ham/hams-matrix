@@ -1,3 +1,5 @@
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
 import { useEffect, useRef, useState } from "react";
 export function TemplateCreateDialog({
   title,
@@ -11,7 +13,7 @@ export function TemplateCreateDialog({
   const dialog = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState(title);
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const attempt = useRef<{ name: string; id: string } | null>(null);
   useEffect(() => {
     const node = dialog.current;
@@ -44,7 +46,11 @@ export function TemplateCreateDialog({
             onClose();
           } catch (error) {
             setError(
-              error instanceof Error ? error.message : "템플릿 생성 실패",
+              error instanceof RequestError
+                ? error
+                : error instanceof Error
+                  ? error.message
+                  : "템플릿 생성 실패",
             );
             setBusy(false);
           }

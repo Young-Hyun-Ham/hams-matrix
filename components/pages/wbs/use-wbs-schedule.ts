@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Artifact, ProjectData } from "@/lib/artifact-types";
 import { definitions } from "@/lib/artifact-types";
@@ -7,7 +9,13 @@ import {
   koreaToday,
   scheduleContent,
 } from "@/lib/wbs-schedule";
-import { jsonRequest } from "@/lib/client-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
+
 import { useProjectPage } from "@/components/shared/project-page-context";
 
 export type ScheduleRow = {
@@ -56,13 +64,30 @@ export function scheduleRows(
 }
 export function useWbsSchedule() {
   const context = useProjectPage();
+  const { scope } = useWorkspaceQueryPolicy({
+    userId: context.user.id,
+    workspaceId: context.user.workspaceId,
+  });
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ data: ProjectData; savedAt: string }>(
+        `/api/projects/${context.data.project.id}/wbs/schedule`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      ),
+    retry: false,
+  });
   const [baseline, setBaseline] = useState(context.data);
   const [draft, setDraft] = useState(() =>
     context.artifacts.filter((artifact) => artifact.kind === "wbs"),
   );
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [error, setError] = useWorkspaceErrorState(""),
     [message, setMessage] = useState("");
   const [editing, setEditing] = useState<Artifact | null>(null);
   const [confirmReload, setConfirmReload] = useState(false);
@@ -232,7 +257,11 @@ export function useWbsSchedule() {
       setError("");
     } catch (reason) {
       setError(
-        reason instanceof Error ? reason.message : "작업 내용을 확인해 주세요.",
+        reason instanceof RequestError
+          ? reason
+          : reason instanceof Error
+            ? reason.message
+            : "작업 내용을 확인해 주세요.",
       );
     }
   }
@@ -243,9 +272,16 @@ export function useWbsSchedule() {
     setError("");
     setConfirmReload(false);
     try {
-      const data: ProjectData = await jsonRequest(
-        `/api/projects/${baseline.project.id}/artifacts`,
-      );
+      const data = await client.query({
+        queryKey: matrixKeys.artifacts(scope, baseline.project.id),
+        queryFn: ({ signal }) =>
+          requestJson<ProjectData>(
+            `/api/projects/${baseline.project.id}/artifacts`,
+            { signal },
+          ),
+        staleTime: 0,
+        retry: false,
+      });
       if (!mounted.current) return;
       setBaseline(data);
       setDraft(data.artifacts.filter((artifact) => artifact.kind === "wbs"));
@@ -255,7 +291,11 @@ export function useWbsSchedule() {
     } catch (reason) {
       if (mounted.current)
         setError(
-          reason instanceof Error ? reason.message : "조회하지 못했습니다.",
+          reason instanceof RequestError
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : "조회하지 못했습니다.",
         );
     } finally {
       submitting.current = false;
@@ -302,17 +342,23 @@ export function useWbsSchedule() {
       for (const action of actions)
         if (!(await context.verifyPermission("wbs", action)))
           throw new Error("WBS permission changed. Reload project access.");
-      const result = await jsonRequest(
-        `/api/projects/${baseline.project.id}/wbs/schedule`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...payload,
-            requestId: retry.current!.requestId,
-          }),
-        },
+      const result = await command.mutateAsync({
+        ...payload,
+        requestId: retry.current!.requestId,
+      });
+      client.setQueryData(
+        matrixKeys.artifacts(scope, baseline.project.id),
+        result.data,
       );
+      void client.invalidateQueries({
+        queryKey: [
+          ...matrixKeys.scope(scope),
+          "project",
+          baseline.project.id,
+          "wbs",
+          "publications",
+        ],
+      });
       if (!mounted.current) return;
       setBaseline(result.data);
       setDraft(
@@ -328,7 +374,11 @@ export function useWbsSchedule() {
     } catch (reason) {
       if (mounted.current)
         setError(
-          reason instanceof Error ? reason.message : "저장하지 못했습니다.",
+          reason instanceof RequestError
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : "저장하지 못했습니다.",
         );
     } finally {
       submitting.current = false;

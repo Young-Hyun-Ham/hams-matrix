@@ -25,6 +25,9 @@ type AuditInput = {
   errorCode?: string;
 };
 const snapshotFields = new Set([
+  "staleTimeMs",
+  "retryCount",
+  "errorMessages",
   "code",
   "fields",
   "links",

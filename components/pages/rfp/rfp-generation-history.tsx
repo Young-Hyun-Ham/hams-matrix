@@ -1,7 +1,16 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { RfpGenerationHistory } from "@/lib/rfp-source-types";
 
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 const labels = {
   running: "생성 중",
   stop_requested: "중지 요청 중",
@@ -17,56 +26,67 @@ export function RfpGenerationHistoryDialog({
   projectId: string;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    controller = useRef<AbortController | null>(null);
-  const [history, setHistory] = useState<RfpGenerationHistory>({
-    items: [],
-    nextCursor: null,
+  const dialog = useRef<HTMLDialogElement>(null);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [
+    ...matrixKeys.scope(scope),
+    "project",
+    projectId,
+    "rfp",
+    "history",
+    "infinite",
+  ];
+  const query = useInfiniteQuery({
+    queryKey,
+    queryFn: ({ signal, pageParam }) =>
+      requestJson<RfpGenerationHistory>(
+        `/api/projects/${projectId}/rfp/generate${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`,
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    ...policy,
   });
-  const [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
+  const ids = new Set<string>();
+  const history: RfpGenerationHistory = {
+    items: (query.data?.pages ?? [])
+      .flatMap((page) => page.items)
+      .filter((item) => {
+        if (ids.has(item.requestId)) return false;
+        ids.add(item.requestId);
+        return true;
+      }),
+    nextCursor: query.hasNextPage
+      ? (query.data?.pages.at(-1)?.nextCursor ?? null)
+      : null,
+  };
+  const loading = query.isFetching,
+    error = resolveWorkspaceError(query.error, settings.errorMessages);
   async function load(cursor: string | null = null) {
-    controller.current?.abort();
-    const request = new AbortController();
-    controller.current = request;
-    setLoading(true);
-    setError("");
-    try {
-      const response = await fetch(
-        `/api/projects/${projectId}/rfp/generate${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-        { cache: "no-store", signal: request.signal },
+    if (cursor) await query.fetchNextPage();
+    else {
+      client.setQueryData<InfiniteData<RfpGenerationHistory, string | null>>(
+        queryKey,
+        (current) =>
+          current
+            ? {
+                pages: current.pages.slice(0, 1),
+                pageParams: current.pageParams.slice(0, 1),
+              }
+            : current,
       );
-      if (!response.ok)
-        throw new Error(
-          "생성 이력을 불러오지 못했습니다. 조회 권한과 연결 상태를 확인해 주세요.",
-        );
-      const result: RfpGenerationHistory = await response.json();
-      if (!request.signal.aborted)
-        setHistory((previous) => ({
-          items: cursor ? [...previous.items, ...result.items] : result.items,
-          nextCursor: result.nextCursor,
-        }));
-    } catch (cause) {
-      if (!request.signal.aborted)
-        setError(
-          cause instanceof Error ? cause.message : "이력 조회에 실패했습니다.",
-        );
-    } finally {
-      if (!request.signal.aborted) setLoading(false);
+      await query.refetch();
     }
   }
   useEffect(() => {
     const trigger = document.activeElement;
     dialog.current?.showModal();
-    const timer = window.setTimeout(() => void load(), 0);
     return () => {
-      window.clearTimeout(timer);
-      controller.current?.abort();
       if (trigger instanceof HTMLElement && trigger.isConnected)
         trigger.focus();
     };
     // This dialog is mounted separately for each project/open action.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
     <dialog
@@ -109,7 +129,11 @@ export function RfpGenerationHistoryDialog({
             </div>
             <dl>
               <dt>요청 일시</dt>
-              <dd>{new Date(item.createdAt).toLocaleString("ko-KR")}</dd>
+              <dd>
+                {new Date(item.createdAt).toLocaleString("ko-KR", {
+                  timeZone: "Asia/Seoul",
+                })}
+              </dd>
               <dt>모델</dt>
               <dd>{item.model}</dd>
               <dt>요청 범위</dt>
@@ -125,7 +149,11 @@ export function RfpGenerationHistoryDialog({
               {item.finishedAt && (
                 <>
                   <dt>종료 일시</dt>
-                  <dd>{new Date(item.finishedAt).toLocaleString("ko-KR")}</dd>
+                  <dd>
+                    {new Date(item.finishedAt).toLocaleString("ko-KR", {
+                      timeZone: "Asia/Seoul",
+                    })}
+                  </dd>
                 </>
               )}
               {item.errorCode !== null && (

@@ -105,6 +105,7 @@ export async function PATCH(request: Request) {
         throw new HttpError(
           409,
           "요금제 정보가 변경되었습니다. 새로고침 후 다시 선택해 주세요.",
+          { code: "PLAN_VERSION_CONFLICT", details: { action: "reload" } },
         );
       if (current.code !== target.code) {
         await tx.execute({

@@ -1,126 +1,140 @@
-"use client";
-import { useCallback, useEffect, useRef, useState } from "react";
+﻿"use client";
+import { useCallback, useEffect, useState } from "react";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
 import type { AiChat, AiConversation } from "@/lib/ai-context";
 import { useWorkspace } from "@/stores/workspace";
-
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+type ChatPage = {
+  chats: AiChat[];
+  nextCursor: string | null;
+  historyEnabled: boolean;
+  conversation: AiConversation;
+};
 export function useAiConversation(conversation: AiConversation, open: boolean) {
-  const [chats, setChats] = useState<AiChat[]>([]);
-  const [loading, setLoading] = useState(true),
-    [loadingOlder, setLoadingOlder] = useState(false);
-  const [error, setError] = useState(""),
-    [nextCursor, setNextCursor] = useState<string | null>(null);
-  const [olderError, setOlderError] = useState("");
-  const [loadedVersion, setLoadedVersion] = useState(0);
-  const [version, setVersion] = useState(0);
-  const olderRequest = useRef<AbortController | null>(null);
-  const appended = useRef<AiChat[]>([]);
-  const projectId = conversation.projectId,
-    convId = conversation.convId;
-  const url = `/api/ai/chats?projectId=${encodeURIComponent(projectId)}&convId=${encodeURIComponent(convId)}`;
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const [local, setLocal] = useState<{ scope: string; chats: AiChat[] }>({
+    scope: "",
+    chats: [],
+  });
+  const localScope = `${scope.userId}:${scope.workspaceId}:${conversation.projectId}:${conversation.convId}`;
+  const query = useInfiniteQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "project",
+      conversation.projectId,
+      "conversation",
+      conversation.convId,
+      "chats",
+      "infinite",
+    ],
+    queryFn: ({ signal, pageParam }) =>
+      requestJson<ChatPage>(
+        `/api/ai/chats?${new URLSearchParams({ projectId: conversation.projectId, convId: conversation.convId, ...(pageParam ? { before: pageParam } : {}) })}`,
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) =>
+      page.historyEnabled === false
+        ? undefined
+        : (page.nextCursor ?? undefined),
+    ...policy,
+    enabled: open && Boolean(scope.userId && conversation.convId),
+  });
+  const latest = query.data?.pages[0];
   useEffect(() => {
-    if (!open) return;
-    olderRequest.current?.abort();
-    olderRequest.current = null;
-    const appendStart = appended.current.length;
-    const controller = new AbortController();
-    fetch(url, { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (controller.signal.aborted) return;
-        const ids = new Set<string>(data.chats.map((chat: AiChat) => chat.id));
-        setChats([
-          ...data.chats,
-          ...appended.current
-            .slice(data.historyEnabled === false ? 0 : appendStart)
-            .filter((chat) => !ids.has(chat.id)),
-        ]);
-        setNextCursor(data.nextCursor);
-        setError("");
-        setOlderError("");
-        setLoadingOlder(false);
-        setLoadedVersion((value) => value + 1);
-        useWorkspace.getState().updateAiConversation(data.conversation);
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setError(
-            error instanceof Error
-              ? error.message
-              : "대화를 불러오지 못했습니다.",
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => {
-      controller.abort();
-      olderRequest.current?.abort();
-      olderRequest.current = null;
-    };
-  }, [url, open, version]);
-  async function loadOlder() {
-    if (!open || loading || !nextCursor || olderRequest.current) return;
-    const controller = new AbortController();
-    olderRequest.current = controller;
-    setLoadingOlder(true);
-    setOlderError("");
-    try {
-      const response = await fetch(
-        `${url}&before=${encodeURIComponent(nextCursor)}`,
-        {
-          signal: controller.signal,
-          cache: "no-store",
+    if (latest?.conversation)
+      useWorkspace.getState().updateAiConversation(latest.conversation);
+  }, [latest]);
+  const ids = new Set<string>();
+  const chats = [...(query.data?.pages ?? [])]
+    .reverse()
+    .flatMap((page) => page.chats)
+    .filter((chat) => {
+      if (ids.has(chat.id)) return false;
+      ids.add(chat.id);
+      return true;
+    });
+  for (const chat of local.scope === localScope ? local.chats : [])
+    if (!ids.has(chat.id)) {
+      chats.push(chat);
+      ids.add(chat.id);
+    }
+  const append = useCallback(
+    (chat: AiChat) => {
+      setLocal((current) => ({
+        scope: localScope,
+        chats:
+          current.scope !== localScope
+            ? [chat]
+            : current.chats.some((item) => item.id === chat.id)
+              ? current.chats
+              : [...current.chats, chat],
+      }));
+      client.setQueryData<InfiniteData<ChatPage>>(
+        [
+          ...matrixKeys.scope(scope),
+          "project",
+          conversation.projectId,
+          "conversation",
+          conversation.convId,
+          "chats",
+          "infinite",
+        ],
+        (current) => {
+          if (
+            !current?.pages.length ||
+            current.pages[0].historyEnabled === false
+          )
+            return current;
+          const first = current.pages[0];
+          if (first.chats.some((item) => item.id === chat.id)) return current;
+          return {
+            ...current,
+            pages: [
+              { ...first, chats: [...first.chats, chat] },
+              ...current.pages.slice(1),
+            ],
+          };
         },
       );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
-      if (!controller.signal.aborted) {
-        setChats((current) => {
-          const ids = new Set(current.map((chat) => chat.id));
-          return [
-            ...data.chats.filter((chat: AiChat) => !ids.has(chat.id)),
-            ...current,
-          ];
-        });
-        setNextCursor(data.nextCursor);
-      }
-    } catch (error) {
-      if (!controller.signal.aborted)
-        setOlderError(
-          error instanceof Error
-            ? error.message
-            : "이전 대화를 불러오지 못했습니다.",
-        );
-    } finally {
-      if (olderRequest.current === controller) {
-        olderRequest.current = null;
-        setLoadingOlder(false);
-      }
-    }
-  }
-  const append = useCallback((chat: AiChat) => {
-    appended.current.push(chat);
-    setChats((current) =>
-      current.some((item) => item.id === chat.id)
-        ? current
-        : [...current, chat],
-    );
-    useWorkspace.getState().refreshAiConversations();
-  }, []);
+      useWorkspace.getState().refreshAiConversations();
+    },
+    [localScope, client, scope, conversation.projectId, conversation.convId],
+  );
   return {
     chats,
-    loading,
-    loadingOlder,
-    error,
-    olderError,
-    loadedVersion,
-    nextCursor,
-    loadOlder,
+    loading: query.isLoading,
+    loadingOlder: query.isFetchingNextPage,
+    error: query.isFetchNextPageError
+      ? ""
+      : resolveWorkspaceError(query.error, settings.errorMessages),
+    olderError: query.isFetchNextPageError
+      ? resolveWorkspaceError(query.error, settings.errorMessages)
+      : "",
+    loadedVersion: (latest?.chats.map((chat) => chat.id).join("|") ?? "")
+      .split("")
+      .reduce(
+        (hash, character) => (hash * 31 + character.charCodeAt(0)) | 0,
+        0,
+      ),
+    nextCursor: query.hasNextPage
+      ? (query.data?.pages.at(-1)?.nextCursor ?? null)
+      : null,
+    loadOlder: async () => {
+      if (open && query.hasNextPage && !query.isFetching)
+        await query.fetchNextPage();
+    },
     append,
     retry: () => {
-      setLoading(true);
-      setVersion((v) => v + 1);
+      void query.refetch();
     },
   };
 }

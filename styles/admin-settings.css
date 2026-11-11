@@ -124,3 +124,10 @@
   .admin-settings-page .button,.admin-settings-page .guardrail-tabs button { min-height: 32px; }
   .admin-settings-page :is(input:not([type=checkbox]):not([type=radio]):not([type=file]),select) { min-height: 32px; }
 }
+
+.system-settings-form { display: grid; gap: 12px; max-width: 1100px; }
+.system-settings-form label { display: flex; align-items: center; gap: 12px; }
+.system-settings-form table { width: 100%; border-collapse: collapse; }
+.system-settings-form td, .system-settings-form th { padding: 8px; text-align: left; }
+.system-settings-form td input { width: 100%; min-width: 180px; }
+.system-settings-actions { display: flex; flex-wrap: wrap; gap: 8px; }

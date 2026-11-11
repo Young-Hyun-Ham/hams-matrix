@@ -126,3 +126,20 @@ export async function boardFetch(
   }
   return response;
 }
+
+// Applying a fresh cached board must also restore its optimistic write cursor.
+export function syncBoardCursor(
+  expected: { projectId: string; screenId: string },
+  data: { version?: unknown; screenVersion?: unknown },
+) {
+  const current = boardScope();
+  if (
+    current.projectId !== expected.projectId ||
+    current.screenId !== expected.screenId
+  )
+    throw new Error("Planning scope changed");
+  boardBase();
+  if (typeof data.version === "number") version = data.version;
+  if (typeof data.screenVersion === "number")
+    screenVersion = data.screenVersion;
+}

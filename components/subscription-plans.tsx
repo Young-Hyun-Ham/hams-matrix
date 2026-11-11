@@ -1,19 +1,32 @@
 ﻿"use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Plan } from "@/lib/plan-types";
 import type { User } from "@/lib/types";
+import { useSubscription } from "@/components/query/use-subscription";
+import type { SubscriptionResponse } from "@/lib/query/types";
 import { SubscriptionRequests } from "./subscription-requests";
 import { PlansToggle, type BillingPeriod } from "./plans-toggle";
 import styles from "./subscription-plans.module.css";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 const amount = (v: number | null) =>
   v === null ? "등록 예정" : `${v.toLocaleString("ko-KR")}원`;
 const limit = (v: number | null) =>
   v === null ? "무제한" : v.toLocaleString("ko-KR");
 export function SubscriptionPlans({
-  plans,
-  current,
-  usage,
+  plans: initialPlans,
+  current: initialCurrent,
+  usage: initialUsage,
   readOnly = false,
   requiredPlan,
   user,
@@ -25,6 +38,56 @@ export function SubscriptionPlans({
   requiredPlan?: string;
   user?: User;
 }) {
+  const { scope, settings } = useWorkspaceQueryPolicy(
+    user ? { userId: user.id, workspaceId: user.workspaceId } : undefined,
+  );
+  const subscription = useSubscription();
+  const plans = subscription.data?.plans ?? initialPlans,
+    current = subscription.data?.plan ?? initialCurrent,
+    usage = subscription.data?.usage ?? initialUsage;
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: ({
+      path,
+      method,
+      input,
+    }: {
+      path: string;
+      method: string;
+      input: object;
+    }) =>
+      requestJson<{ checkoutUrl: string; plan?: Plan }>(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+    onSuccess: (data, variables) => {
+      if (variables.path === "/api/me/subscription" && data.plan) {
+        const plan = data.plan;
+        client.setQueryData<SubscriptionResponse>(
+          [...matrixKeys.scope(scope), "subscription"],
+          (current) => (current ? { ...current, plan } : current),
+        );
+        void client.invalidateQueries({
+          queryKey: [...matrixKeys.scope(scope), "subscription"],
+          refetchType: "none",
+        });
+      }
+      for (const resource of [
+        "me",
+        "workspaces",
+        "business-requests",
+        "team-orders",
+      ])
+        void client.invalidateQueries({
+          queryKey: [...matrixKeys.scope(scope), resource],
+        });
+      void client.invalidateQueries({
+        queryKey: matrixKeys.notifications(scope),
+      });
+    },
+  });
   const isMaster = user?.accountRole === "master";
   const router = useRouter(),
     dialog = useRef<HTMLDialogElement>(null),
@@ -32,11 +95,14 @@ export function SubscriptionPlans({
   const [selected, setSelected] = useState<Plan | null>(null),
     [period, setPeriod] = useState<BillingPeriod>("month"),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
+    [localError, setError] = useWorkspaceErrorState(""),
     [notice, setNotice] = useState("");
   const [companyName, setCompanyName] = useState(""),
     [contact, setContact] = useState(""),
     [message, setMessage] = useState("");
+  const error =
+    localError ||
+    resolveWorkspaceError(subscription.error, settings.errorMessages);
   async function changePlan() {
     if (!selected || !current || readOnly || submitting.current) return;
     submitting.current = true;
@@ -44,13 +110,11 @@ export function SubscriptionPlans({
     setError("");
     try {
       if (!isMaster && selected.code === "business") {
-        const response = await fetch("/api/me/business-requests", {
+        await command.mutateAsync({
+          path: "/api/me/business-requests",
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ companyName, contact, message }),
+          input: { companyName, contact, message },
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error);
         dialog.current?.close();
         setNotice(
           "Business 계약 신청을 접수했습니다. 슈퍼관리자가 확인한 후 계약을 진행합니다. 현재 구독은 유지됩니다.",
@@ -60,41 +124,34 @@ export function SubscriptionPlans({
         return;
       }
       if (!isMaster && selected.code === "team") {
-        const response = await fetch("/api/me/payments/team/orders", {
+        const result = await command.mutateAsync({
+          path: "/api/me/payments/team/orders",
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+          input: {
             billingCycle: period === "year" ? "yearly" : "monthly",
             ...(user?.accountRole === "team_admin" && user.productId
               ? { productId: user.productId }
               : {}),
-          }),
+          },
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error);
         window.location.assign(result.checkoutUrl);
         return;
       }
-      const response = await fetch("/api/me/subscription", {
+      await command.mutateAsync({
+        path: "/api/me/subscription",
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        input: {
           plan: selected.code,
           currentPlan: current.code,
           planVersion: selected.version,
-        }),
+        },
       });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error ?? "요금제를 변경하지 못했습니다.");
       dialog.current?.close();
       setNotice(`${selected.name} 요금제로 변경되었습니다.`);
       setSelected(null);
       router.refresh();
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "요금제를 변경하지 못했습니다.",
-      );
+      setError(e);
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -347,7 +404,15 @@ export function SubscriptionPlans({
                 : "현재 Free·Pro 변경은 실제 청구 없이 적용됩니다."}
             </p>
           )}
-          {error && <p role="alert">{error}</p>}
+          {error && (
+            <p role="alert">
+              {error}
+              {command.error instanceof RequestError &&
+                command.error.code === "PLAN_VERSION_CONFLICT" && (
+                  <> 최신 요금제를 확인하려면 화면을 새로고침해 주세요.</>
+                )}
+            </p>
+          )}
         </div>
         <div className="project-registration-footer">
           <button

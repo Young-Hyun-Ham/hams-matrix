@@ -1,4 +1,13 @@
-﻿import { Suspense, type ComponentType } from "react";
+import {
+  QueryClient,
+  dehydrate,
+  HydrationBoundary,
+} from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { getWorkspaceSystemSettings } from "@/lib/system-settings/server";
+import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
+import { serverGetJson } from "@/lib/query/server-fetch";
+import { Suspense, type ComponentType } from "react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -33,5 +42,24 @@ async function SectionContent({ section, page: Page }: SectionProps) {
     resourceId: user.workspaceId,
     metadata: { section, sample: section === "team" },
   });
+  if (section === "dashboard") {
+    const settings = await getWorkspaceSystemSettings(user);
+    const client = new QueryClient();
+    await client
+      .query({
+        queryKey: matrixKeys.projects({
+          userId: user.id,
+          workspaceId: user.workspaceId,
+        }),
+        queryFn: ({ signal }) => serverGetJson("/api/projects", { signal }),
+        ...createWorkspaceQueryPolicy(settings),
+      })
+      .catch(() => undefined);
+    return (
+      <HydrationBoundary state={dehydrate(client)}>
+        <Page user={user} />
+      </HydrationBoundary>
+    );
+  }
   return <Page user={user} />;
 }

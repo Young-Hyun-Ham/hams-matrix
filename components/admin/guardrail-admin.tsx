@@ -1,5 +1,8 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+
+import { useEffect, useRef, useState } from "react";
 import {
   MAX_GUARDRAIL_CHANGES,
   MAX_TOOL_ROUNDS,
@@ -16,6 +19,13 @@ import { AllowedDomainsEditor } from "./allowed-domains-editor";
 import { GlobalCompliancePanel } from "./global-compliance-panel";
 import "./guardrail-admin.css";
 
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { useAiModels } from "@/components/query/use-ai-models";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 type Snapshot = {
   active: { version: number; policy: GuardrailPolicy };
   draft: GuardrailPolicy;
@@ -106,12 +116,18 @@ const stages: Record<string, string> = {
   "tool-result": "도구 결과",
   output: "출력",
 };
-export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardrails" }: { workspaceName: string; endpoint?: string }) {
+export function GuardrailAdmin({
+  workspaceName,
+  endpoint = "/api/admin/ai-guardrails",
+}: {
+  workspaceName: string;
+  endpoint?: string;
+}) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [policy, setPolicy] = useState<GuardrailPolicy | null>(null);
   const [tab, setTab] = useState("policy"),
     [busy, setBusy] = useState(false);
-  const [error, setError] = useState(""),
+  const [localError, setError] = useWorkspaceErrorState(""),
     [notice, setNotice] = useState("");
   const [testText, setTestText] = useState("회원 관리 화면을 설계해 주세요.");
   const [testStage, setTestStage] = useState<GuardrailStage>("input");
@@ -125,57 +141,57 @@ export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardr
     };
   } | null>(null);
   const attachments = useGuardrailAttachments(busy, () => setTestResult(null));
-  const [models, setModels] = useState<string[]>([]);
+  const { scope, policy: queryPolicy, settings } = useWorkspaceQueryPolicy();
+  const query = useQuery({
+    queryKey: [...matrixKeys.scope(scope), "guardrail", endpoint],
+    queryFn: ({ signal }) => requestJson<Snapshot>(endpoint, { signal }),
+    ...queryPolicy,
+  });
+  const modelQuery = useAiModels(Boolean(policy?.classifierEnabled));
+  const models = modelQuery.data?.models ?? [];
+  const error =
+    localError ||
+    resolveWorkspaceError(
+      query.error ?? modelQuery.error,
+      settings.errorMessages,
+    );
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<NonNullable<typeof testResult>>(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
+  const dirtyRef = useRef(false);
   async function reload() {
-    const response = await fetch(endpoint, {
-      cache: "no-store",
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error);
-    setSnapshot(data);
-    setPolicy(data.draft);
+    const result = await query.refetch({ throwOnError: true });
+    if (result.data) {
+      setSnapshot(result.data);
+      setPolicy(result.data.draft);
+    }
   }
   useEffect(() => {
-    const controller = new AbortController();
-    fetch(endpoint, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (!controller.signal.aborted) {
-          setSnapshot(data);
-          setPolicy(data.draft);
-        }
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted)
-          setError(
-            e instanceof Error ? e.message : "설정을 불러오지 못했습니다.",
-          );
-      });
-    return () => controller.abort();
-  }, [endpoint]);
-  useEffect(() => {
-    if (!policy?.classifierEnabled) return;
-    const controller = new AbortController();
-    fetch("/api/ai/models", { signal: controller.signal })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (!controller.signal.aborted) setModels(data.models);
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted)
-          setError(
-            e instanceof Error ? e.message : "검사 모델을 불러오지 못했습니다.",
-          );
-      });
-    return () => controller.abort();
-  }, [policy?.classifierEnabled]);
+    if (!query.data) return;
+    const value = query.data;
+    const timer = window.setTimeout(() => {
+      if (dirtyRef.current)
+        setNotice(
+          "서버 설정이 갱신되었습니다. 편집 중인 초안을 보존했습니다. 최신 설정을 확인해 주세요.",
+        );
+      else {
+        setSnapshot(value);
+        setPolicy(value.draft);
+      }
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [query.data]);
   const dirty =
     !!snapshot && JSON.stringify(policy) !== JSON.stringify(snapshot.draft);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
   function update<K extends keyof GuardrailPolicy>(
     key: K,
     value: GuardrailPolicy[K],
@@ -208,30 +224,24 @@ export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardr
     setError("");
     setNotice("");
     try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: kind,
-          revision: snapshot.revision,
-          activeVersion: snapshot.active.version,
-          policy,
-          version,
-          ...(kind === "test"
-            ? {
-                text: testText,
-                stage: testStage,
-                images: attachments.images.map(({ dataUrl }) => ({ dataUrl })),
-                files: attachments.files.map(({ name, base64 }) => ({
-                  name,
-                  base64,
-                })),
-              }
-            : {}),
-        }),
+      const data = await command.mutateAsync({
+        action: kind,
+        revision: snapshot.revision,
+        activeVersion: snapshot.active.version,
+        policy,
+        version,
+        ...(kind === "test"
+          ? {
+              text: testText,
+              stage: testStage,
+              images: attachments.images.map(({ dataUrl }) => ({ dataUrl })),
+              files: attachments.files.map(({ name, base64 }) => ({
+                name,
+                base64,
+              })),
+            }
+          : {}),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       if (kind === "test") setTestResult(data);
       else {
         await reload();
@@ -243,7 +253,7 @@ export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardr
         );
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "요청을 처리하지 못했습니다.");
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -270,7 +280,11 @@ export function GuardrailAdmin({ workspaceName, endpoint = "/api/admin/ai-guardr
               setError("");
             } catch (e) {
               setError(
-                e instanceof Error ? e.message : "새로고침하지 못했습니다.",
+                e instanceof RequestError
+                  ? e
+                  : e instanceof Error
+                    ? e.message
+                    : "새로고침하지 못했습니다.",
               );
             }
           }}

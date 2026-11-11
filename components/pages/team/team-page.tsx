@@ -1,13 +1,22 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { User } from "@/lib/types";
-import type { Project, TeamMember } from "@/lib/project-types";
+import type { Project } from "@/lib/project-types";
 import { TeamMembership } from "./team-membership";
 import { ProjectPermissionsDialog } from "./project-permissions-dialog";
 import { TeamMemberAddDialog } from "./team-member-add-dialog";
 import { Icon } from "@/components/icon";
 import "./team-page.css";
-import { fetchTeam as fetch } from "@/lib/team-request";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { useTeamMembers } from "@/components/query/use-team-members";
+import { matrixKeys } from "@/lib/query/keys";
+import { teamRequestJson } from "@/lib/query/team-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import type { SetStateAction } from "react";
 type Post = {
   id: string;
   title: string;
@@ -32,21 +41,86 @@ const date = (value: string) =>
   new Date(value).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" });
 export function TeamPage({ user }: { user: User }) {
   const [permissionsOpen, setPermissionsOpen] = useState(false);
-  const [projectId, setProjectId] = useState(""),
-    [projects, setProjects] = useState<Project[]>([]);
-  const [members, setMembers] = useState<TeamMember[]>([]),
-    [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true),
-    [version, setVersion] = useState(0),
-    [error, setError] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [version, setVersion] = useState(0),
+    [localError, setError] = useWorkspaceErrorState("");
+  const { scope, policy, settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  const projectQuery = useQuery({
+    queryKey: matrixKeys.projects(scope),
+    queryFn: ({ signal }) =>
+      teamRequestJson<{ projects: Project[] }>("/api/projects", { signal }),
+    ...policy,
+  });
+  const memberQuery = useTeamMembers(projectId, Boolean(projectId));
+  const postKey = [...matrixKeys.scope(scope), "team", "posts", { projectId }];
+  const postQuery = useQuery({
+    queryKey: postKey,
+    queryFn: ({ signal }) =>
+      teamRequestJson<{ posts: Post[] }>(
+        `/api/team/posts?projectId=${encodeURIComponent(projectId)}`,
+        { signal },
+      ),
+    ...policy,
+    enabled: Boolean(projectId),
+  });
+  const projects = projectQuery.data?.projects ?? [],
+    members = memberQuery.data?.members ?? [],
+    posts = postQuery.data?.posts ?? [];
+  const loading =
+    projectQuery.isLoading || memberQuery.isLoading || postQuery.isLoading;
+  const setPosts = (action: SetStateAction<Post[]>) =>
+    client.setQueryData<{ posts: Post[] }>(postKey, (current) => ({
+      posts:
+        typeof action === "function" ? action(current?.posts ?? []) : action,
+    }));
+  const command = useMutation({
+    mutationFn: ({ path, input }: { path: string; input: object }) =>
+      teamRequestJson(path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const [composing, setComposing] = useState(false),
     [busy, setBusy] = useState(false);
-  const [addingMember, setAddingMember] = useState(false),
-    [canManageMembers, setCanManageMembers] = useState(false);
-  const [loadedProjectId, setLoadedProjectId] = useState("");
+  const [addingMember, setAddingMember] = useState(false);
+  const canManageMembers =
+    memberQuery.data?.canAdd === true && !memberQuery.isError;
+  const loadedProjectId =
+    memberQuery.data && !memberQuery.isError ? projectId : "";
   const projectPicker = useRef<HTMLSelectElement>(null);
-  const [comments, setComments] = useState<Record<string, Comment[]>>({}),
-    [commentText, setCommentText] = useState<Record<string, string>>({}),
+  const [commentView, setCommentView] = useState<{
+    projectId: string;
+    ids: string[];
+  }>({ projectId: "", ids: [] });
+  const commentIds = commentView.projectId === projectId ? commentView.ids : [];
+  const commentQueries = useQueries({
+    queries: commentIds.map((id) => ({
+      queryKey: [...matrixKeys.scope(scope), "team", "comments", id],
+      queryFn: ({ signal }: { signal: AbortSignal }) =>
+        teamRequestJson<{ comments: Comment[] }>(
+          `/api/team/posts/${id}/comments`,
+          { signal },
+        ),
+      ...policy,
+    })),
+  });
+  const comments = Object.fromEntries(
+    commentIds.map((id, index) => [
+      id,
+      commentQueries[index].data?.comments ?? [],
+    ]),
+  );
+  const setComments = (action: SetStateAction<Record<string, Comment[]>>) => {
+    const next = typeof action === "function" ? action(comments) : action;
+    setCommentView({ projectId, ids: Object.keys(next) });
+  };
+  const [commentText, setCommentText] = useState<Record<string, string>>({}),
     [commentsBusy, setCommentsBusy] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const selected = projects.find((project) => project.id === projectId);
@@ -66,65 +140,22 @@ export function TeamPage({ user }: { user: User }) {
     if (composing) dialog.current?.showModal();
     else dialog.current?.close();
   }, [composing]);
+  const error =
+    localError ||
+    resolveWorkspaceError(
+      projectQuery.error ??
+        memberQuery.error ??
+        postQuery.error ??
+        commentQueries.find((q) => q.error)?.error,
+      settings.errorMessages,
+    );
   useEffect(() => {
-    const controller = new AbortController();
-    const query = projectId
-      ? `?projectId=${encodeURIComponent(projectId)}`
-      : "";
-    async function load() {
-      setLoading(true);
-      setError("");
-      setPosts([]);
-      setMembers([]);
-      setCanManageMembers(false);
-      setComments({});
-      try {
-        const responses = await Promise.all([
-          fetch("/api/projects", {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-          ...(projectId
-            ? [
-                fetch(`/api/team/posts${query}`, {
-                  cache: "no-store",
-                  signal: controller.signal,
-                }),
-                fetch(`/api/team/members${query}`, {
-                  cache: "no-store",
-                  signal: controller.signal,
-                }),
-              ]
-            : []),
-        ]);
-        const data = await Promise.all(
-          responses.map((response) => response.json()),
-        );
-        for (let i = 0; i < responses.length; i++)
-          if (!responses[i].ok) throw new Error(data[i].error);
-        if (!controller.signal.aborted) {
-          setProjects(data[0].projects);
-          if (projectId) {
-            setPosts(data[1].posts);
-            setMembers(data[2].members);
-            setCanManageMembers(data[2].canAdd);
-          }
-          setLoadedProjectId(projectId);
-        }
-      } catch (e) {
-        if (!controller.signal.aborted)
-          setError(
-            e instanceof Error
-              ? e.message
-              : "팀 공유 정보를 불러오지 못했습니다.",
-          );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [user.workspaceId, projectId, version]);
+    if (!version) return;
+    void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
+    void client.invalidateQueries({
+      queryKey: [...matrixKeys.scope(scope), "team"],
+    });
+  }, [client, scope, version]);
   async function writePost(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy || !projectId || !writable(selectedRole ?? "viewer")) return;
@@ -132,24 +163,19 @@ export function TeamPage({ user }: { user: User }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/team/posts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await command.mutateAsync({
+        path: "/api/team/posts",
+        input: {
           projectId,
           title: values.get("title"),
           body: values.get("body"),
           category: values.get("category"),
-        }),
+        },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       setComposing(false);
       setVersion((value) => value + 1);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "게시글을 저장하지 못했습니다.",
-      );
+      setError(e);
     } finally {
       setBusy(false);
     }
@@ -158,14 +184,19 @@ export function TeamPage({ user }: { user: User }) {
     setCommentsBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/team/posts/${id}/comments`, {
-        cache: "no-store",
+      const data = await client.query({
+        queryKey: [...matrixKeys.scope(scope), "team", "comments", id],
+        queryFn: ({ signal }) =>
+          teamRequestJson<{ comments: Comment[] }>(
+            `/api/team/posts/${id}/comments`,
+            { signal },
+          ),
+        ...policy,
+        staleTime: 0,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       setComments((current) => ({ ...current, [id]: data.comments }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "댓글을 불러오지 못했습니다.");
+      setError(e);
     } finally {
       setCommentsBusy("");
     }
@@ -176,13 +207,10 @@ export function TeamPage({ user }: { user: User }) {
     setCommentsBusy(id);
     setError("");
     try {
-      const response = await fetch(`/api/team/posts/${id}/comments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: commentText[id] }),
+      await command.mutateAsync({
+        path: `/api/team/posts/${id}/comments`,
+        input: { body: commentText[id] },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       setCommentText((current) => ({ ...current, [id]: "" }));
       setPosts((current) =>
         current.map((post) =>
@@ -191,7 +219,7 @@ export function TeamPage({ user }: { user: User }) {
       );
       await loadComments(id);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "댓글을 저장하지 못했습니다.");
+      setError(e);
     } finally {
       setCommentsBusy("");
     }

@@ -1,4 +1,6 @@
-import { boardFetch as fetch } from "@/app/(editor)/planning-board/lib/client-api";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+import { useBoardTransport } from "../lib/use-board-transport";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { EmojiPicker } from "./emoji-picker";
@@ -150,6 +152,7 @@ export function CanvasEditor({
   onUndo: () => void;
   onRedo: () => void;
 }) {
+  const fetch = useBoardTransport();
   const [tool, setTool] = useState<"cursor" | "hand">("cursor"),
     [panning, setPanning] = useState(false);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
@@ -180,7 +183,7 @@ export function CanvasEditor({
   const [commentText, setCommentText] = useState(""),
     [commentSaving, setCommentSaving] = useState(false),
     [commentLoading, setCommentLoading] = useState(false),
-    [commentError, setCommentError] = useState("");
+    [commentError, setCommentError] = useWorkspaceErrorState("");
   const [comments, setComments] = useState<
     { id: string; text: string; author: string; createdAt: string | null }[]
   >([]);
@@ -251,7 +254,7 @@ export function CanvasEditor({
         }
       });
     return () => controller.abort();
-  }, [projectId]);
+  }, [projectId, fetch]);
   const select = (event: React.MouseEvent, id: string) => {
     event.stopPropagation();
     if (tool !== "cursor" || suppressCanvasClickRef.current) return;
@@ -723,9 +726,11 @@ export function CanvasEditor({
       setComments(result.comments ?? []);
     } catch (error) {
       setCommentError(
-        error instanceof Error
-          ? error.message
-          : "코멘트를 불러오지 못했습니다.",
+        error instanceof RequestError
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "코멘트를 불러오지 못했습니다.",
       );
     } finally {
       setCommentLoading(false);
@@ -763,9 +768,11 @@ export function CanvasEditor({
       await loadComments();
     } catch (error) {
       setCommentError(
-        error instanceof Error
-          ? error.message
-          : "코멘트를 저장하지 못했습니다.",
+        error instanceof RequestError
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "코멘트를 저장하지 못했습니다.",
       );
     } finally {
       setCommentSaving(false);

@@ -1,8 +1,15 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { AiContext, AiConversation } from "@/lib/ai-context";
 import type { User } from "@/lib/types";
-import type { ProjectPermissions } from "@/lib/project-permission-model";
 import {
   aiTargetPages,
   targetFromLocation,
@@ -10,6 +17,19 @@ import {
 } from "@/lib/ai-target-pages";
 import { useWorkspace } from "@/stores/workspace";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import {
+  projectAccessQuery,
+  latestProjectAccess,
+} from "@/lib/query/project-access";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 export function useAiTarget(
   conversation: AiConversation,
   source: AiContext,
@@ -18,11 +38,11 @@ export function useAiTarget(
   open: boolean,
 ) {
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useWorkspaceErrorState("");
   const [retry, setRetry] = useState(0);
-  const [access, setAccess] = useState<ProjectPermissions | null>(null);
-  const [accessError, setAccessError] = useState("");
-  const [accessRetry, setAccessRetry] = useState(0);
+  const { scope, settings } = useWorkspaceQueryPolicy(
+    user ? { userId: user.id, workspaceId: user.workspaceId } : undefined,
+  );
   const { convId, projectId, targetPage, targetVersion = 0 } = conversation;
   const temporary = convId.startsWith("temporary-");
   const initialTarget = targetFromLocation(
@@ -30,34 +50,129 @@ export function useAiTarget(
     source.pathname,
     source.tab,
   );
-  useEffect(() => {
-    if (!open || !projectId) return;
-    const controller = new AbortController();
-    fetch(`/api/projects/${encodeURIComponent(projectId)}/access`, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (!controller.signal.aborted) {
-          setAccess(data.permissionsByTab);
-          setAccessError("");
-        }
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted)
-          setAccessError(
-            reason instanceof Error
-              ? reason.message
-              : "대상 권한을 확인하지 못했습니다.",
-          );
-      });
-    return () => controller.abort();
-  }, [open, projectId, user?.id, user?.workspaceId, accessRetry]);
+  const client = useQueryClient();
+  const identity = `${scope.userId}:${scope.workspaceId}:${projectId}:${convId}`;
+  const activeIdentity = useRef<string | null>(identity);
+  useLayoutEffect(() => {
+    activeIdentity.current = identity;
+    return () => {
+      activeIdentity.current = null;
+    };
+  }, [identity]);
+  const accessQuery = useQuery({
+    ...projectAccessQuery(scope, projectId),
+    enabled: open && Boolean(projectId && user),
+  });
+  const verifyTarget = useCallback(
+    async (target: AiTargetPage | null | undefined, signal?: AbortSignal) => {
+      signal?.throwIfAborted();
+      if (!user || !target)
+        throw new RequestError(403, "AI_TARGET_ACCESS_DENIED");
+      if (projectId) {
+        const latest = await latestProjectAccess(client, scope, projectId);
+        signal?.throwIfAborted();
+        if (activeIdentity.current !== identity)
+          throw new DOMException("AI target changed", "AbortError");
+        if (
+          target === "dashboard" ||
+          target === "team" ||
+          !latest.permissionsByTab[target]?.READ
+        )
+          throw new RequestError(403, "AI_TARGET_ACCESS_DENIED");
+      } else {
+        const latest = await client.query({
+          queryKey: matrixKeys.me(scope),
+          queryFn: ({ signal }) =>
+            requestJson<{ user: User }>("/api/me", { signal }),
+          staleTime: 0,
+          retry: false,
+        });
+        signal?.throwIfAborted();
+        if (activeIdentity.current !== identity)
+          throw new DOMException("AI target changed", "AbortError");
+        if (
+          latest.user.id !== scope.userId ||
+          latest.user.workspaceId !== scope.workspaceId ||
+          (target !== "dashboard" && target !== "team") ||
+          (target === "team" && !latest.user.teamSharingEnabled)
+        )
+          throw new RequestError(403, "AI_TARGET_ACCESS_DENIED");
+      }
+    },
+    [client, scope, projectId, user, identity],
+  );
+  const checked = accessQuery.data;
+  const access =
+    !accessQuery.isError &&
+    !accessQuery.isFetching &&
+    checked?.userId === user?.id &&
+    checked?.workspaceId === user?.workspaceId &&
+    checked?.projectId === projectId
+      ? (checked?.permissionsByTab ?? null)
+      : null;
+  const accessError = resolveWorkspaceError(
+    accessQuery.error,
+    settings.errorMessages,
+  );
+  const command = useMutation({
+    mutationFn: async ({
+      input,
+      signal,
+      acceptConflict = false,
+    }: {
+      input: object;
+      signal?: AbortSignal;
+      acceptConflict?: boolean;
+    }) => {
+      await verifyTarget(
+        (input as { targetPage: AiTargetPage }).targetPage,
+        signal,
+      );
+      let response: { conversation: AiConversation };
+      try {
+        response = await requestJson(
+          `/api/ai/conversations/${encodeURIComponent(convId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            signal,
+            body: JSON.stringify(input),
+          },
+        );
+      } catch (error) {
+        const payload =
+          error instanceof RequestError
+            ? (error.payload as { conversation?: AiConversation } | undefined)
+            : undefined;
+        if (
+          payload?.conversation &&
+          useWorkspace.getState().user?.id === scope.userId &&
+          useWorkspace.getState().user?.workspaceId === scope.workspaceId
+        )
+          useWorkspace.getState().updateAiConversation(payload.conversation);
+        if (
+          acceptConflict &&
+          error instanceof RequestError &&
+          error.status === 409 &&
+          payload?.conversation?.targetPage
+        )
+          return payload as { conversation: AiConversation };
+        throw error;
+      }
+      if (
+        useWorkspace.getState().user?.id === scope.userId &&
+        useWorkspace.getState().user?.workspaceId === scope.workspaceId
+      )
+        useWorkspace.getState().updateAiConversation(response.conversation);
+      return response;
+    },
+    retry: false,
+  });
+  const { mutateAsync } = command;
 
   useEffect(() => {
     if (
+      !open ||
       !metadataReady ||
       targetPage ||
       !initialTarget ||
@@ -66,48 +181,40 @@ export function useAiTarget(
       return;
     const controller = new AbortController();
     if (temporary) {
-      useWorkspace
-        .getState()
-        .updateAiConversation({
-          ...conversation,
-          targetPage: initialTarget,
-          targetVersion: 1,
-        });
+      useWorkspace.getState().updateAiConversation({
+        ...conversation,
+        targetPage: initialTarget,
+        targetVersion: 1,
+      });
       return;
     }
-    fetch(`/api/ai/conversations/${encodeURIComponent(convId)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      signal: controller.signal,
-      body: JSON.stringify({
+    void mutateAsync({
+      input: {
         projectId,
         targetPage: initialTarget,
         expectedTargetVersion: targetVersion,
-      }),
+      },
+      signal: controller.signal,
+      acceptConflict: true,
     })
-      .then(async (response) => {
-        const data = await response.json();
-        if (controller.signal.aborted) return;
-        if (data.conversation)
-          useWorkspace.getState().updateAiConversation(data.conversation);
-        if (
-          !response.ok &&
-          !(response.status === 409 && data.conversation?.targetPage)
-        )
-          throw new Error(data.error);
-        setError("");
+      .then(() => {
+        if (!controller.signal.aborted) setError("");
       })
       .catch((reason) => {
         if (!controller.signal.aborted)
           setError(
-            reason instanceof Error
-              ? reason.message
-              : "AI 대상을 초기화하지 못했습니다.",
+            reason instanceof RequestError
+              ? reason
+              : reason instanceof Error
+                ? reason.message
+                : "AI 대상을 초기화하지 못했습니다.",
           );
       });
     return () => controller.abort();
     // Only the initial location is used until the server accepts the first target.
   }, [
+    mutateAsync,
+    open,
     metadataReady,
     targetPage,
     initialTarget,
@@ -118,44 +225,40 @@ export function useAiTarget(
     temporary,
     retry,
     conversation,
+    settings.errorMessages,
+    setError,
   ]);
 
   async function change(target: AiTargetPage) {
     if (saving) return;
     setError("");
-    if (temporary) {
-      useWorkspace
-        .getState()
-        .updateAiConversation({
-          ...conversation,
-          targetPage: target,
-          targetVersion: targetVersion + 1,
-        });
-      return;
-    }
     setSaving(true);
     try {
-      const response = await fetch(
-        `/api/ai/conversations/${encodeURIComponent(convId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId,
+      if (temporary) {
+        await verifyTarget(target);
+        useWorkspace
+          .getState()
+          .updateAiConversation({
+            ...conversation,
             targetPage: target,
-            expectedTargetVersion: targetVersion,
-          }),
+            targetVersion: targetVersion + 1,
+          });
+        return;
+      }
+      await mutateAsync({
+        input: {
+          projectId,
+          targetPage: target,
+          expectedTargetVersion: targetVersion,
         },
-      );
-      const data = await response.json();
-      if (data.conversation)
-        useWorkspace.getState().updateAiConversation(data.conversation);
-      if (!response.ok) throw new Error(data.error);
+      });
     } catch (reason) {
       setError(
-        reason instanceof Error
-          ? reason.message
-          : "AI 대상을 저장하지 못했습니다. 다시 선택해 주세요.",
+        reason instanceof RequestError
+          ? reason
+          : reason instanceof Error
+            ? reason.message
+            : "AI 대상을 저장하지 못했습니다. 다시 선택해 주세요.",
       );
     } finally {
       setSaving(false);
@@ -198,6 +301,9 @@ export function useAiTarget(
       setError("");
       setRetry((value) => value + 1);
     },
-    retryAccess: () => setAccessRetry((value) => value + 1),
+    verify: (signal?: AbortSignal) => verifyTarget(targetPage, signal),
+    retryAccess: () => {
+      void accessQuery.refetch();
+    },
   };
 }

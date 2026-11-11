@@ -1,4 +1,6 @@
-import { boardFetch as fetch } from "@/app/(editor)/planning-board/lib/client-api";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+import { useBoardTransport } from "../lib/use-board-transport";
 import { useEffect, useRef, useState } from "react";
 import { useWorkspace } from "@/stores/workspace";
 import Link from "next/link";
@@ -259,6 +261,7 @@ export function LeftPanel({
   onCreateTemplate,
   onReviewAction,
 }: Props) {
+  const fetch = useBoardTransport();
   const user = useWorkspace((state) => state.user);
   const isLoadingUser = usePlanningAccess((state) => state.isLoading);
   const [menu, setMenu] = useState<{
@@ -282,7 +285,7 @@ export function LeftPanel({
       }[]
     >([]),
     [projectsLoading, setProjectsLoading] = useState(false),
-    [projectsError, setProjectsError] = useState("");
+    [projectsError, setProjectsError] = useWorkspaceErrorState("");
   useEffect(() => {
     const close = () => {
       setMenu(null);
@@ -307,7 +310,7 @@ export function LeftPanel({
     };
     button?.addEventListener("click", openPages);
     return () => button?.removeEventListener("click", openPages);
-  }, [tab]);
+  }, [tab, setProjectsError]);
   useEffect(() => {
     if (readOnly) return;
     if (tab !== "layers") return;
@@ -374,13 +377,15 @@ export function LeftPanel({
       })
       .catch((error) => {
         if (error instanceof Error && error.name !== "AbortError")
-          setProjectsError(error.message);
+          setProjectsError(
+            error instanceof RequestError ? error : error.message,
+          );
       })
       .finally(() => {
         if (!controller.signal.aborted) setProjectsLoading(false);
       });
     return () => controller.abort();
-  }, [tab, user]);
+  }, [tab, user, fetch, setProjectsError]);
   const additions: { kind: Layer["kind"]; label: string }[] = [
     { kind: "layer", label: "Layer" },
     { kind: "section", label: "Section" },
@@ -524,9 +529,11 @@ export function LeftPanel({
                     setTab("layers");
                   } catch (error) {
                     setProjectsError(
-                      error instanceof Error
-                        ? error.message
-                        : "문서를 불러오지 못했습니다.",
+                      error instanceof RequestError
+                        ? error
+                        : error instanceof Error
+                          ? error.message
+                          : "문서를 불러오지 못했습니다.",
                     );
                   }
                 }}

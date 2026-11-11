@@ -1,7 +1,13 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import "./team-page.css";
-import { fetchTeam as fetch } from "@/lib/team-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { teamRequestJson } from "@/lib/query/team-fetch";
 
 export function TeamMemberAddDialog({
   projectId,
@@ -14,11 +20,22 @@ export function TeamMemberAddDialog({
   onClose: () => void;
   onAdded: () => void;
 }) {
+  const { scope } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: (email: string) =>
+      teamRequestJson("/api/team/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, projectId }),
+      }),
+    retry: false,
+  });
   const dialog = useRef<HTMLDialogElement>(null),
     pending = useRef(false);
   const [email, setEmail] = useState(""),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   useEffect(() => {
     const element = dialog.current;
     element?.showModal();
@@ -31,17 +48,15 @@ export function TeamMemberAddDialog({
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/team/members", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), projectId }),
+      await command.mutateAsync(email.trim());
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "team", "members"],
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
       onAdded();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "멤버를 추가하지 못했습니다.");
+      setError(e);
     } finally {
       pending.current = false;
       setBusy(false);

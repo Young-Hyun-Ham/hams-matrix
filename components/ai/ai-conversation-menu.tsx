@@ -1,7 +1,16 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import type { SetStateAction } from "react";
 import type { AiConversation } from "@/lib/ai-context";
 import { Icon } from "@/components/icon";
 import { AiConversationRoom } from "./ai-conversation-room";
@@ -79,15 +88,52 @@ function ConversationList({ version }: { version: number }) {
       aiContext.tab,
     ) &&
     (!requiresProject || !!aiContext.projectId);
-  const [rooms, setRooms] = useState<AiConversation[]>([]);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [
+    ...matrixKeys.scope(scope),
+    "project",
+    aiContext.projectId,
+    "conversations",
+  ];
+  const listing = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ conversations: AiConversation[] }>(
+        `/api/ai/conversations?projectId=${encodeURIComponent(aiContext.projectId)}`,
+        { signal },
+      ),
+    ...policy,
+    enabled: ready,
+  });
+  const rooms = listing.data?.conversations ?? [];
+  const setRooms = (action: SetStateAction<AiConversation[]>) =>
+    client.setQueryData<{ conversations: AiConversation[] }>(
+      queryKey,
+      (current) => ({
+        conversations:
+          typeof action === "function"
+            ? action(current?.conversations ?? [])
+            : action,
+      }),
+    );
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ conversation: AiConversation }>("/api/ai/conversations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const [expanded, setExpanded] = useState(false);
   const [action, setAction] = useState<{
     room: AiConversation;
     kind: "rename" | "delete";
   } | null>(null);
-  const [loading, setLoading] = useState(true),
-    [creating, setCreating] = useState(false);
-  const [error, setError] = useState(""),
+  const [creating, setCreating] = useState(false);
+  const loading = listing.isLoading;
+  const [localError, setError] = useWorkspaceErrorState(""),
     [retry, setRetry] = useState(0);
   const active = useRef(true),
     creatingRef = useRef(false);
@@ -97,33 +143,19 @@ function ConversationList({ version }: { version: number }) {
       active.current = false;
     };
   }, []);
+  const error =
+    localError || resolveWorkspaceError(listing.error, settings.errorMessages);
   useEffect(() => {
-    if (!ready) return;
-    const controller = new AbortController();
-    fetch(
-      `/api/ai/conversations?projectId=${encodeURIComponent(aiContext.projectId)}`,
-      { cache: "no-store", signal: controller.signal },
-    )
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (controller.signal.aborted) return;
-        setRooms(data.conversations);
-        setError("");
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setError(
-            error instanceof Error
-              ? error.message
-              : "채팅방을 불러오지 못했습니다.",
-          );
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+    if (ready)
+      void client.invalidateQueries({
+        queryKey: [
+          ...matrixKeys.scope(scope),
+          "project",
+          aiContext.projectId,
+          "conversations",
+        ],
       });
-    return () => controller.abort();
-  }, [ready, aiContext.projectId, version, retry]);
+  }, [client, scope, ready, aiContext.projectId, version, retry]);
   async function create() {
     if (!ready || creatingRef.current) return;
     creatingRef.current = true;
@@ -131,36 +163,28 @@ function ConversationList({ version }: { version: number }) {
     setError("");
     const projectId = aiContext.projectId;
     try {
-      const response = await fetch("/api/ai/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await command.mutateAsync({
+        projectId,
+        targetPage: targetFromLocation(
           projectId,
-          targetPage: targetFromLocation(
-            projectId,
-            aiContext.pathname,
-            aiContext.tab,
-          ),
-          sourceContext: { pathname: aiContext.pathname, tab: aiContext.tab },
-        }),
+          aiContext.pathname,
+          aiContext.tab,
+        ),
+        sourceContext: { pathname: aiContext.pathname, tab: aiContext.tab },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      void client.invalidateQueries({ queryKey });
       // A project switch or collapsed menu must not open a stale conversation.
       if (
         active.current &&
-        useWorkspace.getState().aiContext.projectId === projectId
+        useWorkspace.getState().aiContext.projectId === projectId &&
+        useWorkspace.getState().user?.id === scope.userId &&
+        useWorkspace.getState().user?.workspaceId === scope.workspaceId
       ) {
         selectAiConversation(data.conversation);
         useWorkspace.getState().refreshAiConversations();
       }
     } catch (error) {
-      if (active.current)
-        setError(
-          error instanceof Error
-            ? error.message
-            : "채팅방을 만들지 못했습니다.",
-        );
+      if (active.current) setError(error);
     } finally {
       creatingRef.current = false;
       if (active.current) setCreating(false);

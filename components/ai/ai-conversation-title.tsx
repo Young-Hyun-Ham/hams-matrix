@@ -1,5 +1,9 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useConversationMutation } from "@/components/query/use-conversation-mutation";
+
 import type { AiConversation } from "@/lib/ai-context";
 import { useWorkspace } from "@/stores/workspace";
 export function AiConversationTitle({
@@ -7,10 +11,15 @@ export function AiConversationTitle({
 }: {
   conversation: AiConversation;
 }) {
+  const command = useConversationMutation(
+    conversation.projectId,
+    conversation.convId,
+  );
+
   const [editing, setEditing] = useState(false),
     [title, setTitle] = useState(conversation.title);
   const [saving, setSaving] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const active = useRef(true),
     busy = useRef(false);
   useEffect(() => {
@@ -26,25 +35,12 @@ export function AiConversationTitle({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch(
-        `/api/ai/conversations/${encodeURIComponent(conversation.convId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ projectId: conversation.projectId, title }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await command.mutateAsync({ input: { title } });
+
       useWorkspace.getState().updateAiConversation(data.conversation);
       if (active.current) setEditing(false);
     } catch (error) {
-      if (active.current)
-        setError(
-          error instanceof Error
-            ? error.message
-            : "제목을 변경하지 못했습니다.",
-        );
+      if (active.current) setError(error);
     } finally {
       busy.current = false;
       if (active.current) setSaving(false);

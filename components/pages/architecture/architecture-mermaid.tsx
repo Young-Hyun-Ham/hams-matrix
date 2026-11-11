@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useId, useRef, useState } from "react";
 import {
   Code2,
@@ -14,7 +16,16 @@ import type { Artifact } from "@/lib/artifact-types";
 import { editableMermaidError } from "@/lib/architecture-mermaid";
 import { useTheme } from "@/stores/theme";
 import { useProjectPage } from "@/components/shared/project-page-context";
-import { jsonRequest } from "@/lib/client-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
+import type { ProjectData } from "@/lib/artifact-types";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { architectureTheme } from "./architecture-theme";
 import { readableMermaidLabels, safeMermaidSvg } from "./mermaid-preview";
@@ -29,6 +40,20 @@ export function ArchitectureMermaid({
   onDirtyChange?: (dirty: boolean) => void;
 }) {
   const context = useProjectPage();
+  const { scope, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ data: ProjectData }>(
+        `/api/projects/${artifact.projectId}/artifacts/${artifact.id}/mermaid`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      ),
+    retry: false,
+  });
   const [draft, setDraft] = useState<{
     code: string;
     saved: string;
@@ -58,7 +83,7 @@ export function ArchitectureMermaid({
   const [zoom, setZoom] = useState(1),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
-    [saveError, setSaveError] = useState("");
+    [saveError, setSaveError] = useWorkspaceErrorState("");
   const [confirmReset, setConfirmReset] = useState(false);
   const drag = useRef<{
     x: number;
@@ -159,9 +184,11 @@ export function ArchitectureMermaid({
             code,
             theme: paletteKey,
             error:
-              reason instanceof Error
-                ? reason.message
-                : "미리보기를 표시하지 못했습니다.",
+              reason instanceof RequestError
+                ? resolveWorkspaceError(reason, settings.errorMessages)
+                : reason instanceof Error
+                  ? reason.message
+                  : "미리보기를 표시하지 못했습니다.",
             width: 0,
             height: 0,
           });
@@ -173,7 +200,15 @@ export function ArchitectureMermaid({
       clearTimeout(timer);
       container.remove();
     };
-  }, [code, theme, accentColor, paletteKey, id, visible]);
+  }, [
+    code,
+    theme,
+    accentColor,
+    paletteKey,
+    id,
+    visible,
+    settings.errorMessages,
+  ]);
   function change(value: string) {
     setDraft({
       code: value,
@@ -197,24 +232,23 @@ export function ArchitectureMermaid({
     try {
       if (!(await context.verifyPermission("architecture", "UPDATE")))
         throw new Error("현재 프로젝트 권한으로 코드를 저장할 수 없습니다.");
-      const result = await jsonRequest(
-        `/api/projects/${artifact.projectId}/artifacts/${artifact.id}/mermaid`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code, version: baseVersion }),
-        },
-      );
+      const result = await command.mutateAsync({ code, version: baseVersion });
       if (!mounted.current) return;
+      client.setQueryData(
+        matrixKeys.artifacts(scope, artifact.projectId),
+        result.data,
+      );
       context.updateData?.(result.data);
       setDraft(null);
       setMessage("코드를 저장했습니다.");
     } catch (reason) {
       if (mounted.current)
         setSaveError(
-          reason instanceof Error
-            ? reason.message
-            : "코드를 저장하지 못했습니다.",
+          reason instanceof RequestError
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : "코드를 저장하지 못했습니다.",
         );
     } finally {
       submitting.current = false;

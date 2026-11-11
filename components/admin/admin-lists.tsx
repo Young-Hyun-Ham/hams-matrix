@@ -1,8 +1,16 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { toast } from "@/stores/toast";
 import { useRouter } from "next/navigation";
 import type { Plan } from "@/lib/plan-types";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 type Row = {
   id: string;
   name?: string;
@@ -29,84 +37,97 @@ const kst = (value?: string) =>
     : "—";
 export function AdminList({ kind }: { kind: "members" | "history" }) {
   const router = useRouter();
-  const [plans, setPlans] = useState<Pick<Plan, "code" | "name">[]>([]);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
   const [filters, setFilters] = useState<Record<string, string>>({ q: "" }),
     [query, setQuery] = useState<Record<string, string>>({ q: "" }),
     [page, setPage] = useState(1),
     [pageSize, setPageSize] = useState(20),
     [revision, setRevision] = useState(0);
-  const [result, setResult] = useState<{
-      rows: Row[];
-      total: number;
-      page: number;
-    } | null>(null),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
   const [selected, setSelected] = useState<Row | null>(null),
-    [detail, setDetail] = useState<{
-      member?: Row;
-      canEditRole?: boolean;
-      [key: string]: unknown;
-    } | null>(null),
-    [detailError, setDetailError] = useState(""),
+    [localDetailError, setDetailError] = useWorkspaceErrorState(""),
     [saving, setSaving] = useState(false);
+  const params = new URLSearchParams({
+    ...query,
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  const listing = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "admin",
+      kind,
+      { filters: query, page, pageSize },
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<{
+        members?: Row[];
+        entries?: Row[];
+        plans?: Pick<Plan, "code" | "name">[];
+        total: number;
+        page: number;
+      }>(`/api/admin/${kind}?${params}`, { signal }),
+    ...policy,
+  });
+  const result = listing.data
+    ? {
+        rows: listing.data.members ?? listing.data.entries ?? [],
+        total: listing.data.total,
+        page: listing.data.page,
+      }
+    : null;
+  const plans = listing.data?.plans ?? [],
+    loading = listing.isLoading,
+    error = resolveWorkspaceError(listing.error, settings.errorMessages);
+  const detailQuery = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "admin",
+      kind,
+      "detail",
+      selected?.source ?? "",
+      selected?.id ?? "",
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<{
+        member?: Row;
+        canEditRole?: boolean;
+        [key: string]: unknown;
+      }>(
+        kind === "members"
+          ? `/api/admin/members/${encodeURIComponent(selected!.id)}`
+          : `/api/admin/history/${selected!.source}/${encodeURIComponent(selected!.id)}`,
+        { signal },
+      ),
+    ...policy,
+    enabled: Boolean(selected),
+  });
+  const detail = detailQuery.data,
+    detailError =
+      localDetailError ||
+      resolveWorkspaceError(detailQuery.error, settings.errorMessages);
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson("/api/admin/members", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const dialog = useRef<HTMLDialogElement>(null),
     trigger = useRef<HTMLElement | null>(null);
   useEffect(() => {
-    const abort = new AbortController();
-    const params = new URLSearchParams({
-      ...query,
-      page: String(page),
-      pageSize: String(pageSize),
-    });
-    fetch(`/api/admin/${kind}?${params}`, {
-      cache: "no-store",
-      signal: abort.signal,
-    })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (!abort.signal.aborted) {
-          if (kind === "members") setPlans(data.plans);
-          setResult({
-            rows: data.members ?? data.entries,
-            total: data.total,
-            page: data.page,
-          });
-          setError("");
-        }
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!abort.signal.aborted) setLoading(false);
+    if (revision)
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "admin", kind],
       });
-    return () => abort.abort();
-  }, [kind, query, page, pageSize, revision]);
+  }, [client, scope, kind, revision]);
   useEffect(() => {
-    if (!selected) return;
-    dialog.current?.showModal();
-    const abort = new AbortController();
-    fetch(
-      kind === "members"
-        ? `/api/admin/members/${encodeURIComponent(selected.id)}`
-        : `/api/admin/history/${selected.source}/${encodeURIComponent(selected.id)}`,
-      { cache: "no-store", signal: abort.signal },
-    )
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        if (!abort.signal.aborted) setDetail(data);
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setDetailError(e.message);
-      });
-    return () => abort.abort();
-  }, [selected, kind]);
+    if (selected) dialog.current?.showModal();
+  }, [selected]);
   function open(row: Row) {
     trigger.current = document.activeElement as HTMLElement;
-    setDetail(null);
     setDetailError("");
     setSelected(row);
   }
@@ -116,7 +137,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
     trigger.current?.focus();
   }
   function reload() {
-    setLoading(true);
     setRevision((n) => n + 1);
   }
   async function save(e: FormEvent<HTMLFormElement>) {
@@ -134,30 +154,20 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
     setSaving(true);
     setDetailError("");
     try {
-      const response = await fetch("/api/admin/members", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: member.id,
-          version: member.version,
-          ...(form.get("plan") !== member.plan
-            ? { plan: form.get("plan") }
-            : {}),
-          ...(detail.canEditRole &&
-          form.get("accountRole") !== member.accountRole
-            ? { accountRole: form.get("accountRole") }
-            : {}),
-        }),
+      await command.mutateAsync({
+        userId: member.id,
+        version: member.version,
+        ...(form.get("plan") !== member.plan ? { plan: form.get("plan") } : {}),
+        ...(detail.canEditRole && form.get("accountRole") !== member.accountRole
+          ? { accountRole: form.get("accountRole") }
+          : {}),
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       toast("회원 설정을 저장했습니다. 사용량은 유지됩니다.");
       router.refresh();
-      setDetail(null);
       setSelected({ ...member });
       reload();
     } catch (e) {
-      setDetailError(e instanceof Error ? e.message : "저장 실패");
+      setDetailError(e);
     } finally {
       setSaving(false);
     }
@@ -168,7 +178,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          setLoading(true);
           setPage(1);
           setQuery({ ...filters });
         }}
@@ -253,7 +262,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
             setFilters({ q: "" });
             setQuery({ q: "" });
             setPage(1);
-            setLoading(true);
           }}
         >
           초기화
@@ -344,7 +352,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
                 className="button"
                 disabled={result.page <= 1}
                 onClick={() => {
-                  setLoading(true);
                   setPage(result.page - 1);
                 }}
               >
@@ -358,7 +365,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
                 className="button"
                 disabled={result.page * pageSize >= result.total}
                 onClick={() => {
-                  setLoading(true);
                   setPage(result.page + 1);
                 }}
               >
@@ -370,7 +376,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
                 onChange={(e) => {
                   setPageSize(Number(e.target.value));
                   setPage(1);
-                  setLoading(true);
                 }}
               >
                 {[10, 20, 50, 100].map((n) => (
@@ -406,7 +411,6 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
               {detailError}
               <button
                 onClick={() => {
-                  setDetail(null);
                   setDetailError("");
                   setSelected(selected ? { ...selected } : null);
                 }}
@@ -480,47 +484,49 @@ export function AdminList({ kind }: { kind: "members" | "history" }) {
   );
 }
 export function LoggingSettings() {
-  const [value, setValue] = useState<{
-      value: boolean;
-      version: number;
-      updatedBy: string;
-      updatedAt: string;
-      description: string;
-    } | null>(null),
-    [error, setError] = useState(""),
+  type LoggingSetting = {
+    value: boolean;
+    version: number;
+    updatedBy: string;
+    updatedAt: string;
+    description: string;
+  };
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [...matrixKeys.scope(scope), "admin", "logging"];
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<LoggingSetting>("/api/admin/settings/logging", { signal }),
+    ...policy,
+  });
+  const value = query.data;
+  const [localError, setError] = useWorkspaceErrorState(""),
     [busy, setBusy] = useState(false);
-  useEffect(() => {
-    const abort = new AbortController();
-    fetch("/api/admin/settings/logging", {
-      cache: "no-store",
-      signal: abort.signal,
-    })
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error);
-        setValue(d);
-      })
-      .catch((e) => {
-        if (!abort.signal.aborted) setError(e.message);
-      });
-    return () => abort.abort();
-  }, []);
+  const error =
+    localError || resolveWorkspaceError(query.error, settings.errorMessages);
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<LoggingSetting>("/api/admin/settings/logging", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   async function save() {
     if (!value) return;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/api/admin/settings/logging", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ value: !value.value, version: value.version }),
-        }),
-        d = await r.json();
-      if (!r.ok) throw new Error(d.error);
-      setValue(d);
+      const d = await command.mutateAsync({
+        value: !value.value,
+        version: value.version,
+      });
+      client.setQueryData(queryKey, d);
       toast("DB 감사 로깅 설정을 저장했습니다.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장 실패");
+      setError(e);
     } finally {
       setBusy(false);
     }

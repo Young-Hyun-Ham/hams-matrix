@@ -347,7 +347,7 @@ try {
       await readFile(join("db/migrations", name), "utf8"),
     );
   await db.executeMultiple(
-    "INSERT INTO users(id,name,account_role,onboarding_complete) VALUES ('A','Synthetic A','user',1),('B','Synthetic B','user',1); INSERT INTO workspaces(id,name,owner_id) VALUES ('ws','Synthetic workspace','A'); INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','A','owner'),('ws','B','member'); INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('p','ws','File RFP project','A','A'); INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES ('p','ws','A','admin'),('p','ws','B','admin'); UPDATE user_subscriptions SET plan_code='business';",
+    "INSERT INTO users(id,name,account_role,onboarding_complete) VALUES ('A','Synthetic A','user',1),('B','Synthetic B','user',1); INSERT INTO workspaces(id,name,owner_id) VALUES ('ws','Synthetic workspace','A'); INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','A','owner'),('ws','B','member'); INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('p','ws','File RFP project','A','A'); INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES ('p','ws','A','admin'),('p','ws','B','admin'); UPDATE user_subscriptions SET plan_code='business'; UPDATE workspaces SET plan='business',subscription_plan='business';",
   );
   for (const id of ["screen", "second", "template-target"])
     await db.execute({

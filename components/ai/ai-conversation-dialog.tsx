@@ -1,5 +1,9 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useConversationMutation } from "@/components/query/use-conversation-mutation";
+
 import type { AiConversation } from "@/lib/ai-context";
 import { useWorkspace } from "@/stores/workspace";
 
@@ -16,12 +20,14 @@ export function AiConversationDialog({
   onUpdate: (room: AiConversation) => void;
   onRemove: (convId: string) => void;
 }) {
+  const command = useConversationMutation(room.projectId, room.convId);
+
   const dialog = useRef<HTMLDialogElement>(null),
     busy = useRef(false),
     active = useRef(true);
   const [title, setTitle] = useState(room.title),
     [pending, setPending] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   useEffect(() => {
     active.current = true;
     dialog.current?.showModal();
@@ -36,19 +42,11 @@ export function AiConversationDialog({
     setPending(true);
     setError("");
     try {
-      const response = await fetch(
-        `/api/ai/conversations/${encodeURIComponent(room.convId)}`,
-        {
-          method: kind === "rename" ? "PATCH" : "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId: room.projectId,
-            ...(kind === "rename" ? { title } : {}),
-          }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await command.mutateAsync({
+        method: kind === "rename" ? "PATCH" : "DELETE",
+        input: { ...(kind === "rename" ? { title } : {}) },
+      });
+
       if (kind === "delete") {
         useWorkspace.getState().removeAiConversation(room.convId);
         if (active.current) onRemove(room.convId);
@@ -58,10 +56,7 @@ export function AiConversationDialog({
       }
       if (active.current) onClose();
     } catch (error) {
-      if (active.current)
-        setError(
-          error instanceof Error ? error.message : "변경하지 못했습니다.",
-        );
+      if (active.current) setError(error);
     } finally {
       busy.current = false;
       if (active.current) setPending(false);

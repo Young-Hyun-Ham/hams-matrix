@@ -1,3 +1,4 @@
+import { historyFilter } from "./admin-history-query";
 import "server-only";
 import { db } from "./db";
 import { HttpError } from "./auth";
@@ -131,11 +132,26 @@ export async function handleMasterWorkspace(
           noStore,
         );
       }
+      const projectId = url.searchParams.get("projectId") ?? "";
+      if (
+        projectId &&
+        projectId !== "unassigned" &&
+        !(
+          await tx.execute({
+            sql: "SELECT id FROM projects WHERE id=? AND workspace_id=?",
+            args: [projectId, workspace.id],
+          })
+        ).rows.length
+      )
+        throw new HttpError(404, "워크스페이스의 프로젝트를 찾을 수 없습니다.");
+      const filter = historyFilter(url, [String(workspace.id)]);
+      const history =
+        "SELECT 'audit' AS source,id,occurred_at AS occurredAt,actor_id AS actorId,actor_name AS actorName,action FROM audit_logs WHERE workspace_id=?";
       const total = Number(
         (
           await tx.execute({
-            sql: "SELECT count(*) AS n FROM audit_logs WHERE workspace_id=?",
-            args: [workspace.id],
+            sql: `SELECT count(*) AS n FROM (${history}) h ${filter.where}`,
+            args: [workspace.id, ...filter.args],
           })
         ).rows[0].n,
       );
@@ -145,8 +161,8 @@ export async function handleMasterWorkspace(
       );
       const entries = (
         await tx.execute({
-          sql: "SELECT 'audit' AS source,id,occurred_at AS occurredAt,actor_name AS actorName,action FROM audit_logs WHERE workspace_id=? ORDER BY occurred_at DESC,id DESC LIMIT ? OFFSET ?",
-          args: [workspace.id, pageSize, (page - 1) * pageSize],
+          sql: `SELECT * FROM (${history}) h ${filter.where} ORDER BY occurredAt DESC,id DESC LIMIT ? OFFSET ?`,
+          args: [workspace.id, ...filter.args, pageSize, (page - 1) * pageSize],
         })
       ).rows;
       await tx.commit();

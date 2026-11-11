@@ -1,129 +1,144 @@
-"use client";
+﻿"use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import { Icon } from "../icon";
+import { useNotificationPopover } from "../shared/use-notification-popover";
 type Notice = {
   id: string;
   requestId: string;
   company_name: string;
   read_at: string | null;
 };
+type Notices = { notifications: Notice[]; unread: number };
 export function SuperNotifications() {
-  const [items, setItems] = useState<Notice[]>([]),
-    [unread, setUnread] = useState(0),
-    [open, setOpen] = useState(false),
-    [error, setError] = useState("");
-  useEffect(() => {
-    // 컴포넌트 생명주기 전체를 관리하는 메인 AbortController
-    const globalController = new AbortController();
-
-    async function load(signal: AbortSignal) {
-      try {
-        const r = await fetch("/api/super-admin/notifications", {
-          cache: "no-store",
-          signal, // 매번 전달받은 시그널을 사용합니다.
-        });
-        const d = await r.json();
-        
-        if (r.ok && !signal.aborted) {
-          setItems(d.notifications);
-          setUnread(d.unread);
-          setError("");
-        }
-      } catch (error: any) {
-        if (error.name === 'AbortError') {
-          console.log('요청이 취소되었습니다.');
-        } else {
-          // 네트워크 오류 등 예외 처리가 필요하다면 이곳에 작성합니다.
-        }
-      }
-    }
-
-    // 1. 최초 마운트 시 실행 (메인 시그널 전달)
-    void load(globalController.signal);
-
-    // 2. 15초마다 실행 (실행될 때마다 해당 요청 전용 Controller를 만듭니다)
-    const timer = window.setInterval(() => {
-      // 이미 언마운트되었다면 실행하지 않음
-      if (globalController.signal.aborted) return;
-      
-      // 폴링 루프 안에서 개별 요청용 컨트롤러 생성
-      const pollController = new AbortController();
-      
-      // 컴포넌트가 언마운트될 때 이 개별 요청도 같이 취소되도록 연결
-      const abortHandler = () => pollController.abort();
-      globalController.signal.addEventListener('abort', abortHandler);
-
-      load(pollController.signal).finally(() => {
-        globalController.signal.removeEventListener('abort', abortHandler);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = matrixKeys.notifications(scope);
+  const countKey = [...queryKey, "count"];
+  const { open, setOpen, ref } = useNotificationPopover();
+  const count = useQuery({
+    queryKey: countKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ unread: number }>("/api/super-admin/notifications/count", {
+        signal,
+      }),
+    ...policy,
+    enabled: Boolean(scope.userId && scope.workspaceId),
+    refetchInterval: 15000,
+    refetchOnWindowFocus: "always",
+  });
+  const list = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<Notices>("/api/super-admin/notifications", { signal }),
+    ...policy,
+    enabled: open,
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const mutation = useMutation({
+    mutationFn: (id: string) =>
+      requestJson(`/api/super-admin/notifications/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+      }),
+    retry: false,
+    onSuccess: (_, id) => {
+      client.setQueryData<Notices>(queryKey, (current) =>
+        current
+          ? {
+              ...current,
+              notifications: current.notifications.map((item) =>
+                item.id === id
+                  ? {
+                      ...item,
+                      read_at: item.read_at ?? new Date().toISOString(),
+                    }
+                  : item,
+              ),
+            }
+          : current,
+      );
+      // Read status is idempotent; obtain the exact count rather than decrement twice.
+      void client.invalidateQueries({ queryKey: countKey });
+      void client.invalidateQueries({
+        queryKey,
+        exact: true,
+        refetchType: "none",
       });
-    }, 15000);
-
-    // 3. 포커스 및 커스텀 이벤트 핸들러
-    const handleFocus = () => {
-      if (globalController.signal.aborted) return;
-      const focusController = new AbortController();
-      load(focusController.signal);
+      setOpen(false);
+    },
+  });
+  useEffect(() => {
+    const refresh = () => {
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.notifications(scope), "count"],
+      });
+      void client.invalidateQueries({
+        queryKey: matrixKeys.notifications(scope),
+        exact: true,
+        refetchType: "none",
+      });
     };
-
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("business-notifications-refresh", handleFocus);
-
-    // 4. Cleanup (언마운트 시 모든 진행 중인 요청 중단 및 타이머 정리)
-    return () => {
-      globalController.abort(); // 전체 컨트롤러를 취소하여 모든 파생 요청 중단
-      window.clearInterval(timer);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("business-notifications-refresh", handleFocus);
-    };
-  }, []);
-  
+    window.addEventListener("business-notifications-refresh", refresh);
+    return () =>
+      window.removeEventListener("business-notifications-refresh", refresh);
+  }, [client, scope]);
+  const unread = count.data?.unread ?? 0;
+  const error = resolveWorkspaceError(
+    mutation.error ?? list.error,
+    settings.errorMessages,
+  );
   return (
-    <div className="notification-wrap">
+    <div className="notification-wrap" ref={ref}>
       <button
-        className="button"
+        className="button notification-trigger"
         aria-label="Business 계약 알림"
+        title="계약 알림"
         aria-expanded={open}
-        onClick={() => {
-          if (!open)
-            window.dispatchEvent(new Event("business-notifications-refresh"));
-          setOpen((v) => !v);
-        }}
+        aria-controls="contract-notifications-panel"
+        onClick={() => setOpen((value) => !value)}
       >
-        계약 알림{unread > 0 && ` ${unread}`}
+        <Icon name="file" size={19} />
+        <span className="notification-label">계약 알림</span>
+        {unread > 0 && (
+          <span
+            className="notification-badge"
+            aria-label={`${unread}건 미확인`}
+          >
+            {unread}
+          </span>
+        )}
       </button>
       {open && (
-        <div className="notification-popover">
+        <div className="notification-popover" id="contract-notifications-panel">
           <strong>Business 계약 신청</strong>
           {error && <p role="alert">{error}</p>}
-          {!items.length && <p>알림이 없습니다.</p>}
-          {items.map((n) => (
-            <p key={n.id}>
+          {list.isFetching ? (
+            <p role="status">알림을 불러오는 중입니다.</p>
+          ) : (
+            !list.data?.notifications.length &&
+            !error && <p>알림이 없습니다.</p>
+          )}
+          {list.data?.notifications.map((item) => (
+            <p key={item.id}>
               <Link
-                href={`/super-admin/settings?tab=business#request-${n.requestId}`}
-                onClick={async () => {
-                  const r = await fetch(
-                    `/api/super-admin/notifications/${n.id}`,
-                    {
-                      method: "PATCH",
-                      headers: { "Content-Type": "application/json" },
-                      body: "{}",
-                    },
-                  );
-                  if (r.ok) {
-                    if (!n.read_at) setUnread((v) => Math.max(0, v - 1));
-                    setItems((xs) =>
-                      xs.map((x) =>
-                        x.id === n.id
-                          ? { ...x, read_at: new Date().toISOString() }
-                          : x,
-                      ),
-                    );
-                    setOpen(false);
-                  } else setError("알림 읽음 처리를 완료하지 못했습니다.");
+                href={`/super-admin/settings?tab=business#request-${item.requestId}`}
+                onClick={() => {
+                  if (!mutation.isPending) mutation.mutate(item.id);
+                  setOpen(false);
                 }}
               >
-                {n.read_at ? "" : "[미확인] "}
-                {n.company_name}
+                {item.read_at ? "" : "[미확인] "}
+                {item.company_name}
               </Link>
             </p>
           ))}

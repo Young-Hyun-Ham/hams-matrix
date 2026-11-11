@@ -1,3 +1,5 @@
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "./editor-icon";
@@ -117,7 +119,7 @@ export function PreviewCapture({
 }) {
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useWorkspaceErrorState("");
   const working = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
@@ -149,9 +151,11 @@ export function PreviewCapture({
     } catch (error) {
       if (mounted.current)
         setError(
-          error instanceof Error
-            ? error.message
-            : "캡처에 실패했습니다. 다시 시도해 주세요.",
+          error instanceof RequestError
+            ? error
+            : error instanceof Error
+              ? error.message
+              : "캡처에 실패했습니다. 다시 시도해 주세요.",
         );
     } finally {
       working.current = false;

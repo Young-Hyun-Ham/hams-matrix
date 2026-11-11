@@ -3,6 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import type { RegistrationChoice } from "@/lib/registration";
 import "./registration.css";
 
+import { useQuery } from "@tanstack/react-query";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import { defaultSettings } from "@/lib/system-settings/defaults";
+import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
 export function RegistrationChoiceDialog({
   role,
   onClose,
@@ -16,44 +21,28 @@ export function RegistrationChoiceDialog({
   const [plan, setPlan] = useState<"team" | "business" | null>(null);
   const [kind, setKind] = useState<"guest" | "team" | null>(null);
   const [teamId, setTeamId] = useState("");
-  const [teams, setTeams] = useState<{ id: string; name: string }[]>([]);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [attempt, setAttempt] = useState(0);
+  const [debounced, setDebounced] = useState("");
+  const result = useQuery({
+    queryKey: ["matrix", "public", "signup-teams", { q: debounced }],
+    queryFn: ({ signal }) =>
+      requestJson<{ teams: { id: string; name: string }[] }>(
+        `/api/signup/teams?q=${encodeURIComponent(debounced)}`,
+        { signal },
+      ),
+    ...createWorkspaceQueryPolicy(defaultSettings("")),
+    enabled: role === "user" && kind === "team" && query === debounced,
+  });
+  const teams = result.data?.teams ?? [];
+  const loading = result.isLoading || (kind === "team" && query !== debounced),
+    error = resolveWorkspaceError(result.error);
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
   useEffect(() => {
-    if (role !== "user" || kind !== "team") return;
-    const controller = new AbortController();
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      setError("");
-      try {
-        const response = await fetch(
-          `/api/signup/teams?q=${encodeURIComponent(query)}`,
-          { cache: "no-store", signal: controller.signal },
-        );
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setTeams(data.teams);
-      } catch (error) {
-        if (!controller.signal.aborted)
-          setError(
-            error instanceof Error
-              ? error.message
-              : "팀을 조회하지 못했습니다.",
-          );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }, 250);
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [role, kind, query, attempt]);
+    const timer = window.setTimeout(() => setDebounced(query), 250);
+    return () => window.clearTimeout(timer);
+  }, [query]);
   const valid =
     role === "owner"
       ? !!plan
@@ -205,10 +194,7 @@ export function RegistrationChoiceDialog({
               ) : error ? (
                 <div role="alert">
                   {error}
-                  <button
-                    type="button"
-                    onClick={() => setAttempt((value) => value + 1)}
-                  >
+                  <button type="button" onClick={() => void result.refetch()}>
                     다시 조회
                   </button>
                 </div>

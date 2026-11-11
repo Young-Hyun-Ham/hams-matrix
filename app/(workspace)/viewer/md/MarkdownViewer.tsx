@@ -1,4 +1,8 @@
 "use client";
+import { useWorkspaceMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+import { requestJson } from "@/lib/query/browser-fetch";
 
 import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -263,7 +267,18 @@ export default function MarkdownViewer({
   const [copied, setCopied] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [saveNotice, setSaveNotice] = useState("");
+  const [saveFailure, setSaveFailure] = useWorkspaceErrorState("");
+  const saveMessage = saveFailure || saveNotice;
+  const command = useWorkspaceMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ modifiedAt?: string; size?: number }>("/api/markdown", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     () => new Set(getParentFolderPaths(initialPath)),
   );
@@ -309,26 +324,14 @@ export default function MarkdownViewer({
     if (content === selectedDocument.content) return;
 
     setSaving(true);
-    setSaveMessage("");
+    setSaveNotice("");
+    setSaveFailure("");
 
     try {
-      const response = await fetch("/api/markdown", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          relativePath: selectedDocument.relativePath,
-          content,
-        }),
+      const result = await command.mutateAsync({
+        relativePath: selectedDocument.relativePath,
+        content,
       });
-      const result = (await response.json().catch(() => ({}))) as {
-        error?: string;
-        modifiedAt?: string;
-        size?: number;
-      };
-
-      if (!response.ok)
-        throw new Error(result.error ?? "문서를 저장하지 못했습니다.");
-
       setDocuments((current) =>
         current.map((document) =>
           document.relativePath === selectedDocument.relativePath
@@ -346,10 +349,14 @@ export default function MarkdownViewer({
         delete next[selectedDocument.relativePath];
         return next;
       });
-      setSaveMessage("저장되었습니다.");
+      setSaveNotice("저장되었습니다.");
     } catch (error) {
-      setSaveMessage(
-        error instanceof Error ? error.message : "문서를 저장하지 못했습니다.",
+      setSaveFailure(
+        error instanceof RequestError
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "문서를 저장하지 못했습니다.",
       );
     } finally {
       setSaving(false);
@@ -394,7 +401,8 @@ export default function MarkdownViewer({
     });
     setSelectedPath(relativePath);
     setCopied(false);
-    setSaveMessage("");
+    setSaveNotice("");
+    setSaveFailure("");
 
     window.requestAnimationFrame(() => {
       if (hash) {
@@ -417,7 +425,8 @@ export default function MarkdownViewer({
         nextPaths[closingIndex] ?? nextPaths[closingIndex - 1] ?? "";
       setSelectedPath(nextSelectedPath);
       setCopied(false);
-      setSaveMessage("");
+      setSaveNotice("");
+      setSaveFailure("");
       mainRef.current?.scrollTo({ top: 0 });
     }
   };
@@ -426,7 +435,8 @@ export default function MarkdownViewer({
     if (!selectedPath) return;
     setOpenDocumentPaths([selectedPath]);
     setCopied(false);
-    setSaveMessage("");
+    setSaveNotice("");
+    setSaveFailure("");
     mainRef.current?.scrollTo({ top: 0 });
   };
 
@@ -761,7 +771,8 @@ export default function MarkdownViewer({
                           ...current,
                           [selectedDocument.relativePath]: event.target.value,
                         }));
-                        setSaveMessage("");
+                        setSaveNotice("");
+                        setSaveFailure("");
                       }}
                       onKeyDown={(event) => {
                         if (

@@ -1,9 +1,17 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Project, TeamMember } from "@/lib/project-types";
+import type { Project } from "@/lib/project-types";
 import type { User } from "@/lib/types";
 import "./create-project-dialog.css";
-import { fetchTeam as fetch } from "@/lib/team-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { teamRequestJson } from "@/lib/query/team-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import { useTeamMembers } from "@/components/query/use-team-members";
 
 export function CreateProjectDialog({
   user,
@@ -18,44 +26,34 @@ export function CreateProjectDialog({
   const submitting = useRef(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [members, setMembers] = useState<TeamMember[]>([]);
+  const { scope, settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  const memberQuery = useTeamMembers();
+  const members = memberQuery.data?.members ?? [];
+  const command = useMutation({
+    mutationFn: (data: object) =>
+      teamRequestJson<{ project: Project }>("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
   const [selected, setSelected] = useState<string[]>([user.id]);
   const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [error, setError] = useState("");
+  const loading = memberQuery.isLoading,
+    loadError = resolveWorkspaceError(
+      memberQuery.error,
+      settings.errorMessages,
+    );
+  const [error, setError] = useWorkspaceErrorState("");
   const [saving, setSaving] = useState(false);
-  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     dialog.current?.showModal();
   }, []);
-  useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setLoadError("");
-      try {
-        const response = await fetch("/api/team/members", {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setMembers(data.members);
-      } catch (error) {
-        if (!controller.signal.aborted)
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : "팀원을 불러오지 못했습니다.",
-          );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [attempt]);
   function close() {
     if (!submitting.current) onClose();
   }
@@ -66,20 +64,18 @@ export function CreateProjectDialog({
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/projects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, memberIds: selected }),
+      const data = await command.mutateAsync({
+        name,
+        description,
+        memberIds: selected,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "subscription"],
+      });
       onCreated(data.project);
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "프로젝트를 생성하지 못했습니다.",
-      );
+      setError(error);
     } finally {
       submitting.current = false;
       setSaving(false);
@@ -174,7 +170,7 @@ export function CreateProjectDialog({
                   <button
                     type="button"
                     className="button"
-                    onClick={() => setAttempt((value) => value + 1)}
+                    onClick={() => void memberQuery.refetch()}
                   >
                     다시 불러오기
                   </button>

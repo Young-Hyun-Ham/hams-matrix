@@ -1,7 +1,14 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { DatabaseDomain } from "@/lib/database-domain-types";
-import { jsonRequest } from "@/lib/client-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+
 import {
   DATABASE_DATA_TYPES,
   databaseTypePolicy,
@@ -24,11 +31,28 @@ export function DatabaseDomainForm({
   onSaved: (message: string) => void;
   onDirtyChange: (value: boolean) => void;
 }) {
+  const { scope } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const command = useMutation({
+    mutationFn: (fields: object) =>
+      requestJson<{ warnings?: string[] }>(
+        `/api/projects/${encodeURIComponent(projectId)}/database/domains${item ? `/${item.id}` : ""}`,
+        {
+          method: item ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...fields,
+            ...(item ? { version: item.version } : {}),
+          }),
+        },
+      ),
+    retry: false,
+  });
   const dialog = useRef<HTMLDialogElement>(null),
     dirty = useRef(false),
     saving = useRef(false);
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const [databaseType, setDatabaseType] = useState(item?.databaseType ?? "");
   const [dataType, setDataType] = useState(item?.dataType ?? "");
   const [length, setLength] = useState(item?.length ?? "");
@@ -67,17 +91,13 @@ export function DatabaseDomainForm({
     try {
       if (!(await verifyPermission()))
         throw new Error("현재 작업 권한이 없습니다.");
-      const result = await jsonRequest(
-        `/api/projects/${encodeURIComponent(projectId)}/database/domains${item ? `/${item.id}` : ""}`,
-        {
-          method: item ? "PATCH" : "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...fields,
-            ...(item ? { version: item.version } : {}),
-          }),
-        },
-      );
+      const result = await command.mutateAsync(fields);
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "project", projectId, "domains"],
+      });
+      void client.invalidateQueries({
+        queryKey: matrixKeys.artifacts(scope, projectId),
+      });
       dirty.current = false;
       onDirtyChange(false);
       onClose();
@@ -85,7 +105,7 @@ export function DatabaseDomainForm({
         `도메인 메타를 저장했습니다.${result.warnings?.length ? ` ${result.warnings.join(" ")}` : ""}`,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
+      setError(e);
     } finally {
       saving.current = false;
       setBusy(false);

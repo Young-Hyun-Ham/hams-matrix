@@ -574,3 +574,28 @@
   margin: 0;
   padding: 0;
 }
+
+/* Shared header notification counters. */
+.notification-trigger { position: relative; white-space: nowrap; flex-shrink: 0; }
+.notification-wrap { flex-shrink: 0; }
+@media (max-width: 960px) {
+  .notification-trigger .notification-label { display: none; }
+}
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+  pointer-events: none;
+}

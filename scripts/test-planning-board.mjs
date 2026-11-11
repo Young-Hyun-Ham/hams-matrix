@@ -122,7 +122,7 @@ try {
  INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','viewer'),('ws','member','member'),('other','outsider','owner');
  INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('project','ws','Project','owner','owner');
  INSERT INTO project_members(project_id,workspace_id,user_id,role) VALUES ('project','ws','owner','admin'),('project','ws','reader','viewer'),('project','ws','member','member');
- UPDATE user_subscriptions SET plan_code='business'; UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED';
+ UPDATE user_subscriptions SET plan_code='business'; UPDATE workspaces SET plan='business',subscription_plan='business'; UPDATE admin_setting SET value_json='true' WHERE setting_key='DB_LOGGING_ENABLED';
  INSERT INTO project_artifacts(id,workspace_id,project_id,kind,code,title,status,fields_json,structure_json,version,created_by,updated_by,created_at,updated_at) VALUES ('screen','ws','project','screen','SCR-001','Screen','초안','{"definition":"screen","details":"details","url":"/keep"}','{}',1,'owner','owner',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP),('second','ws','project','screen','SCR-002','Second','초안','{"definition":"screen","details":"details"}','{}',1,'owner','owner',CURRENT_TIMESTAMP,CURRENT_TIMESTAMP);`);
   for (const [id, ws] of [
     ["owner", "ws"],

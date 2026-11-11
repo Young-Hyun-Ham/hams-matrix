@@ -1,12 +1,19 @@
 ﻿"use client";
-import { useRef, useState, type FormEvent } from "react";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
   definitions,
   type Artifact,
   type ArtifactKind,
 } from "@/lib/artifact-types";
-import { jsonRequest } from "@/lib/client-request";
 import type { PermissionAction } from "@/lib/project-permission-model";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
+import { matrixKeys } from "@/lib/query/keys";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 type EditorSession = {
   sessionId: number;
   kind: ArtifactKind;
@@ -21,9 +28,28 @@ export function useArtifactActions(
     action: PermissionAction,
   ) => Promise<boolean>,
 ) {
+  const { scope } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: ({ url, init }: { url: string; init: RequestInit }) =>
+      requestJson<{ artifact: Artifact }>(url, init),
+    retry: false,
+  });
+  const changed = () => {
+    void client.invalidateQueries({
+      queryKey: matrixKeys.artifacts(scope, projectId),
+    });
+    void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
+  };
   const session = useRef(0);
+  useEffect(
+    () => () => {
+      session.current++;
+    },
+    [scope.userId, scope.workspaceId, projectId],
+  );
   const [saveFailure, setSaveFailure] = useState(0);
-  function reportSaveError(message: string) {
+  function reportSaveError(message: unknown) {
     setError(message);
     setSaveFailure((value) => value + 1);
   }
@@ -31,7 +57,7 @@ export function useArtifactActions(
   const [editor, setEditor] = useState<EditorSession | null>(null),
     [deleting, setDeleting] = useState<Artifact | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const openCreate = (kind: ArtifactKind, draft?: Artifact) => {
     session.current++;
     setError("");
@@ -82,9 +108,9 @@ export function useArtifactActions(
         !(await verifyPermission(editor.kind, selected ? "UPDATE" : "CREATE"))
       )
         throw new Error("현재 프로젝트 권한으로 저장할 수 없습니다.");
-      const result = await jsonRequest(
-        `/api/projects/${projectId}/artifacts${selected ? `/${selected.id}` : ""}`,
-        {
+      const result = await mutation.mutateAsync({
+        url: `/api/projects/${projectId}/artifacts${selected ? `/${selected.id}` : ""}`,
+        init: {
           method: selected ? "PATCH" : "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -121,15 +147,20 @@ export function useArtifactActions(
             confirmExecution: form.get("confirmExecution") === "on",
           }),
         },
-      );
+      });
       if (session.current !== savingSession) return;
       setSavedArtifact(result.artifact);
       setEditor(null);
+      changed();
       onChanged("저장했습니다.");
     } catch (e) {
       if (session.current === savingSession)
         reportSaveError(
-          e instanceof Error ? e.message : "저장에 실패했습니다.",
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "저장에 실패했습니다.",
         );
     } finally {
       setBusy(false);
@@ -142,17 +173,29 @@ export function useArtifactActions(
     try {
       if (!(await verifyPermission(deleting.kind, "DELETE")))
         throw new Error("현재 프로젝트 권한으로 삭제할 수 없습니다.");
-      await jsonRequest(`/api/projects/${projectId}/artifacts/${deleting.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: deleting.version }),
+      await mutation.mutateAsync({
+        url: `/api/projects/${projectId}/artifacts/${deleting.id}`,
+        init: {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ version: deleting.version }),
+        },
       });
+      changed();
       setDeleting(null);
       onChanged(
         `${deleting.code} 항목을 삭제했습니다. 관리번호와 변경 이력은 보존됩니다.`,
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : "삭제에 실패했습니다.");
+      setError(
+        e instanceof RequestError
+          ? e
+          : e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "삭제에 실패했습니다.",
+      );
     } finally {
       setBusy(false);
     }

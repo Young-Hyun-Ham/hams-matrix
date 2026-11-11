@@ -1,7 +1,15 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 /* eslint-disable @next/next/no-img-element -- Saved authenticated PNG; preserve its native resolution for download. */
 import { useEffect, useId, useRef, useState } from "react";
-import { jsonRequest } from "@/lib/client-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson, requestBlob } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
+
 import type { GeneratedImageInfo } from "@/lib/generated-image-types";
 import "./database-erd-preview.css";
 
@@ -12,6 +20,33 @@ export function DatabaseErdPreview({
   projectId: string;
   canWrite: boolean;
 }) {
+  const { scope, policy } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [
+    ...matrixKeys.scope(scope),
+    "project",
+    projectId,
+    "image",
+    "erd",
+  ];
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ image: GeneratedImageInfo; sourceHash: string }>(
+        `/api/projects/${encodeURIComponent(projectId)}/database/erd/image`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      ),
+    retry: false,
+    onSuccess: (data) => {
+      client.setQueryData(queryKey, data);
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "subscription"],
+      });
+    },
+  });
   const dialog = useRef<HTMLDialogElement>(null),
     active = useRef(true),
     running = useRef(false);
@@ -20,10 +55,20 @@ export function DatabaseErdPreview({
     [busy, setBusy] = useState(false),
     [image, setImage] = useState<GeneratedImageInfo | null>(null);
   const [sourceHash, setSourceHash] = useState(""),
-    [error, setError] = useState(""),
+    [error, setError] = useWorkspaceErrorState(""),
     [imageError, setImageError] = useState(false);
   const [zoom, setZoom] = useState<"fit" | "actual">("fit");
   const endpoint = `/api/projects/${encodeURIComponent(projectId)}/database/erd/image`;
+  useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ image: GeneratedImageInfo | null; sourceHash: string }>(
+        endpoint,
+        { signal },
+      ),
+    ...policy,
+    enabled: open,
+  });
   useEffect(() => {
     active.current = true;
     return () => {
@@ -47,7 +92,16 @@ export function DatabaseErdPreview({
     }
     try {
       const saved: { image: GeneratedImageInfo | null; sourceHash: string } =
-        await jsonRequest(endpoint);
+        await client.query({
+          queryKey,
+          queryFn: ({ signal }) =>
+            requestJson<{
+              image: GeneratedImageInfo | null;
+              sourceHash: string;
+            }>(endpoint, { signal }),
+          staleTime: 0,
+          retry: false,
+        });
       if (!active.current) return;
       setSourceHash(saved.sourceHash);
       if (!regenerate) setImage(saved.image);
@@ -63,15 +117,11 @@ export function DatabaseErdPreview({
           "다른 사용자가 이미지를 변경했습니다. 최신 이미지를 불러왔습니다. 확인 후 다시 생성해 주세요.",
         );
       }
-      const result = await jsonRequest(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sourceHash: saved.sourceHash,
-          ...(regenerate
-            ? { regenerate: true, expectedImageId: saved.image?.id }
-            : {}),
-        }),
+      const result = await command.mutateAsync({
+        sourceHash: saved.sourceHash,
+        ...(regenerate
+          ? { regenerate: true, expectedImageId: saved.image?.id }
+          : {}),
       });
       if (active.current) {
         setImage(result.image);
@@ -81,7 +131,11 @@ export function DatabaseErdPreview({
     } catch (e) {
       if (active.current)
         setError(
-          e instanceof Error ? e.message : "미리보기를 불러오지 못했습니다.",
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "미리보기를 불러오지 못했습니다.",
         );
     } finally {
       running.current = false;
@@ -94,14 +148,9 @@ export function DatabaseErdPreview({
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(`${image.url}&download=1`, {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        const result = await response.json();
-        throw new Error(result.error || "다운로드하지 못했습니다.");
-      }
-      const url = URL.createObjectURL(await response.blob()),
+      const url = URL.createObjectURL(
+          await requestBlob(`${image.url}&download=1`),
+        ),
         link = document.createElement("a");
       link.href = url;
       link.download = `ERD-${projectId}.png`;
@@ -111,7 +160,13 @@ export function DatabaseErdPreview({
       setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) {
       if (active.current)
-        setError(e instanceof Error ? e.message : "다운로드하지 못했습니다.");
+        setError(
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "다운로드하지 못했습니다.",
+        );
     } finally {
       running.current = false;
       if (active.current) setBusy(false);

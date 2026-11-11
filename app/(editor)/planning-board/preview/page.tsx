@@ -2,7 +2,7 @@
 import { SelectElement } from "../components/select-element";
 import { PreviewCapture } from "../components/preview-capture";
 
-import { boardFetch } from "../lib/client-api";
+import { useBoardTransport } from "../lib/use-board-transport";
 import { boardScope } from "../lib/client-api";
 import { normalizeDocumentImages } from "../lib/asset-url";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -216,6 +216,7 @@ function PageCanvas({
 }
 
 export default function PreviewPage() {
+  const boardFetch = useBoardTransport();
   const [previewDocument, setPreviewDocument] =
     useState<PreviewDocument | null>(null);
   const [activePageId, setActivePageId] = useState("");
@@ -295,7 +296,7 @@ export default function PreviewPage() {
       disposed = true;
       window.removeEventListener("message", receiveDocument);
     };
-  }, []);
+  }, [boardFetch]);
 
   useEffect(() => {
     if (previewDocument) document.title = `${previewDocument.title} - 미리보기`;

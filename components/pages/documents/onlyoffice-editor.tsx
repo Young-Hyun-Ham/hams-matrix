@@ -1,7 +1,14 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import dynamic from "next/dynamic";
-import { useEffect, useState } from "react";
-import { jsonRequest } from "@/lib/client-request";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+
 import type { OnlyofficeConfiguration } from "@/lib/onlyoffice-types";
 import "./onlyoffice-editor.css";
 
@@ -23,25 +30,32 @@ export function OnlyofficeEditor({
   projectId: string;
   fileId: string;
 }) {
-  const [editor, setEditor] = useState<OnlyofficeConfiguration | null>(null);
-  const [error, setError] = useState(""),
+  const { scope, settings } = useWorkspaceQueryPolicy();
+  const query = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "project",
+      projectId,
+      "documents",
+      "editor",
+      fileId,
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<OnlyofficeConfiguration>(
+        `/api/projects/${projectId}/documents/files/${fileId}/editor`,
+        { signal },
+      ),
+    staleTime: 0,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+  });
+  const editor = query.data;
+  const [localError, setError] = useWorkspaceErrorState(""),
     [status, setStatus] = useState("문서 서버에 연결하는 중입니다.");
-  useEffect(() => {
-    const controller = new AbortController();
-    jsonRequest(`/api/projects/${projectId}/documents/files/${fileId}/editor`, {
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (!controller.signal.aborted) setEditor(result);
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted)
-          setError(
-            error instanceof Error ? error.message : "문서를 열지 못했습니다.",
-          );
-      });
-    return () => controller.abort();
-  }, [projectId, fileId]);
+  const error =
+    localError || resolveWorkspaceError(query.error, settings.errorMessages);
   return (
     <main className="onlyoffice-page">
       <header className="onlyoffice-toolbar">

@@ -1,10 +1,17 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 /* eslint-disable @next/next/no-html-link-for-pages -- OAuth starts a full document redirect; these endpoints must not be prefetched by Link. */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Brand, Icon } from "./icon";
 import { useWorkspace } from "@/stores/workspace";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { requestJson } from "@/lib/query/browser-fetch";
+
+import type { User } from "@/lib/types";
 const errors: Record<string, string> = {
   oauth_unavailable:
     "소셜 로그인 설정이 준비되지 않았습니다. 이메일로 시작해 주세요.",
@@ -19,12 +26,22 @@ export function AuthForm({
   mode: "login" | "signup";
   errorCode?: string;
 }) {
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (data: object) =>
+      requestJson<{ user: User }>(`/api/auth/${mode}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
   const signup = mode === "signup",
     router = useRouter(),
     setUser = useWorkspace((s) => s.setUser);
   const [showPassword, setShowPassword] = useState(false),
     [pending, setPending] = useState(false),
-    [error, setError] = useState(errors[errorCode ?? ""] ?? "");
+    [error, setError] = useWorkspaceErrorState(errors[errorCode ?? ""] ?? "");
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -36,30 +53,22 @@ export function AuthForm({
       return;
     }
     try {
-      const response = await fetch(`/api/auth/${mode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: values.get("email"),
-          password: values.get("password"),
-          name: values.get("name"),
-          ...(signup ? { jobTitle: values.get("jobTitle") } : {}),
-          accepted: values.get("accepted") === "on",
-        }),
+      const result = await mutation.mutateAsync({
+        email: values.get("email"),
+        password: values.get("password"),
+        name: values.get("name"),
+        ...(signup ? { jobTitle: values.get("jobTitle") } : {}),
+        accepted: values.get("accepted") === "on",
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      await client.cancelQueries();
+      client.clear();
       setUser(result.user);
       router.replace(
         result.user.onboardingComplete ? "/dashboard" : "/onboarding",
       );
       router.refresh();
     } catch (error) {
-      setError(
-        error instanceof Error
-          ? error.message
-          : "연결을 확인하고 다시 시도해 주세요.",
-      );
+      setError(error);
     } finally {
       setPending(false);
     }

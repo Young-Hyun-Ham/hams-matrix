@@ -1,3 +1,5 @@
+import { isThemePreset } from "@/lib/theme-presets";
+import { WorkspaceQueryBoundary } from "@/components/query/workspace-query-boundary";
 import { WorkspacePlanGuard } from "@/components/workspace-plan-guard";
 import type { ReactNode } from "react";
 import { EditorProvider } from "./stores/editor-provider";
@@ -32,13 +34,14 @@ async function AuthenticatedEditor({ children }: { children: ReactNode }) {
   if (!user.onboardingComplete) redirect("/onboarding");
   const row = (
     await db().execute({
-      sql: "SELECT toast_position,default_theme,toast_background_color,toast_font_color,accent_color,toast_close_button_color,toast_close_button_background_color,version FROM user_preferences WHERE user_id=?",
+      sql: "SELECT theme_preset,toast_position,default_theme,toast_background_color,toast_font_color,accent_color,toast_close_button_color,toast_close_button_background_color,version FROM user_preferences WHERE user_id=?",
       args: [user.id],
     })
   ).rows[0];
   const initial: Preferences = {
     toastPosition: row?.toast_position === "top" ? "top" : "bottom",
     defaultTheme: row?.default_theme === "dark" ? "dark" : "light",
+    themePreset: isThemePreset(row?.theme_preset) ? row.theme_preset : "custom",
     toastBackgroundColor: String(row?.toast_background_color ?? "#ffffff"),
     toastFontColor: String(row?.toast_font_color ?? "#262138"),
     accentColor: row?.accent_color ? String(row.accent_color) : null,
@@ -51,9 +54,11 @@ async function AuthenticatedEditor({ children }: { children: ReactNode }) {
     version: Number(row?.version ?? 0),
   };
   return (
-    <>
+    <WorkspaceQueryBoundary user={user} preferences={initial}>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      <WorkspacePlanGuard user={user}><EditorProvider initialUser={user}>{children}</EditorProvider></WorkspacePlanGuard>
-    </>
+      <WorkspacePlanGuard user={user}>
+        <EditorProvider initialUser={user}>{children}</EditorProvider>
+      </WorkspacePlanGuard>
+    </WorkspaceQueryBoundary>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { User } from "@/lib/types";
 import type { Project } from "@/lib/project-types";
 import type { Artifact } from "@/lib/artifact-types";
@@ -8,6 +8,14 @@ import type { Plan } from "@/lib/plan-types";
 import { toast } from "@/stores/toast";
 import { CreateProjectDialog } from "./create-project-dialog";
 import "@/components/project-workbench.css";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 type Activity = {
   id: string;
   action: string;
@@ -18,24 +26,44 @@ type Activity = {
   snapshot: Artifact;
 };
 export function DashboardPage({ user }: { user: User }) {
-  const [projects, setProjects] = useState<Project[]>([]),
-    [activities, setActivities] = useState<Activity[]>([]),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [creating, setCreating] = useState(false),
-    [checkingPlan, setCheckingPlan] = useState(false),
-    [attempt, setAttempt] = useState(0);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  const query = useQuery({
+    queryKey: matrixKeys.projects(scope),
+    queryFn: ({ signal }) =>
+      requestJson<{ projects: Project[]; activities: Activity[] }>(
+        "/api/projects",
+        { signal },
+      ),
+    ...policy,
+  });
+  const projects = query.data?.projects ?? [],
+    activities = query.data?.activities ?? [];
+  const loading = query.isLoading,
+    error = resolveWorkspaceError(query.error, settings.errorMessages);
+  const [creating, setCreating] = useState(false),
+    [checkingPlan, setCheckingPlan] = useState(false);
+  const setAttempt = () => {
+    void query.refetch();
+  };
   const canCreate = user.accountRole !== "guest";
   async function openCreateDialog() {
     if (checkingPlan) return;
     setCheckingPlan(true);
     try {
-      const response = await fetch("/api/me/subscription", {
-        cache: "no-store",
+      const data = await client.query({
+        queryKey: [...matrixKeys.scope(scope), "subscription"],
+        queryFn: ({ signal }) =>
+          requestJson<{ plan: Plan; usage: { projects: number } }>(
+            "/api/me/subscription",
+            { signal },
+          ),
+        staleTime: 0,
+        retry: false,
       });
-      const data = await response.json();
-      if (!response.ok)
-        throw new Error(data.error ?? "요금제 정보를 확인하지 못했습니다.");
       const plan = data.plan as Plan;
       const count = Number(data.usage?.projects);
       if (!Number.isFinite(count))
@@ -50,41 +78,17 @@ export function DashboardPage({ user }: { user: User }) {
       setCreating(true);
     } catch (error) {
       toast(
-        error instanceof Error
-          ? error.message
-          : "요금제 정보를 확인하지 못했습니다.",
+        error instanceof RequestError
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "요금제 정보를 확인하지 못했습니다.",
         true,
       );
     } finally {
       setCheckingPlan(false);
     }
   }
-  useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError("");
-      await fetch("/api/projects", {
-        cache: "no-store",
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          const data = await response.json();
-          if (!response.ok) throw new Error(data.error);
-          if (controller.signal.aborted) return;
-          setProjects(data.projects);
-          setActivities(data.activities ?? []);
-        })
-        .catch((e) => {
-          if (!controller.signal.aborted) setError(e.message);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
-    }
-    void load();
-    return () => controller.abort();
-  }, [attempt, user.workspaceId, user.id]);
   const requirements = projects.reduce(
       (sum, p) => sum + (p.stats?.requirements ?? 0),
       0,
@@ -113,7 +117,7 @@ export function DashboardPage({ user }: { user: User }) {
       ) : error ? (
         <div role="alert" className="matrix-error">
           {error}{" "}
-          <button className="button" onClick={() => setAttempt((x) => x + 1)}>
+          <button className="button" onClick={() => setAttempt()}>
             다시 불러오기
           </button>
         </div>
@@ -232,7 +236,7 @@ export function DashboardPage({ user }: { user: User }) {
           onClose={() => setCreating(false)}
           onCreated={() => {
             setCreating(false);
-            setAttempt((x) => x + 1);
+            setAttempt();
           }}
         />
       )}

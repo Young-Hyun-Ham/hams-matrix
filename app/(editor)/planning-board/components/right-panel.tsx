@@ -1,5 +1,6 @@
-import { boardFetch as fetch } from "@/app/(editor)/planning-board/lib/client-api";
+import { useBoardTransport } from "../lib/use-board-transport";
 import { useEffect, useRef, useState } from "react";
+import { requestBlob } from "@/lib/query/browser-fetch";
 import { boardScope, planningFetch } from "../lib/client-api";
 import { assetUrl, parseAssetUrl } from "../lib/asset-url";
 import { muiIcons } from "./icons/mui";
@@ -121,6 +122,7 @@ export function RightPanel({
   ) => void;
   readOnly: boolean;
 }) {
+  const fetch = useBoardTransport();
   const [tab, setTab] = useState<"design" | "code">("design");
   const [codes, setCodes] = useState<PublishingCode>(() =>
     createPublishingCode(""),
@@ -213,9 +215,11 @@ export function RightPanel({
             asset.screenId !== scope.screenId
           )
             throw new Error("Invalid private image URL");
-          const response = await planningFetch(assetUrl(asset, asset.assetId));
-          if (!response.ok) throw new Error();
-          const blob = await response.blob();
+          const blob = await requestBlob(
+            assetUrl(asset, asset.assetId),
+            undefined,
+            planningFetch,
+          );
           const dataUrl = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result));
@@ -268,7 +272,7 @@ export function RightPanel({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [tab, documentVersion]);
+  }, [tab, documentVersion, fetch]);
 
   // Preserve content whitespace: formatters can put text nodes on separate lines.
   const singleLine = (code: string) =>

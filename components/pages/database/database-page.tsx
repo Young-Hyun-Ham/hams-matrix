@@ -2,16 +2,20 @@
 import { ArtifactList } from "@/components/shared/artifact-list";
 import { useProjectPage } from "@/components/shared/project-page-context";
 import { useCallback } from "react";
-import { jsonRequest } from "@/lib/client-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 import { useDatabaseEvents } from "./use-database-events";
 export function DatabasePage() {
-  const { user, data, updateData } = useProjectPage();
+  const { user, data } = useProjectPage();
   const projectId = data.project.id;
+  const client = useQueryClient();
+  const { scope } = useWorkspaceQueryPolicy();
   const refresh = useCallback(() => {
-    void jsonRequest(`/api/projects/${encodeURIComponent(projectId)}/artifacts`)
-      .then((result) => updateData?.(result))
-      .catch(() => {});
-  }, [projectId, updateData]);
+    void client.invalidateQueries({
+      queryKey: matrixKeys.artifacts(scope, projectId),
+    });
+  }, [client, scope, projectId]);
   useDatabaseEvents(user, projectId, refresh);
   return (
     <>

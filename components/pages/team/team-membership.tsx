@@ -1,11 +1,19 @@
 ﻿"use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { notifyProjectAccessChange } from "@/lib/project-access-events";
 import type { User } from "@/lib/types";
 import type { TeamMember } from "@/lib/project-types";
 import "./team-membership.css";
-import { fetchTeam as fetch } from "@/lib/team-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { teamRequestJson } from "@/lib/query/team-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import { useTeamMembers } from "@/components/query/use-team-members";
 
 type JoinRequest = {
   id: string;
@@ -31,11 +39,44 @@ export function TeamMembership({
   refreshVersion?: number;
 }) {
   const router = useRouter();
-  const [requests, setRequests] = useState<JoinRequest[]>([]),
-    [members, setMembers] = useState<TeamMember[]>([]);
-  const [loading, setLoading] = useState(true),
-    [canManage, setCanManage] = useState(false);
-  const [error, setError] = useState(""),
+  const { scope, policy, settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  const membership = useTeamMembers(projectId);
+  const joinRequests = useQuery({
+    queryKey: [...matrixKeys.scope(scope), "team", "requests"],
+    queryFn: ({ signal }) =>
+      teamRequestJson<{ requests: JoinRequest[] }>("/api/team/requests", {
+        signal,
+      }),
+    ...policy,
+  });
+  const requests = joinRequests.data?.requests ?? [],
+    members = membership.data?.members ?? [];
+  const [transferred, setTransferred] = useState(false);
+  const canManage =
+    membership.data?.canManage === true && !membership.isError && !transferred;
+  const loading = membership.isLoading || joinRequests.isLoading;
+  const command = useMutation({
+    mutationFn: ({
+      path,
+      method,
+      data,
+    }: {
+      path: string;
+      method: string;
+      data: unknown;
+    }) =>
+      teamRequestJson(path, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
+  const [localError, setError] = useWorkspaceErrorState(""),
     [notice, setNotice] = useState(""),
     [busy, setBusy] = useState("");
   const [attempt, setAttempt] = useState(0);
@@ -47,44 +88,17 @@ export function TeamMembership({
     if (transferTarget && !projectId) transferDialog.current?.showModal();
     else transferDialog.current?.close();
   }, [transferTarget, projectId]);
+  const error =
+    localError ||
+    resolveWorkspaceError(
+      membership.error ?? joinRequests.error,
+      settings.errorMessages,
+    );
   useEffect(() => {
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError("");
-      try {
-        const responses = await Promise.all([
-          fetch("/api/team/requests", {
-            cache: "no-store",
-            signal: controller.signal,
-          }),
-          fetch(
-            `/api/team/members${projectId ? `?projectId=${encodeURIComponent(projectId)}` : ""}`,
-            { cache: "no-store", signal: controller.signal },
-          ),
-        ]);
-        const results = await Promise.all(
-          responses.map((response) => response.json()),
-        );
-        for (let i = 0; i < responses.length; i++)
-          if (!responses[i].ok) throw new Error(results[i].error);
-        if (!controller.signal.aborted) {
-          setRequests(results[0].requests);
-          setMembers(results[1].members);
-          setCanManage(results[1].canManage);
-        }
-      } catch (e) {
-        if (!controller.signal.aborted)
-          setError(
-            e instanceof Error ? e.message : "팀 정보를 조회하지 못했습니다.",
-          );
-      } finally {
-        if (!controller.signal.aborted) setLoading(false);
-      }
-    }
-    void load();
-    return () => controller.abort();
-  }, [user.workspaceId, projectId, attempt, refreshVersion]);
+    void client.invalidateQueries({
+      queryKey: [...matrixKeys.scope(scope), "team"],
+    });
+  }, [client, scope, projectId, attempt, refreshVersion]);
   async function mutate(
     path: string,
     method: string,
@@ -97,22 +111,16 @@ export function TeamMembership({
     setError("");
     setNotice("");
     try {
-      const response = await fetch(path, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      await command.mutateAsync({ path, method, data });
       if (projectId) notifyProjectAccessChange(projectId);
-      if ((data as { role?: string }).role === "owner") setCanManage(false);
+      if ((data as { role?: string }).role === "owner") setTransferred(true);
       setAttempt((value) => value + 1);
       setNotice("변경 내용을 반영했습니다.");
       onChanged();
       router.refresh();
       return true;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "처리하지 못했습니다.");
+      setError(e);
       return false;
     } finally {
       mutationBusy.current = false;
@@ -245,7 +253,11 @@ export function TeamMembership({
                     disabled={!!busy}
                     onChange={(event) => changeRole(member, event.target.value)}
                   >
-                    {!projectId && <option value="owner">owner · 워크스페이스 소유권 이전</option>}
+                    {!projectId && (
+                      <option value="owner">
+                        owner · 워크스페이스 소유권 이전
+                      </option>
+                    )}
                     <option value="admin">admin</option>
                     <option value="member">member</option>
                     <option value="viewer">viewer · 조회 전용</option>

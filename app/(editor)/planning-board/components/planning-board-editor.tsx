@@ -1,13 +1,13 @@
 "use client";
-import { uploadImage } from "../lib/upload-image";
+import { useImageUpload } from "../lib/upload-image";
 import { layerIndex } from "../lib/editor-selection";
 import { deleteSelection } from "../lib/editor-delete";
-import { useProjectTemplates, templateRequest } from "../lib/template-api";
+import { useProjectTemplates, useTemplateRequest } from "../lib/template-api";
 import { boardScope } from "../lib/client-api";
 import { TemplateCreateDialog } from "./template-create-dialog";
 import type { TemplateSummary } from "../types/templates";
 import type { EmojiPreset } from "../data/emoji-presets";
-import { boardFetch as fetch } from "@/app/(editor)/planning-board/lib/client-api";
+import { useBoardTransport } from "../lib/use-board-transport";
 
 import { useEffect, useMemo, useCallback, useRef } from "react";
 import { CanvasEditor } from "@/app/(editor)/planning-board/components/canvas-editor";
@@ -255,6 +255,9 @@ function createEditorState(
 }
 
 export default function Home() {
+  const fetch = useBoardTransport();
+  const uploadImage = useImageUpload();
+  const templateRequest = useTemplateRequest();
   const permission = usePlanningAccess((state) => state.canUpdate);
   const liveStatus = usePlanningAccess((state) => state.status);
   const aiEnabled = usePlanningAccess((state) => state.aiEnabled);
@@ -728,7 +731,14 @@ export default function Home() {
         if (!controller.signal.aborted) setModelsLoading(false);
       });
     return () => controller.abort();
-  }, [aiEnabled, setModel, setModelWarning, setModels, setModelsLoading]);
+  }, [
+    aiEnabled,
+    setModel,
+    setModelWarning,
+    setModels,
+    setModelsLoading,
+    fetch,
+  ]);
 
   useEffect(() => {
     const paste = (event: ClipboardEvent) => {
@@ -771,6 +781,7 @@ export default function Home() {
     setErrorSnackbar,
     setLayerImages,
     setSaved,
+    uploadImage,
   ]);
 
   const addLayer = (parentId: string, kind: Layer["kind"]) => {
@@ -1391,7 +1402,7 @@ export default function Home() {
     return () => controller.abort();
     // URL의 최초 템플릿만 새 문서로 불러오며 편집 중 재실행하지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetch]);
 
   const submitReviewAction = async (values: {
     reviewerEmail: string;

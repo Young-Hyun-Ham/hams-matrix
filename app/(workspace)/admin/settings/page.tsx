@@ -1,3 +1,6 @@
+import { AdminProductBoundary } from "@/components/query/admin-product-boundary";
+import { SystemSettingsAdmin } from "@/components/admin/system-settings-admin";
+import { requireSystemSettingsAdmin } from "@/lib/system-settings/server";
 import "@/styles/admin-settings.css";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -9,6 +12,7 @@ import { masterWorkspaceScope } from "@/lib/master-workspace-admin";
 const items = [
   ["members", "회원 관리"],
   ["guardrails", "AI 가드레일 관리"],
+  ["system", "시스템설정"],
   ["history", "이력 관리"],
 ] as const;
 export default function Page(props: {
@@ -34,6 +38,23 @@ async function Content({
     redirect("/dashboard");
   if (!items.some(([key]) => key === tab))
     redirect("/admin/settings?tab=members");
+  if (tab === "system") {
+    await requireSystemSettingsAdmin(user);
+    return (
+      <section className="admin-settings-page">
+        <h1>관리자설정</h1>
+        <SettingsTabs
+          base="/admin/settings"
+          tab={tab}
+          items={items}
+          variant="admin"
+        />
+        <div className="admin-settings-content">
+          <SystemSettingsAdmin workspaceName={user.workspaceName} />
+        </div>
+      </section>
+    );
+  }
   if (user.accountRole === "master") {
     const workspace = await masterWorkspaceScope(user);
     return (
@@ -46,17 +67,23 @@ async function Content({
           variant="admin"
         />
         <div className="admin-settings-content">
-          <ProductAdmin
-            product={{
-              id: String(workspace.id),
-              name: String(workspace.name),
-              plan_code: String(workspace.plan),
-              member_limit: null,
-            }}
+          <AdminProductBoundary
+            user={user}
             base="/api/admin/products/workspace"
             tab={tab}
-            workspaceMode
-          />
+          >
+            <ProductAdmin
+              product={{
+                id: String(workspace.id),
+                name: String(workspace.name),
+                plan_code: String(workspace.plan),
+                member_limit: null,
+              }}
+              base="/api/admin/products/workspace"
+              tab={tab}
+              workspaceMode
+            />
+          </AdminProductBoundary>
         </div>
       </section>
     );
@@ -85,11 +112,17 @@ async function Content({
         variant="admin"
       />
       <div className="admin-settings-content">
-        <ProductAdmin
-          product={product}
+        <AdminProductBoundary
+          user={user}
           base={`/api/admin/products/${product.id}`}
           tab={tab}
-        />
+        >
+          <ProductAdmin
+            product={product}
+            base={`/api/admin/products/${product.id}`}
+            tab={tab}
+          />
+        </AdminProductBoundary>
       </div>
     </section>
   );

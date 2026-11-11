@@ -2,8 +2,12 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { DatabaseDomain } from "@/lib/database-domain-types";
 import { databaseTypeLabel } from "@/lib/database-data-types";
-import { jsonRequest } from "@/lib/client-request";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 type Listing = {
   items: DatabaseDomain[];
   total: number;
@@ -28,53 +32,52 @@ export function DatabaseDomainSelect({
   const id = useId(),
     root = useRef<HTMLDivElement>(null),
     input = useRef<HTMLInputElement>(null);
-  const controller = useRef<AbortController | null>(null),
-    sequence = useRef(0),
-    compositionEnd = useRef(0);
+  const compositionEnd = useRef(0);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const [criteria, setCriteria] = useState({ q: "", page: 1 });
   const [open, setOpen] = useState(false),
     [draft, setDraft] = useState(""),
     [applied, setApplied] = useState("");
-  const [list, setList] = useState<Listing | null>(null),
-    [loading, setLoading] = useState(false),
-    [error, setError] = useState("");
+  const query = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "project",
+      projectId,
+      "domains",
+      { ...criteria, pageSize: 10 },
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<Listing>(
+        `/api/projects/${encodeURIComponent(projectId)}/database/domains?${new URLSearchParams({ q: criteria.q, page: String(criteria.page), pageSize: "10" })}`,
+        { signal },
+      ),
+    ...policy,
+    enabled: open && !disabled,
+  });
+  const list = query.data,
+    loading = query.isFetching,
+    error = resolveWorkspaceError(query.error, settings.errorMessages);
   const [active, setActive] = useState(-1);
-  useEffect(
-    () => () => {
-      sequence.current++;
-      controller.current?.abort();
-    },
-    [projectId],
-  );
   useEffect(() => {
     if (open) input.current?.focus();
   }, [open]);
   function close() {
-    sequence.current++;
-    controller.current?.abort();
     setOpen(false);
   }
-  async function search(q: string, page = 1) {
-    controller.current?.abort();
-    const request = new AbortController();
-    controller.current = request;
-    const current = ++sequence.current;
+  function search(q: string, page = 1) {
     setApplied(q);
-    setLoading(true);
-    setError("");
-    setList(null);
+    setCriteria({ q, page });
     setActive(-1);
-    try {
-      const result = await jsonRequest(
-        `/api/projects/${encodeURIComponent(projectId)}/database/domains?${new URLSearchParams({ q, page: String(page), pageSize: "10" })}`,
-        { signal: request.signal },
-      );
-      if (current === sequence.current) setList(result);
-    } catch (e) {
-      if (!request.signal.aborted && current === sequence.current)
-        setError(e instanceof Error ? e.message : "조회하지 못했습니다.");
-    } finally {
-      if (current === sequence.current) setLoading(false);
-    }
+    void client.invalidateQueries({
+      queryKey: [
+        ...matrixKeys.scope(scope),
+        "project",
+        projectId,
+        "domains",
+        { q, page, pageSize: 10 },
+      ],
+    });
   }
   function choose(domain: DatabaseDomain) {
     if (disabled || !domain.databaseType) return;

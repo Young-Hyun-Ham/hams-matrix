@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState } from "react";
 import type { Artifact, ProjectData } from "@/lib/artifact-types";
 import { definitions } from "@/lib/artifact-types";
@@ -8,7 +10,16 @@ import {
   scheduleVersions,
   type WbsPublication,
 } from "@/lib/wbs-schedule";
-import { jsonRequest } from "@/lib/client-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
+
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { scheduleRows } from "./use-wbs-schedule";
 import { WbsOverview } from "./wbs-overview";
@@ -140,20 +151,49 @@ export function WbsPublicationActions({
   const canPublish =
     context.can("wbs", "UPDATE") &&
     ["owner", "admin"].includes(context.data.projectRole);
-  const [info, setInfo] = useState<{
-    publication: WbsPublication | null;
-    canPublish: boolean;
-  } | null>(null);
-  const [error, setError] = useState(""),
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const queryKey = [
+    ...matrixKeys.scope(scope),
+    "project",
+    data.project.id,
+    "wbs",
+    "publications",
+  ];
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ publication: WbsPublication | null; canPublish: boolean }>(
+        `/api/projects/${data.project.id}/wbs/publications`,
+        { signal },
+      ),
+    ...policy,
+  });
+  const info = query.data;
+  const [localError, setError] = useWorkspaceErrorState(""),
     [message, setMessage] = useState(""),
     [busy, setBusy] = useState(false);
+  const error =
+    localError || resolveWorkspaceError(query.error, settings.errorMessages);
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{
+        publication: WbsPublication;
+        canPublish: boolean;
+        reused: boolean;
+      }>(`/api/projects/${data.project.id}/wbs/publications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const [confirming, setConfirming] = useState<Artifact[] | null>(null),
     [viewing, setViewing] = useState<WbsPublication | null>(null);
   const [attempt, setAttempt] = useState(0);
   const submitting = useRef(false),
     mounted = useRef(true);
   const versionsKey = JSON.stringify(scheduleVersions(data.artifacts));
-  const endpoint = `/api/projects/${data.project.id}/wbs/publications`;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -161,25 +201,19 @@ export function WbsPublicationActions({
     };
   }, []);
   useEffect(() => {
-    const controller = new AbortController();
-    void jsonRequest(endpoint, { signal: controller.signal })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setInfo(result);
-          setError("");
-        }
-      })
-      .catch((reason) => {
-        if (!controller.signal.aborted)
-          setError(
-            reason instanceof Error
-              ? reason.message
-              : "배포 정보를 조회하지 못했습니다.",
-          );
-      });
-    return () => controller.abort();
+    void client.invalidateQueries({
+      queryKey: [
+        ...matrixKeys.scope(scope),
+        "project",
+        data.project.id,
+        "wbs",
+        "publications",
+      ],
+    });
   }, [
-    endpoint,
+    client,
+    scope,
+    data.project.id,
     versionsKey,
     attempt,
     canPublish,
@@ -194,13 +228,11 @@ export function WbsPublicationActions({
     try {
       if (!canPublish || !(await context.verifyPermission("wbs", "UPDATE")))
         throw new Error("현재 프로젝트 권한으로 배포할 수 없습니다.");
-      const result = await jsonRequest(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ versions: scheduleVersions(confirming) }),
+      const result = await command.mutateAsync({
+        versions: scheduleVersions(confirming),
       });
       if (!mounted.current) return;
-      setInfo(result);
+      client.setQueryData(queryKey, result);
       setConfirming(null);
       setAttempt((value) => value + 1);
       setMessage(
@@ -211,7 +243,11 @@ export function WbsPublicationActions({
     } catch (reason) {
       if (mounted.current)
         setError(
-          reason instanceof Error ? reason.message : "배포하지 못했습니다.",
+          reason instanceof RequestError
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : "배포하지 못했습니다.",
         );
     } finally {
       submitting.current = false;

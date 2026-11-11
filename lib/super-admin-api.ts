@@ -18,12 +18,6 @@ export async function handleSuperAdmin(request: Request, segments: string[]) {
     if (request.method !== "GET") checkOrigin(request);
     if (segments[0] === "notifications") {
       if (request.method === "GET") {
-        const entries = (
-          await db().execute({
-            sql: "SELECT n.id,n.read_at,n.created_at,r.id AS requestId,r.company_name,u.name AS applicantName FROM notifications n JOIN business_requests r ON r.id=n.business_request_id JOIN users u ON u.id=r.user_id WHERE n.recipient_user_id=? AND r.status!='rejected' AND r.status!='approved' ORDER BY n.created_at DESC LIMIT 100",
-            args: [user.id],
-          })
-        ).rows;
         const unread = Number(
           (
             await db().execute({
@@ -32,6 +26,17 @@ export async function handleSuperAdmin(request: Request, segments: string[]) {
             })
           ).rows[0].n,
         );
+        if (segments[1] === "count")
+          return Response.json(
+            { unread },
+            { headers: { "Cache-Control": "no-store" } },
+          );
+        const entries = (
+          await db().execute({
+            sql: "SELECT n.id,n.read_at,n.created_at,r.id AS requestId,r.company_name,u.name AS applicantName FROM notifications n JOIN business_requests r ON r.id=n.business_request_id JOIN users u ON u.id=r.user_id WHERE n.recipient_user_id=? AND r.status!='rejected' AND r.status!='approved' ORDER BY n.created_at DESC LIMIT 100",
+            args: [user.id],
+          })
+        ).rows;
         return Response.json(
           { notifications: entries, unread },
           { headers: { "Cache-Control": "no-store" } },

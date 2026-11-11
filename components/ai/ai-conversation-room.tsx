@@ -1,6 +1,9 @@
 "use client";
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
+import { useConversationMutation } from "@/components/query/use-conversation-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 import type { AiConversation } from "@/lib/ai-context";
 import { Icon } from "@/components/icon";
 
@@ -24,6 +27,8 @@ export function AiConversationRoom({
     top: number;
   } | null>(null);
   const [pending, setPending] = useState(false);
+  const command = useConversationMutation(room.projectId, room.convId);
+  const { settings } = useWorkspaceQueryPolicy();
   const trigger = useRef<HTMLButtonElement>(null),
     menu = useRef<HTMLDivElement>(null);
   const busy = useRef(false),
@@ -85,26 +90,13 @@ export function AiConversationRoom({
     setPosition(null);
     trigger.current?.focus();
     try {
-      const response = await fetch(
-        `/api/ai/conversations/${encodeURIComponent(room.convId)}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            projectId: room.projectId,
-            isPinned: !room.isPinned,
-          }),
-        },
-      );
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await command.mutateAsync({
+        input: { isPinned: !room.isPinned },
+      });
+
       onUpdate(data.conversation);
     } catch (error) {
-      onError(
-        error instanceof Error
-          ? error.message
-          : "고정 상태를 변경하지 못했습니다.",
-      );
+      onError(resolveWorkspaceError(error, settings.errorMessages));
     } finally {
       busy.current = false;
       setPending(false);

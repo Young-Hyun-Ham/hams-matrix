@@ -1,90 +1,132 @@
-"use client";
-import { useEffect, useState } from "react";
+﻿"use client";
+import { useCallback, useEffect, useState, type SetStateAction } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@/lib/types";
 import type { Project } from "@/lib/project-types";
 import type { ProjectData } from "@/lib/artifact-types";
 import { useWorkspace } from "@/stores/workspace";
-import { jsonRequest } from "@/lib/client-request";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 export function useProjectData(user: User, initialProjectId?: string) {
+  const { policy, settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const scope = { userId: user.id, workspaceId: user.workspaceId };
+  const client = useQueryClient();
   const aiDataVersion = useWorkspace((s) => s.aiDataVersion);
-  const [projects, setProjects] = useState<Project[]>([]),
-    [projectId, setProjectId] = useState(initialProjectId ?? "");
-  const [data, setData] = useState<ProjectData | null>(null);
-  const [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState(""),
-    [attempt, setAttempt] = useState(0);
+  const [selection, setSelection] = useState({
+    scope: `${user.id}:${user.workspaceId}`,
+    id: initialProjectId ?? "",
+  });
+  const [notice, setNotice] = useState("");
+  const projectsQuery = useQuery({
+    queryKey: matrixKeys.projects(scope),
+    queryFn: ({ signal }) =>
+      requestJson<{ projects: Project[] }>("/api/projects", { signal }),
+    ...policy,
+  });
+  const projects = projectsQuery.data?.projects ?? [];
+  const projectId =
+    initialProjectId ??
+    (selection.scope === `${user.id}:${user.workspaceId}` ? selection.id : "");
+  const setProjectId = useCallback(
+    (action: SetStateAction<string>) =>
+      setSelection((current) => ({
+        scope: `${user.id}:${user.workspaceId}`,
+        id: typeof action === "function" ? action(current.id) : action,
+      })),
+    [user.id, user.workspaceId],
+  );
   useEffect(() => {
-    const controller = new AbortController();
-    jsonRequest("/api/projects", { signal: controller.signal })
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setProjects(result.projects);
-        if (!initialProjectId) {
-          let stored = "";
-          try {
-            stored =
-              sessionStorage.getItem(
-                `matrix-project:${user.workspaceId}:${user.id}`,
-              ) ?? "";
-          } catch {}
-          setProjectId(
-            result.projects.some((p: Project) => p.id === stored)
-              ? stored
-              : (result.projects[0]?.id ?? ""),
-          );
-        }
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [initialProjectId, user.workspaceId, user.id, aiDataVersion]);
+    if (initialProjectId || !projectsQuery.data || projectId) return;
+    let stored = "";
+    try {
+      stored =
+        sessionStorage.getItem(
+          `matrix-project:${user.workspaceId}:${user.id}`,
+        ) ?? "";
+    } catch {}
+    const selected = projectsQuery.data.projects.some((p) => p.id === stored)
+      ? stored
+      : (projectsQuery.data.projects[0]?.id ?? "");
+    const timer = window.setTimeout(() => setProjectId(selected), 0);
+    return () => window.clearTimeout(timer);
+  }, [
+    initialProjectId,
+    projectsQuery.data,
+    projectId,
+    user.id,
+    user.workspaceId,
+    setProjectId,
+  ]);
+  const dataKey = matrixKeys.artifacts(scope, projectId);
+  const artifactsQuery = useQuery({
+    queryKey: dataKey,
+    queryFn: ({ signal }) =>
+      requestJson<ProjectData>(
+        `/api/projects/${encodeURIComponent(projectId)}/artifacts`,
+        { signal },
+      ),
+    ...policy,
+    enabled: Boolean(projectId),
+  });
   useEffect(() => {
-    if (!projectId) return;
-    const controller = new AbortController();
-    async function load() {
-      setLoading(true);
-      setError("");
-      setData((current) =>
-        current?.project.id === projectId ? current : null,
-      );
-      await jsonRequest(`/api/projects/${projectId}/artifacts`, {
-        signal: controller.signal,
-      })
-        .then((result) => {
-          if (controller.signal.aborted) return;
-          setData(result);
-          try {
-            sessionStorage.setItem(
-              `matrix-project:${user.workspaceId}:${user.id}`,
-              projectId,
-            );
-          } catch {}
-        })
-        .catch((e) => {
-          if (!controller.signal.aborted) setError(e.message);
-        })
-        .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
-        });
+    if (projectId) {
+      try {
+        sessionStorage.setItem(
+          `matrix-project:${user.workspaceId}:${user.id}`,
+          projectId,
+        );
+      } catch {}
     }
-    void load();
-    return () => controller.abort();
-  }, [projectId, attempt, user.workspaceId, user.id, aiDataVersion]);
+  }, [projectId, user.workspaceId, user.id]);
+  useEffect(() => {
+    if (!aiDataVersion) return;
+    void client.invalidateQueries({
+      queryKey: matrixKeys.projects({
+        userId: user.id,
+        workspaceId: user.workspaceId,
+      }),
+    });
+    if (projectId)
+      void client.invalidateQueries({
+        queryKey: matrixKeys.artifacts(
+          { userId: user.id, workspaceId: user.workspaceId },
+          projectId,
+        ),
+      });
+  }, [client, aiDataVersion, user.id, user.workspaceId, projectId]);
+  const updateData = useCallback(
+    (action: SetStateAction<ProjectData | null>) => {
+      const key = matrixKeys.artifacts(
+        { userId: user.id, workspaceId: user.workspaceId },
+        projectId,
+      );
+      client.setQueryData<ProjectData | null>(key, (current) =>
+        typeof action === "function" ? action(current ?? null) : action,
+      );
+    },
+    [client, user.id, user.workspaceId, projectId],
+  );
   return {
-    updateData: setData,
+    updateData,
     projects,
     projectId,
     setProjectId,
-    data,
-    loading,
-    error,
+    data: artifactsQuery.data ?? null,
+    loading: projectsQuery.isLoading || artifactsQuery.isLoading,
+    error: resolveWorkspaceError(
+      projectsQuery.error ?? artifactsQuery.error,
+      settings.errorMessages,
+    ),
     notice,
     setNotice,
-    reload: () => setAttempt((x) => x + 1),
+    reload: () => {
+      void projectsQuery.refetch();
+      if (projectId) void artifactsQuery.refetch();
+    },
   };
 }

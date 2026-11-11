@@ -211,6 +211,78 @@ prompt 입력 위에 현재 위치를 보여 주잖아. 우측에 target page se
 
 
 =====================================================
+## 2026.11.10 fetch 호출 -> 데이터 페칭 라이브러리 TanStack Query(React Query)로 변경 
+=====================================================
+
+1. hams-matrix\app\layout.tsx에 providers.tsx 모듈을 사용 하여 클라이언트 컴포넌트("use client") 내에서 QueryClient와 QueryClientProvider를 설정했다. await fetch를 사용하는 소스를 전수 조사 한다. 
+1-1. 조사한 소스가 서버 컴포넌트 일 경우
+예시1)
+// app/admin/notifications/page.tsx
+import { dehydrate, HydrationBoundary, QueryClient } from "@tanstack/react-query";
+import NotificationsClient from "./notifications-client";
+
+export default async function NotificationsPage() {
+  const queryClient = new QueryClient();
+
+  // 서버 환경에서 API 데이터를 미리 프리페치
+  await queryClient.prefetchQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      // 서버 컴포넌트에서는 절대 경로 URL을 사용하는 것이 안전합니다.
+      const res = await fetch("https://your-domain.com/api/super-admin/notifications", {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+  });
+
+  return (
+    {/* HydrationBoundary를 통해 서버의 쿼리 캐시 상태를 클라이언트로 전달 */}
+    <HydrationBoundary state={dehydrate(queryClient)}>
+      <NotificationsClient />
+    </HydrationBoundary>
+  );
+}
+해당 예시1 소스를 참조 하여 수정 해라.
+
+1-2. 조사한 소스가 클라이언트 컴포넌트 일 경우
+예시2)
+// app/admin/notifications/notifications-client.tsx
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
+
+export default function NotificationsClient() {
+  // 서버에서 prefetch 한 동일한 queryKey를 사용합니다.
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["notifications"],
+    queryFn: async () => {
+      const res = await fetch("/api/super-admin/notifications");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 1000 * 60, // 1분 동안은 다시 요청하지 않음
+  });
+
+  if (isLoading) return <div>로딩 중...</div>;
+  if (error) return <div>에러 발생</div>;
+
+  return (
+    <div>
+      <h2>알림 센터</h2>
+      <span>읽지 않음: {data.unread}</span>
+      <ul>
+        {data.notifications.map((item: any) => (
+          <li key={item.id}>{item.title}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+해당 예시2 소스를 참조 하여 수정 해라.
+
+=====================================================
 ## 가드레인 정책 - 추후
 =====================================================
 
@@ -251,3 +323,4 @@ hams-matrix/docs/history/YYYY-MM-DD/작업명.md를 읽고 소스와 필요한 D
 - 날짜는 한국시간 기준으로 한다.
 - 작업을 중단해야 한다면 완료한 내용, 남은 작업, 재개에 필요한 정보를 작업 기록에 남긴다.
 - 비밀번호, API 키, 토큰 등 민감정보는 문서에 기록하지 않는다.
+- README.md, AGENTS.md, CLAUDE.md 각각 문서도 변경 이력에 맞게 수정 해줘.

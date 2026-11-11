@@ -1,36 +1,47 @@
 /* eslint-disable @next/next/no-location-assign-relative-destination -- A full reload clears all cached project and AI state when changing security scope. */
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
+import { useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaces } from "@/components/query/use-workspaces";
+import { requestJson } from "@/lib/query/browser-fetch";
+
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
 export function WorkspacePicker({ current }: { current: string }) {
-  const [spaces, setSpaces] = useState<{ id: string; name: string }[]>([]),
-    [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+  const query = useWorkspaces();
+  const spaces = query.data?.workspaces ?? [];
+  const client = useQueryClient();
+  const { scope } = useWorkspaceQueryPolicy();
+  const mutation = useMutation({
+    mutationFn: ({ method, data }: { method: string; data: object }) =>
+      requestJson("/api/me/workspace", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      }),
+    retry: false,
+  });
+  const [busy, setBusy] = useState(false),
+    [error, setError] = useWorkspaceErrorState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const submitting = useRef(false);
   const [name, setName] = useState("");
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/me/workspace", { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        if (response.ok) setSpaces((await response.json()).workspaces);
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, [current]);
   async function change(id: string) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/me/workspace", {
+      await client.cancelQueries({ queryKey: matrixKeys.scope(scope) });
+      await mutation.mutateAsync({
         method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId: id }),
+        data: { workspaceId: id },
       });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
+      client.removeQueries({ queryKey: matrixKeys.scope(scope) });
       window.location.assign("/dashboard");
     } catch (error) {
-      setError(error instanceof Error ? error.message : "전환 실패");
+      setError(error);
       setBusy(false);
     }
   }
@@ -40,17 +51,12 @@ export function WorkspacePicker({ current }: { current: string }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/me/workspace", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const result = await response.json();
-      if (!response.ok)
-        throw new Error(result.error ?? "워크스페이스를 만들지 못했습니다.");
+      await client.cancelQueries({ queryKey: matrixKeys.scope(scope) });
+      await mutation.mutateAsync({ method: "POST", data: { name } });
+      client.removeQueries({ queryKey: matrixKeys.scope(scope) });
       window.location.assign("/dashboard");
     } catch (error) {
-      setError(error instanceof Error ? error.message : "생성 실패");
+      setError(error);
       setBusy(false);
     } finally {
       submitting.current = false;

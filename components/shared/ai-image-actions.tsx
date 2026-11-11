@@ -1,9 +1,17 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 /* eslint-disable @next/next/no-img-element -- Authenticated image routes serve the saved PNG directly. */
 import { useEffect, useId, useRef, useState } from "react";
 import type { GeneratedImageInfo } from "@/lib/generated-image-types";
 import type { ProjectData } from "@/lib/artifact-types";
-import { jsonRequest } from "@/lib/client-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { useAiModels } from "@/components/query/use-ai-models";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson, requestBlob } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
 import "./ai-image-actions.css";
 
 type Intent = "preview" | "download";
@@ -48,12 +56,49 @@ export function AiImageActions({
   const [intent, setIntent] = useState<Intent>("preview");
   const [image, setImage] = useState<GeneratedImageInfo | null>(null);
   const [sourceHash, setSourceHash] = useState("");
-  const [models, setModels] = useState<string[]>([]),
-    [model, setModel] = useState("");
+  const [model, setModel] = useState("");
+  const { scope, policy } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const metadataKey = matrixKeys.image(
+    scope,
+    endpoint,
+    artifactVersion ?? null,
+  );
+  useQuery({
+    queryKey: metadataKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ image: GeneratedImageInfo | null; sourceHash?: string }>(
+        endpoint,
+        { signal },
+      ),
+    ...policy,
+    enabled: mode !== null,
+  });
+  const modelQuery = useAiModels(mode === "generate", true);
+  const models = modelQuery.data?.models ?? [];
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{
+        image: GeneratedImageInfo;
+        sourceHash?: string;
+        data?: ProjectData;
+      }>(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+    onSuccess: (data) => {
+      client.setQueryData(metadataKey, data);
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "subscription"],
+      });
+    },
+  });
   const [prompt, setPrompt] = useState("");
   const [busy, setBusy] = useState(false),
     [generating, setGenerating] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useWorkspaceErrorState("");
   const [imageError, setImageError] = useState(false),
     [imageLoaded, setImageLoaded] = useState(false);
 
@@ -78,15 +123,25 @@ export function AiImageActions({
   const showError = (error: unknown) => {
     if (active.current)
       setError(
-        error instanceof Error ? error.message : "이미지 요청에 실패했습니다.",
+        error instanceof RequestError
+          ? error
+          : error instanceof Error
+            ? error.message
+            : "이미지 요청에 실패했습니다.",
       );
   };
   async function loadModels(previous: GeneratedImageInfo | null) {
-    setModels([]);
     setModel("");
-    const response = await jsonRequest("/api/ai/image-models");
+    const response = await client.query({
+      queryKey: [...matrixKeys.scope(scope), "ai", "image-models"],
+      queryFn: ({ signal }) =>
+        requestJson<{ models: string[]; defaultModel: string }>(
+          "/api/ai/image-models",
+          { signal },
+        ),
+      ...policy,
+    });
     if (!active.current) return;
-    setModels(response.models);
     setModel(
       previous && response.models.includes(previous.model)
         ? previous.model
@@ -102,7 +157,16 @@ export function AiImageActions({
     setIntent(requested);
     try {
       const result: { image: GeneratedImageInfo | null; sourceHash?: string } =
-        await jsonRequest(endpoint);
+        await client.query({
+          queryKey: metadataKey,
+          queryFn: ({ signal }) =>
+            requestJson<{
+              image: GeneratedImageInfo | null;
+              sourceHash?: string;
+            }>(endpoint, { signal }),
+          ...policy,
+          staleTime: 0,
+        });
       if (!active.current) return;
       setImage(result.image);
       setSourceHash(result.sourceHash ?? "");
@@ -133,7 +197,16 @@ export function AiImageActions({
     setMode("generate");
     try {
       const result: { image: GeneratedImageInfo | null; sourceHash?: string } =
-        await jsonRequest(endpoint);
+        await client.query({
+          queryKey: metadataKey,
+          queryFn: ({ signal }) =>
+            requestJson<{
+              image: GeneratedImageInfo | null;
+              sourceHash?: string;
+            }>(endpoint, { signal }),
+          ...policy,
+          staleTime: 0,
+        });
       if (!active.current) return;
       setImage(result.image);
       setSourceHash(result.sourceHash ?? "");
@@ -169,17 +242,13 @@ export function AiImageActions({
         image: GeneratedImageInfo;
         sourceHash?: string;
         data?: ProjectData;
-      } = await jsonRequest(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          prompt: prompt.trim() || promptPlaceholder,
-          artifactVersion,
-          sourceHash,
-          regenerate: !!image,
-          expectedImageId: image?.id,
-        }),
+      } = await command.mutateAsync({
+        model,
+        prompt: prompt.trim() || promptPlaceholder,
+        artifactVersion,
+        sourceHash,
+        regenerate: !!image,
+        expectedImageId: image?.id,
       });
       if (!active.current) return;
       setImage(result.image);
@@ -208,14 +277,7 @@ export function AiImageActions({
     setWorking(true);
     setError("");
     try {
-      const response = await fetch(`${image.url}&download=1`, {
-        cache: "no-store",
-      });
-      if (!response.ok) {
-        const failure = await response.json();
-        throw new Error(failure.error || "이미지를 다운로드하지 못했습니다.");
-      }
-      const blob = await response.blob();
+      const blob = await requestBlob(`${image.url}&download=1`);
       if (!active.current) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");

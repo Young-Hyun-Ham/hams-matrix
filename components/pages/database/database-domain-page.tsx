@@ -1,11 +1,21 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { DatabaseDomain } from "@/lib/database-domain-types";
 import { databaseTypeLabel } from "@/lib/database-data-types";
-import { jsonRequest } from "@/lib/client-request";
 import type { useProjectAccess } from "@/components/shared/use-project-access";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { DatabaseDomainForm } from "./database-domain-form";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 type Listing = {
   items: DatabaseDomain[];
   total: number;
@@ -26,12 +36,12 @@ export function DatabaseDomainPage({
   onDirtyChange: (dirty: boolean) => void;
   onChanged: (message: string) => void;
 }) {
-  const [list, setList] = useState<Listing | null>(null),
-    [q, setQ] = useState(""),
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const [q, setQ] = useState(""),
     [page, setPage] = useState(1),
     [attempt, setAttempt] = useState(0),
-    [loading, setLoading] = useState(true),
-    [error, setError] = useState("");
+    [localError, setError] = useWorkspaceErrorState("");
   const [editor, setEditor] = useState<{ item: DatabaseDomain | null } | null>(
       null,
     ),
@@ -39,26 +49,41 @@ export function DatabaseDomainPage({
     [busy, setBusy] = useState(false);
   const locked = useRef(false);
   const base = `/api/projects/${encodeURIComponent(projectId)}/database/domains`;
+  const queryKey = [
+    ...matrixKeys.scope(scope),
+    "project",
+    projectId,
+    "domains",
+    { q, page, pageSize: 20 },
+  ];
+  const listing = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<Listing>(
+        `${base}?${new URLSearchParams({ q, page: String(page), pageSize: "20" })}`,
+        { signal },
+      ),
+    ...policy,
+  });
+  const list = listing.data,
+    loading = listing.isLoading,
+    error =
+      localError ||
+      resolveWorkspaceError(listing.error, settings.errorMessages);
+  const mutation = useMutation({
+    mutationFn: ({ id, version }: DatabaseDomain) =>
+      requestJson(`${base}/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ version }),
+      }),
+    retry: false,
+  });
   useEffect(() => {
-    const controller = new AbortController();
-    jsonRequest(
-      `${base}?${new URLSearchParams({ q, page: String(page), pageSize: "20" })}`,
-      { signal: controller.signal },
-    )
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setList(result);
-          setError("");
-        }
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    return () => controller.abort();
-  }, [base, q, page, reloadVersion, attempt]);
+    void client.invalidateQueries({
+      queryKey: [...matrixKeys.scope(scope), "project", projectId, "domains"],
+    });
+  }, [client, scope, projectId, reloadVersion, attempt]);
   async function open(
     item: DatabaseDomain | null,
     action: "CREATE" | "UPDATE" | "DELETE" | "READ",
@@ -70,12 +95,34 @@ export function DatabaseDomainPage({
       if (!(await access.verifyPermission("database", action)))
         throw new Error("현재 작업 권한이 없습니다.");
       const latest = item
-        ? ((await jsonRequest(`${base}/${item.id}`)).item as DatabaseDomain)
+        ? (
+            await client.query({
+              queryKey: [
+                ...matrixKeys.scope(scope),
+                "project",
+                projectId,
+                "domains",
+                item.id,
+              ],
+              queryFn: ({ signal }) =>
+                requestJson<{ item: DatabaseDomain }>(`${base}/${item.id}`, {
+                  signal,
+                }),
+              staleTime: 0,
+              retry: false,
+            })
+          ).item
         : null;
       if (action === "DELETE") setDeleting(latest);
       else setEditor({ item: latest });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "메타를 조회하지 못했습니다.");
+      setError(
+        e instanceof RequestError
+          ? e
+          : e instanceof Error
+            ? e.message
+            : "메타를 조회하지 못했습니다.",
+      );
     } finally {
       locked.current = false;
     }
@@ -88,16 +135,18 @@ export function DatabaseDomainPage({
     try {
       if (!(await access.verifyPermission("database", "DELETE")))
         throw new Error("삭제 권한이 없습니다.");
-      await jsonRequest(`${base}/${deleting.id}`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ version: deleting.version }),
-      });
+      await mutation.mutateAsync(deleting);
       setDeleting(null);
       setAttempt((v) => v + 1);
       onChanged("도메인 메타를 삭제했습니다. 기존 테이블의 정보는 보존됩니다.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "삭제하지 못했습니다.");
+      setError(
+        e instanceof RequestError
+          ? e
+          : e instanceof Error
+            ? e.message
+            : "삭제하지 못했습니다.",
+      );
     } finally {
       locked.current = false;
       setBusy(false);
@@ -105,7 +154,6 @@ export function DatabaseDomainPage({
   }
   function search(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setLoading(true);
     setQ(String(new FormData(e.currentTarget).get("q") ?? ""));
     setPage(1);
     setAttempt((v) => v + 1);

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import "@/styles/themes.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: {
@@ -27,7 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             </div>
           }
         >
-          {children}
+          <Providers>{children}</Providers>
         </Suspense>
       </body>
     </html>

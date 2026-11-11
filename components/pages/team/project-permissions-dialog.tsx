@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useId, useRef, useState } from "react";
 import type { ProjectRole } from "@/lib/plan-types";
 import {
@@ -9,7 +11,13 @@ import {
   type RolePermissions,
 } from "@/lib/project-permission-model";
 import { projectTabLabels } from "@/lib/project-tabs";
-import { teamJsonRequest as jsonRequest } from "@/lib/team-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { teamRequestJson } from "@/lib/query/team-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import type { SetStateAction } from "react";
 import "@/styles/project-tabs.css";
 import { notifyProjectAccessChange } from "@/lib/project-access-events";
 export function ProjectPermissionsDialog({
@@ -26,14 +34,46 @@ export function ProjectPermissionsDialog({
   const id = useId();
   const dialog = useRef<HTMLDialogElement>(null),
     trigger = useRef<Element | null>(null);
-  const [policy, setPolicy] = useState<{
-    version: number;
-    permissions: RolePermissions;
+  const { scope, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const key = [...matrixKeys.scope(scope), "project", projectId, "permissions"];
+  const query = useQuery({
+    queryKey: key,
+    queryFn: ({ signal }) =>
+      teamRequestJson<{ version: number; permissions: RolePermissions }>(
+        `/api/projects/${projectId}/permissions`,
+        { signal },
+      ),
+    staleTime: 0,
+    retry: false,
+  });
+  const [editing, setEditing] = useState<{
+    base: NonNullable<typeof query.data>;
+    permissions: RolePermissions | null;
   } | null>(null);
-  const [draft, setDraft] = useState<RolePermissions | null>(null),
-    [role, setRole] = useState<ProjectRole>("admin");
+  const policy = editing?.base ?? query.data;
+  const draft = editing ? editing.permissions : (policy?.permissions ?? null);
+  const setDraft = (action: SetStateAction<RolePermissions | null>) => {
+    if (policy)
+      setEditing({
+        base: policy,
+        permissions: typeof action === "function" ? action(draft) : action,
+      });
+  };
+  const [role, setRole] = useState<ProjectRole>("admin");
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState("");
+    [localError, setError] = useWorkspaceErrorState("");
+  const error =
+    localError || resolveWorkspaceError(query.error, settings.errorMessages);
+  const command = useMutation({
+    mutationFn: (input: object) =>
+      teamRequestJson(`/api/projects/${projectId}/permissions`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      }),
+    retry: false,
+  });
   const defaults = defaultRolePermissions();
   const dirty =
     !!draft && JSON.stringify(draft) !== JSON.stringify(policy?.permissions);
@@ -44,21 +84,7 @@ export function ProjectPermissionsDialog({
   useEffect(() => {
     trigger.current = document.activeElement;
     dialog.current?.showModal();
-    const controller = new AbortController();
-    jsonRequest(`/api/projects/${projectId}/permissions`, {
-      signal: controller.signal,
-    })
-      .then((result) => {
-        if (!controller.signal.aborted) {
-          setPolicy(result);
-          setDraft(result.permissions);
-        }
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) setError(e.message);
-      });
     return () => {
-      controller.abort();
       if (trigger.current instanceof HTMLElement) trigger.current.focus();
     };
   }, [projectId]);
@@ -67,19 +93,18 @@ export function ProjectPermissionsDialog({
     setBusy(true);
     setError("");
     try {
-      await jsonRequest(`/api/projects/${projectId}/permissions`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          expectedVersion: policy.version,
-          permissions: draft,
-        }),
+      await command.mutateAsync({
+        expectedVersion: policy.version,
+        permissions: draft,
+      });
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "project", projectId],
       });
       notifyProjectAccessChange(projectId);
       onChanged();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장하지 못했습니다.");
+      setError(e);
     } finally {
       setBusy(false);
     }

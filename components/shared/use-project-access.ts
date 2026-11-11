@@ -2,29 +2,35 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@/lib/types";
 import type { ProjectTab } from "@/lib/project-tabs";
-import type { ProjectRole } from "@/lib/plan-types";
-import type {
-  PermissionAction,
-  ProjectPermissions,
-} from "@/lib/project-permission-model";
-import { jsonRequest } from "@/lib/client-request";
+import type { PermissionAction } from "@/lib/project-permission-model";
 import { projectAccessEvent } from "@/lib/project-access-events";
 
-type Access = {
-  projectId: string;
-  userId: string;
-  workspaceId: string;
-  projectRole: ProjectRole;
-  ownerId: string;
-  permissionVersion: number;
-  permissionsByTab: ProjectPermissions;
-};
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  projectAccessQuery,
+  latestProjectAccess,
+  type ProjectAccess as Access,
+} from "@/lib/query/project-access";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 export function useProjectAccess(
   user: User,
   projectId: string,
   tab: ProjectTab,
 ) {
   const scope = `${user.id}:${user.workspaceId}:${projectId}`;
+  const client = useQueryClient();
+  const { settings } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const query = useQuery({
+    ...projectAccessQuery(
+      { userId: user.id, workspaceId: user.workspaceId },
+      projectId,
+    ),
+    enabled: Boolean(projectId),
+  });
   const [snapshot, setSnapshot] = useState<{
     scope: string;
     access: Access | null;
@@ -37,8 +43,10 @@ export function useProjectAccess(
   const refresh = useCallback(async () => {
     const sequence = ++generation.current;
     try {
-      const access: Access = await jsonRequest(
-        `/api/projects/${projectId}/access`,
+      const access = await latestProjectAccess(
+        client,
+        { userId: user.id, workspaceId: user.workspaceId },
+        projectId,
       );
       if (sequence !== generation.current) return null;
       if (
@@ -54,21 +62,19 @@ export function useProjectAccess(
         setSnapshot({
           scope,
           access: null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "프로젝트 권한을 확인하지 못했습니다.",
+          error: resolveWorkspaceError(error, settings.errorMessages),
         });
       return null;
     }
-  }, [projectId, user.id, user.workspaceId, scope]);
+  }, [
+    client,
+    projectId,
+    user.id,
+    user.workspaceId,
+    scope,
+    settings.errorMessages,
+  ]);
   useEffect(() => {
-    const initial = window.setTimeout(() => {
-      void refresh();
-    }, 0);
-    const onFocus = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
     const onChange = () => {
       setSnapshot(null);
       void refresh();
@@ -76,22 +82,24 @@ export function useProjectAccess(
     const onStorage = (event: StorageEvent) => {
       if (event.key === projectAccessEvent) onChange();
     };
-    const timer = window.setInterval(onFocus, 10000);
-    window.addEventListener("focus", onFocus);
-    document.addEventListener("visibilitychange", onFocus);
     window.addEventListener(projectAccessEvent, onChange);
     window.addEventListener("storage", onStorage);
     return () => {
       invalidate();
-      clearTimeout(initial);
-      clearInterval(timer);
-      window.removeEventListener("focus", onFocus);
-      document.removeEventListener("visibilitychange", onFocus);
       window.removeEventListener(projectAccessEvent, onChange);
       window.removeEventListener("storage", onStorage);
     };
   }, [refresh, tab, invalidate]);
-  const access = snapshot?.scope === scope ? snapshot.access : null;
+  const candidate = query.data;
+  const access =
+    query.isError ||
+    query.isFetching ||
+    !candidate ||
+    candidate.userId !== user.id ||
+    candidate.workspaceId !== user.workspaceId ||
+    candidate.projectId !== projectId
+      ? null
+      : candidate;
   const can = useCallback(
     (target: ProjectTab, action: PermissionAction) =>
       access?.permissionsByTab[target]?.[action] === true,
@@ -108,6 +116,8 @@ export function useProjectAccess(
     access,
     can,
     verifyPermission,
-    error: snapshot?.scope === scope ? snapshot.error : "",
+    error:
+      resolveWorkspaceError(query.error, settings.errorMessages) ||
+      (snapshot?.scope === scope ? snapshot.error : ""),
   };
 }

@@ -8,9 +8,15 @@ import { pathToFileURL } from "node:url";
 import { spawn, spawnSync } from "node:child_process";
 import { createClient } from "@libsql/client";
 const folder = await mkdtemp(join(tmpdir(), "matrix-product-browser-"));
-const db = createClient({ url: pathToFileURL(join(folder, "test.db")).href });
+const db = createClient({
+  url: pathToFileURL(join(folder, "test.db")).href,
+  timeout: 5000,
+});
 const origin = "http://localhost:3291";
-const testDistDir = `.next/browser-products-${folder.split(/[\\/]/).pop()}`;
+const production = process.argv.includes("--production");
+const testDistDir = production
+  ? ".next"
+  : `.next/browser-products-${folder.split(/[\\/]/).pop()}`;
 const originalTypeConfig = await readFile("tsconfig.json", "utf8");
 let server,
   browser,
@@ -97,6 +103,8 @@ function stop(child) {
 const openMismatch =
   "!!document.querySelector('dialog[open] #workspace-plan-title')";
 try {
+  await db.execute("PRAGMA journal_mode=WAL");
+  await db.execute("PRAGMA busy_timeout=5000");
   for (const name of (await readdir("db/migrations"))
     .filter((name) => name.endsWith(".sql"))
     .sort())
@@ -133,7 +141,12 @@ try {
     });
   server = spawn(
     process.execPath,
-    [resolve("node_modules/next/dist/bin/next"), "dev", "--port", "3291"],
+    [
+      resolve("node_modules/next/dist/bin/next"),
+      production ? "start" : "dev",
+      "--port",
+      "3291",
+    ],
     {
       windowsHide: true,
       env: {
@@ -461,6 +474,13 @@ try {
       ),
       0,
     );
+    await waitFor(
+      () =>
+        evaluate(
+          "(()=>{const e=document.querySelector('.workspace-picker select');return e && Object.keys(e).some(k=>k.startsWith('__reactProps$')&&typeof e[k].onChange==='function')})()",
+        ),
+      "workspace selector hydrated",
+    );
     await evaluate(
       "(()=>{const e=document.querySelector('.workspace-picker select');e.value='';e.dispatchEvent(new Event('change',{bubbles:true}))})()",
     );
@@ -517,11 +537,263 @@ try {
       ),
       200,
     );
+    await db.executeMultiple(
+      `INSERT OR IGNORE INTO project_members(project_id,workspace_id,user_id,role) VALUES ('master-a','master-ws','master','admin'); INSERT INTO audit_logs(id,occurred_at,request_id,workspace_id,actor_id,actor_name,actor_type,action,resource_type,outcome,source,http_method,route,before_json,after_json) VALUES ('history-modal','2099-01-01T00:00:00.000Z','history-modal','master-ws','master','HistoryModalActor','user','UPDATE','test','success','web','PATCH','/test','{"label":"before-modal"}','{"label":"after-modal"}');`,
+    );
     await navigate("/admin/settings?tab=history");
     await waitFor(
       () => evaluate("!!document.querySelector('tbody')"),
       "master workspace history",
     );
+    await waitFor(
+      () =>
+        evaluate(
+          '!!document.querySelector(\'[aria-label="이력 작업자 검색어"]\') && !!document.querySelector(\'[aria-label="프로젝트 필터"] option[value="master-a"]\')',
+        ),
+      "history filters loaded",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "(()=>{const e=document.querySelector('[aria-label=\"이력 작업자 검색어\"]');return e && Object.keys(e).some(k=>k.startsWith('__reactProps$')&&typeof e[k].onChange==='function')})()",
+        ),
+      "history search hydrated",
+    );
+    await evaluate(
+      `(()=>{const input=document.querySelector('[aria-label="이력 작업자 검색어"]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'HistoryModalActor');input.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+    );
+    await evaluate(
+      "document.querySelector('[aria-label=\"이력 작업자 검색어\"]').form.requestSubmit()",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelectorAll('tbody tr').length===1 && document.querySelector('tbody').textContent.includes('HistoryModalActor')",
+        ),
+      "history name filter",
+    );
+    await evaluate(
+      "(()=>{const select=document.querySelector('[aria-label=\"프로젝트 필터\"]');select.value='master-a';select.dispatchEvent(new Event('change',{bubbles:true}));})()",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('tbody')?.textContent.includes('HistoryModalActor')",
+        ),
+      "history project filter",
+    );
+    await click("tbody button");
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('dialog[open] .admin-detail-body')?.textContent.includes('before-modal') && document.querySelector('dialog[open] .admin-detail-body')?.textContent.includes('after-modal')",
+        ),
+      "history detail modal",
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('dialog[open]').classList.contains('admin-detail-dialog')",
+      ),
+      true,
+    );
+    await screenshot("history-detail-modal");
+    await click("dialog[open] .admin-detail-close");
+    assert.equal(
+      await evaluate("!!document.querySelector('dialog[open]')"),
+      false,
+    );
+    await click("tbody button");
+    await waitFor(
+      () => evaluate("!!document.querySelector('dialog[open]')"),
+      "history reopen",
+    );
+    await call("Input.dispatchKeyEvent", {
+      type: "keyDown",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+    });
+    await call("Input.dispatchKeyEvent", {
+      type: "keyUp",
+      key: "Escape",
+      code: "Escape",
+      windowsVirtualKeyCode: 27,
+    });
+    await waitFor(
+      () => evaluate("!document.querySelector('dialog[open]')"),
+      "history Escape close",
+    );
+    await navigate("/admin/settings?tab=system");
+    await waitFor(
+      () =>
+        evaluate(
+          "!!document.querySelector('.system-settings-form input[type=number]') && !document.querySelector('.system-settings-form button[type=submit]')?.disabled",
+        ),
+      "workspace system settings form",
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.system-settings-form').textContent.includes('Master personal')",
+      ),
+      true,
+    );
+    await evaluate(
+      `(()=>{const set=Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set;const numbers=document.querySelectorAll('.system-settings-form input[type=number]');set.call(numbers[0],'120');numbers[0].dispatchEvent(new Event('input',{bubbles:true}));set.call(numbers[1],'1');numbers[1].dispatchEvent(new Event('input',{bubbles:true}));const message=document.querySelector('[aria-label="403 오류 메시지"]');set.call(message,'관리자가 지정한 권한 안내');message.dispatchEvent(new Event('input',{bubbles:true}));})()`,
+    );
+    await evaluate(
+      "document.querySelector('.system-settings-form').requestSubmit()",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('.system-settings-form [role=status]')?.textContent.includes('저장했습니다.')",
+        ),
+      "workspace system settings saved",
+    );
+    const savedSettings = await evaluate(
+      "(async()=>await(await fetch('/api/me/system-settings')).json())()",
+    );
+    assert.equal(savedSettings.staleTimeMs, 120000);
+    assert.equal(savedSettings.retryCount, 1);
+    assert.equal(
+      savedSettings.errorMessages["403"],
+      "관리자가 지정한 권한 안내",
+    );
+    await screenshot("workspace-system-settings");
+    await evaluate(
+      "[...document.querySelectorAll('.system-settings-form button')].find(x=>x.textContent==='기본값 불러오기').click()",
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.system-settings-form input[type=number]').value",
+      ),
+      "60",
+    );
+    assert.equal(
+      await evaluate(
+        "(async()=>(await(await fetch('/api/me/system-settings')).json()).staleTimeMs)()",
+      ),
+      120000,
+    );
+    await evaluate(
+      "[...document.querySelectorAll('.system-settings-form button')].find(x=>x.textContent==='최신 설정 다시 불러오기').click()",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('.system-settings-form input[type=number]').value==='120'",
+        ),
+      "discard settings draft and reload saved version",
+    );
+    await db.executeMultiple(
+      `UPDATE plans SET team_sharing_enabled=1 WHERE code='free'; INSERT INTO team_join_requests(id,workspace_id,user_id,status,requested_at) VALUES ('header-team','master-ws','user','pending','2026-11-11T00:00:00.000Z'); INSERT INTO business_requests(id,user_id,company_name,contact) VALUES ('header-contract','user','Header company','synthetic'); INSERT INTO notifications(id,recipient_user_id,type,business_request_id) VALUES ('header-notice','master','business_request','header-contract');`,
+    );
+    await navigate("/settings?tab=account");
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('[aria-label=\"Business 계약 알림\"] .notification-badge')?.textContent==='1' && document.querySelector('[aria-label=\"알림\"] .notification-badge')?.textContent==='1'",
+        ),
+      "both header counter badges",
+    );
+    await evaluate(
+      "(()=>{window.__headerOriginalFetch=window.fetch;window.__headerCalls=[];window.fetch=(input,init)=>{window.__headerCalls.push(String(input));return window.__headerOriginalFetch(input,init);};})()",
+    );
+    await pause(16000);
+    const headerCalls = await evaluate("window.__headerCalls");
+    assert.ok(headerCalls.includes("/api/super-admin/notifications/count"));
+    assert.ok(headerCalls.includes("/api/me/notifications/count"));
+    assert.equal(
+      headerCalls.filter(
+        (path) =>
+          path === "/api/super-admin/notifications" ||
+          path === "/api/team/requests",
+      ).length,
+      0,
+      "closed panels poll counters only",
+    );
+    assert.equal(
+      await evaluate(
+        "getComputedStyle(document.querySelector('[aria-label=\"Business 계약 알림\"] .notification-badge')).backgroundColor",
+      ),
+      "rgb(220, 38, 38)",
+    );
+    assert.equal(
+      await evaluate(
+        "(()=>{const a=document.querySelector('[aria-label=\"Business 계약 알림\"]').getBoundingClientRect(),b=document.querySelector('[aria-label=\"Business 계약 알림\"] .notification-badge').getBoundingClientRect();return b.top>=0&&b.left>a.left+a.width/2&&b.top<a.top+a.height/2})()",
+      ),
+      true,
+    );
+    await screenshot("header-counter-badges");
+    await click('[aria-label="Business 계약 알림"]');
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('#contract-notifications-panel')?.textContent.includes('Header company')",
+        ),
+      "contract list on open",
+    );
+    assert.equal(
+      (await evaluate("window.__headerCalls")).filter(
+        (path) => path === "/api/super-admin/notifications",
+      ).length,
+      1,
+    );
+    await evaluate(
+      "document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))",
+    );
+    await waitFor(
+      () =>
+        evaluate("!document.querySelector('#contract-notifications-panel')"),
+      "contract outside dismissal",
+    );
+    await click('[aria-label="알림"]');
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('#team-notifications-panel')?.textContent.includes('Personal user')",
+        ),
+      "team list on open",
+    );
+    assert.equal(
+      (await evaluate("window.__headerCalls")).filter(
+        (path) => path === "/api/team/requests",
+      ).length,
+      1,
+    );
+    await evaluate(
+      "document.body.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true}))",
+    );
+    await waitFor(
+      () => evaluate("!document.querySelector('#team-notifications-panel')"),
+      "team outside dismissal",
+    );
+    await click('[aria-label="Business 계약 알림"]');
+    await waitFor(
+      () =>
+        evaluate(
+          "window.__headerCalls.filter(path=>path==='/api/super-admin/notifications').length===2",
+        ),
+      "fresh contract list on reopen",
+    );
+    await click("#contract-notifications-panel a");
+    await waitFor(
+      async () =>
+        !!(
+          await db.execute(
+            "SELECT read_at FROM notifications WHERE id='header-notice'",
+          )
+        ).rows[0].read_at,
+      "contract read persisted",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "!document.querySelector('[aria-label=\"Business 계약 알림\"] .notification-badge')",
+        ),
+      "read updates exact counter",
+    );
+    await evaluate("window.fetch=window.__headerOriginalFetch");
     await login("biz");
     await navigate("/admin/settings");
     await waitFor(
@@ -584,6 +856,68 @@ try {
       "user",
     );
     await screenshot("payment-unconfigured");
+    await navigate("/settings?tab=account");
+    await waitFor(
+      () =>
+        evaluate(
+          "!!document.querySelector('form.settings-form input[name=name]')",
+        ),
+      "account error policy test",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "(()=>{const e=document.querySelector('form.settings-form');return e&&Object.keys(e).some(k=>k.startsWith('__reactProps$')&&typeof e[k].onSubmit==='function')})()",
+        ),
+      "account form hydrated",
+    );
+    const userPolicy = await evaluate(
+      "(async()=>await(await fetch('/api/me/system-settings')).json())()",
+    );
+    await evaluate(
+      `(()=>{window.__matrixOriginalFetch=window.fetch;window.__matrixPatchCalls=0;window.fetch=async(input,init)=>{if(input==='/api/me'&&init?.method==='PATCH'){window.__matrixPatchCalls++;return Response.json({error:'DO NOT DISPLAY RAW ERROR'},{status:403});}return window.__matrixOriginalFetch(input,init);};document.querySelector('form.settings-form').requestSubmit();})()`,
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('form.settings-form [role=alert]')?.textContent.includes('이 작업을 수행할 권한이 없습니다.')",
+        ),
+      "default workspace HTTP wording",
+    );
+    const messages = {
+      ...userPolicy.errorMessages,
+      403: "변경된 공간 권한 안내",
+    };
+    await db.execute({
+      sql: "INSERT INTO workspace_system_settings(workspace_id,stale_time_ms,retry_count,error_messages_json,version,updated_by,created_at,updated_at) VALUES ('user-ws',60000,3,?,1,'user',?,?) ON CONFLICT(workspace_id) DO UPDATE SET error_messages_json=excluded.error_messages_json,version=workspace_system_settings.version+1",
+      args: [
+        JSON.stringify(messages),
+        new Date().toISOString(),
+        new Date().toISOString(),
+      ],
+    });
+    await evaluate(
+      "(()=>{const channel=new BroadcastChannel('matrix-system-settings:user-ws');channel.postMessage({version:1});channel.close();})()",
+    );
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelector('form.settings-form [role=alert]')?.textContent.includes('변경된 공간 권한 안내')",
+        ),
+      "existing error re-resolves on workspace policy change",
+    );
+    assert.equal(
+      await evaluate("window.__matrixPatchCalls"),
+      1,
+      "Saving wording must not replay a failed mutation",
+    );
+    assert.equal(
+      await evaluate(
+        "document.body.textContent.includes('DO NOT DISPLAY RAW ERROR')",
+      ),
+      false,
+    );
+    await evaluate("window.fetch=window.__matrixOriginalFetch");
     await navigate("/super-admin/settings");
     await waitFor(
       () => evaluate("location.pathname==='/dashboard'"),
@@ -602,10 +936,9 @@ try {
   // Next generates type references in the shared source tree; remove only this test's paths.
   const config = await readFile("tsconfig.json", "utf8");
   let cleaned = config;
-  for (const path of [
-    `${testDistDir}/types/**/*.ts`,
-    `${testDistDir}/dev/types/**/*.ts`,
-  ]) {
+  for (const path of production
+    ? []
+    : [`${testDistDir}/types/**/*.ts`, `${testDistDir}/dev/types/**/*.ts`]) {
     cleaned = cleaned
       .replace(`,\n    "${path}"`, "")
       .replace(`,\r\n    "${path}"`, "");

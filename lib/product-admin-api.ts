@@ -1,3 +1,4 @@
+import { historyFilter } from "./admin-history-query";
 import "server-only";
 import { db } from "./db";
 import {
@@ -156,12 +157,31 @@ export async function handleProductAdmin(
           noStore,
         );
       }
+      const workspaces = (
+        await db().execute({
+          sql: "SELECT id FROM workspaces WHERE product_id=?",
+          args: [product.id],
+        })
+      ).rows.map((row) => String(row.id));
+      const projectId = url.searchParams.get("projectId") ?? "";
+      if (
+        projectId &&
+        projectId !== "unassigned" &&
+        !(
+          await db().execute({
+            sql: "SELECT p.id FROM projects p JOIN workspaces w ON w.id=p.workspace_id WHERE p.id=? AND w.product_id=?",
+            args: [projectId, product.id],
+          })
+        ).rows.length
+      )
+        throw new HttpError(404, "상품의 프로젝트를 찾을 수 없습니다.");
+      const filter = historyFilter(url, workspaces);
       const { page: requestedPage, pageSize } = paging(url);
       const total = Number(
         (
           await db().execute({
-            sql: `SELECT count(*) AS n FROM (${scope})`,
-            args: [product.id, product.id],
+            sql: `SELECT count(*) AS n FROM (${scope}) h ${filter.where}`,
+            args: [product.id, product.id, ...filter.args],
           })
         ).rows[0].n,
       );
@@ -171,8 +191,14 @@ export async function handleProductAdmin(
       );
       const entries = (
         await db().execute({
-          sql: `SELECT source,id,occurredAt,actorId,actorName,action,resourceId FROM (${scope}) ORDER BY occurredAt DESC,id DESC LIMIT ? OFFSET ?`,
-          args: [product.id, product.id, pageSize, (page - 1) * pageSize],
+          sql: `SELECT source,id,occurredAt,actorId,actorName,action,resourceId FROM (${scope}) h ${filter.where} ORDER BY occurredAt DESC,id DESC LIMIT ? OFFSET ?`,
+          args: [
+            product.id,
+            product.id,
+            ...filter.args,
+            pageSize,
+            (page - 1) * pageSize,
+          ],
         })
       ).rows;
       return Response.json({ entries, total, page, pageSize }, noStore);

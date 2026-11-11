@@ -1,39 +1,56 @@
-"use client";
+﻿"use client";
 import { useEffect, useRef, useState } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useSearchParams } from "next/navigation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 import { boardFetch, boardBase } from "../lib/client-api";
+type HistoryPage = {
+  history?: Record<string, unknown>[];
+  revisions?: Record<string, unknown>[];
+  nextCursor?: string | null;
+};
 export function BoardHistory() {
   const [open, setOpen] = useState(false),
-    [tab, setTab] = useState<"review" | "revisions">("review"),
-    [items, setItems] = useState<Record<string, unknown>[]>([]),
-    [error, setError] = useState(""),
-    [cursor, setCursor] = useState<string | null>(null);
+    [tab, setTab] = useState<"review" | "revisions">("review");
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const parameters = useSearchParams();
+  const query = useInfiniteQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "planning",
+      parameters.get("projectId") ?? "",
+      parameters.get("screenId") ?? "",
+      tab,
+      "infinite",
+    ],
+    queryFn: ({ signal, pageParam }) =>
+      requestJson<HistoryPage>(
+        `${boardBase()}/${tab}${pageParam ? `?cursor=${encodeURIComponent(pageParam)}` : ""}`,
+        { signal },
+        boardFetch,
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (page) => page.nextCursor ?? undefined,
+    ...policy,
+    enabled: open,
+  });
+  const ids = new Set<string>();
+  const items = (query.data?.pages ?? [])
+    .flatMap((page) => page.history ?? page.revisions ?? [])
+    .filter((item) => {
+      const id = String(item.id);
+      if (ids.has(id)) return false;
+      ids.add(id);
+      return true;
+    });
+  const error = resolveWorkspaceError(query.error, settings.errorMessages);
   const dialog = useRef<HTMLDialogElement>(null);
-  async function load(more = false) {
-    try {
-      const response = await boardFetch(
-        `${boardBase()}/${tab}${more && cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
-      );
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error);
-      setItems((old) =>
-        more
-          ? [...old, ...(result.history ?? result.revisions ?? [])]
-          : (result.history ?? result.revisions ?? []),
-      );
-      setCursor(result.nextCursor ?? null);
-      setError("");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "이력을 불러오지 못했습니다.");
-    }
-  }
   useEffect(() => {
-    if (open) {
-      dialog.current?.showModal();
-      void Promise.resolve().then(() => load());
-    }
-    // Loading is keyed by the selected history tab; pagination is an explicit action.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, tab]);
+    if (open) dialog.current?.showModal();
+  }, [open]);
   return (
     <>
       <button className="plain-button" onClick={() => setOpen(true)}>
@@ -71,6 +88,7 @@ export function BoardHistory() {
               </button>
             </div>
             {error && <p role="alert">{error}</p>}
+            {query.isLoading && <p role="status">이력을 불러오는 중입니다.</p>}
             <ul>
               {items.map((item) => (
                 <li key={String(item.id)}>
@@ -85,9 +103,15 @@ export function BoardHistory() {
                 </li>
               ))}
             </ul>
-            {!items.length && !error && <p>이력이 없습니다.</p>}
-            {cursor && (
-              <button className="button" onClick={() => void load(true)}>
+            {!items.length && !error && !query.isLoading && (
+              <p>이력이 없습니다.</p>
+            )}
+            {query.hasNextPage && (
+              <button
+                className="button"
+                disabled={query.isFetching}
+                onClick={() => void query.fetchNextPage()}
+              >
                 더 보기
               </button>
             )}

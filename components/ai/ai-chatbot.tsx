@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
@@ -18,6 +20,17 @@ import { useAiTarget } from "./use-ai-target";
 import { aiTargetContext, isAiTargetPage } from "@/lib/ai-target-pages";
 import "./ai-chatbot.css";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { useSubscription } from "@/components/query/use-subscription";
+import { useAiModels } from "@/components/query/use-ai-models";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 export function AiChatbot() {
   const { user, aiContext, aiConversation } = useWorkspace();
   if (!aiConversation || aiConversation.projectId !== aiContext.projectId)
@@ -46,24 +59,72 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     : context;
   const { title, placeholder } = aiPresentation(targetContext);
   const [prompt, setPrompt] = useState(""),
-    [model, setModel] = useState(""),
-    [models, setModels] = useState<string[]>([]);
-  const [modelsLoading, setModelsLoading] = useState(true),
-    [modelError, setModelError] = useState(""),
-    [modelVersion, setModelVersion] = useState(0);
-  const [attachmentLimit, setAttachmentLimit] = useState(0);
+    [selectedModel, setModel] = useState("");
+  const {
+    scope: queryScope,
+    policy,
+    settings,
+  } = useWorkspaceQueryPolicy(
+    user ? { userId: user.id, workspaceId: user.workspaceId } : undefined,
+  );
+  const client = useQueryClient();
+  const subscription = useSubscription();
+  const attachmentLimit = subscription.isError
+    ? 0
+    : (subscription.data?.plan.attachmentLimit ?? 0);
+  const modelQuery = useAiModels(aiOpen);
+  const models = modelQuery.data?.models ?? [];
+  const model = models.includes(selectedModel)
+    ? selectedModel
+    : (modelQuery.data?.defaultModel ?? "");
+  const modelsLoading = modelQuery.isFetching,
+    modelError = modelQuery.isFetching
+      ? ""
+      : resolveWorkspaceError(modelQuery.error, settings.errorMessages);
+  const setModelVersion = () => {
+    void modelQuery.refetch();
+  };
+  const stopCommand = useMutation({
+    mutationFn: (input: object) =>
+      requestJson<{ settled: boolean; actions?: unknown[] }>(
+        "/api/ai/chats/stop",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(input),
+        },
+      ),
+    retry: false,
+  });
   const [generating, setGenerating] = useState(false),
-    [error, setError] = useState("");
+    [error, setError] = useWorkspaceErrorState("");
   const [stopping, setStopping] = useState(false),
     [notice, setNotice] = useState("");
   const [stopRetry, setStopRetry] = useState<string | null>(null);
-  const [usage, setUsage] = useState<{
+  type Usage = {
     input: number;
     output: number;
     unknown: number;
     pending: number;
     calls: number;
-  } | null>(null);
+  };
+  const [usageRequest, setUsageRequest] = useState("");
+  const usageQuery = useQuery({
+    queryKey: [
+      ...matrixKeys.scope(queryScope),
+      "ai",
+      "chat-usage",
+      usageRequest,
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<Usage>(`/api/ai/chats/usage?requestId=${usageRequest}`, {
+        signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+      }),
+    ...policy,
+    enabled: generating && Boolean(usageRequest),
+    refetchInterval: 1000,
+  });
+  const usage = usageQuery.data ?? null;
   const activeRequest = useRef<string | null>(null);
   const stopBusy = useRef(false);
   const conversationState = useAiConversation(conversation, aiOpen);
@@ -75,7 +136,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     aiOpen,
   );
   const [result, setResult] = useState<AiChat | null>(null),
-    [copyError, setCopyError] = useState("");
+    [copyError, setCopyError] = useWorkspaceErrorState("");
   const {
     images,
     imagesLoading,
@@ -90,55 +151,12 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     resultSession = useRef(0),
     busyRef = useRef(false),
     generation = useRef<AbortController | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/me/subscription", {
-      signal: controller.signal,
-      cache: "no-store",
-    })
-      .then(async (response) => {
-        if (!response.ok) throw new Error();
-        const data = await response.json();
-        setAttachmentLimit(data.plan.attachmentLimit);
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setAttachmentLimit(0);
-      });
-    return () => controller.abort();
-  }, [user?.id]);
   const scope = `${user?.workspaceId}:${user?.id}:${context.projectId}`;
   const activeScope = useRef(scope);
   useEffect(() => {
     activeScope.current = scope;
   }, [scope]);
   useEffect(() => () => generation.current?.abort(), []);
-  useEffect(() => {
-    if (!aiOpen) return;
-    const controller = new AbortController();
-    fetch("/api/ai/models", { signal: controller.signal })
-      .then(async (response) => {
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error);
-        setModelError("");
-        setModels(data.models);
-        setModel((current) =>
-          data.models.includes(current) ? current : data.defaultModel,
-        );
-      })
-      .catch((e) => {
-        if (!controller.signal.aborted) {
-          setModels([]);
-          setModel("");
-          setModelError(
-            e instanceof Error ? e.message : "모델을 불러오지 못했습니다.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setModelsLoading(false);
-      });
-    return () => controller.abort();
-  }, [aiOpen, user?.id, user?.workspaceId, modelVersion]);
   useEffect(() => {
     if (result && aiOpen) dialog.current?.showModal();
     else dialog.current?.close();
@@ -179,17 +197,11 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     stopBusy.current = true;
     setStopping(true);
     try {
-      const response = await fetch("/api/ai/chats/stop", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          convId: conversation.convId,
-          projectId: conversation.projectId,
-        }),
+      const data = await stopCommand.mutateAsync({
+        requestId,
+        convId: conversation.convId,
+        projectId: conversation.projectId,
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       if (data.settled && activeRequest.current === null) {
         setStopRetry(null);
         setStopping(false);
@@ -206,9 +218,11 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       if (activeRequest.current === requestId || stopRetry === requestId) {
         setStopping(false);
         setError(
-          e instanceof Error
-            ? e.message
-            : "중지 요청에 실패했습니다. 다시 시도해 주세요.",
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "중지 요청에 실패했습니다. 다시 시도해 주세요.",
         );
       }
     } finally {
@@ -222,36 +236,38 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     setError("");
     setCopyError("");
     setNotice("");
-    setUsage(null);
     setStopping(false);
     setStopRetry(null);
     const requestId = crypto.randomUUID();
-    activeRequest.current = requestId;
     const updateUsage = async () => {
-      try {
-        const response = await fetch(
-          `/api/ai/chats/usage?requestId=${requestId}`,
-          {
-            cache: "no-store",
-            signal: AbortSignal.any([
-              controller.signal,
-              AbortSignal.timeout(5000),
-            ]),
-          },
-        );
-        if (response.ok) {
-          const snapshot = await response.json();
-          if (activeRequest.current === requestId) setUsage(snapshot);
-        }
-      } catch {
-        /* A statistics refresh must not interrupt generation. */
-      }
+      await client
+        .query({
+          queryKey: [
+            ...matrixKeys.scope(queryScope),
+            "ai",
+            "chat-usage",
+            requestId,
+          ],
+          queryFn: ({ signal }) =>
+            requestJson<Usage>(`/api/ai/chats/usage?requestId=${requestId}`, {
+              signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
+            }),
+          staleTime: 0,
+          retry: false,
+        })
+        .catch(() => undefined);
     };
     const requestScope = scope,
       controller = new AbortController();
     generation.current = controller;
-    const usageTimer = window.setInterval(() => void updateUsage(), 1000);
+    let submitted = false;
     try {
+      await target.verify(controller.signal);
+      if (activeScope.current !== requestScope || controller.signal.aborted)
+        return;
+      activeRequest.current = requestId;
+      setUsageRequest(requestId);
+      submitted = true;
       const response = await fetch("/api/ai/chats", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -283,7 +299,13 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         useWorkspace.getState().updateAiConversation(data.conversation);
       if (data.stopUnconfirmed) setStopRetry(requestId);
       if (data.actions?.length) useWorkspace.getState().notifyAiChange();
-      if (!response.ok) throw new Error(data.error);
+      if (!response.ok)
+        throw new RequestError(
+          response.status,
+          data.code,
+          data.details,
+          requestId,
+        );
       if (data.cancelled) {
         setError("");
         setNotice(
@@ -301,13 +323,16 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         requestAnimationFrame(() => promptInput.current?.focus());
       }
     } catch (e) {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted && activeScope.current === requestScope)
         setError(
-          e instanceof Error ? e.message : "AI 요청을 완료하지 못했습니다.",
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "AI 요청을 완료하지 못했습니다.",
         );
     } finally {
-      window.clearInterval(usageTimer);
-      await updateUsage();
+      if (submitted) await updateUsage();
       activeRequest.current = null;
       busyRef.current = false;
       setGenerating(false);
@@ -369,9 +394,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
                 <button
                   type="button"
                   onClick={() => {
-                    setModelsLoading(true);
-                    setModelError("");
-                    setModelVersion((v) => v + 1);
+                    setModelVersion();
                   }}
                 >
                   다시 시도

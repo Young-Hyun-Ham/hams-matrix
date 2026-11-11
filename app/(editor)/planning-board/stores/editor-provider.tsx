@@ -16,6 +16,14 @@ import type { User } from "@/lib/types";
 import { useSearchParams } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
 import { boardBase, setPlanningAccess } from "../lib/client-api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import {
+  RequestError,
+  resolveWorkspaceError,
+} from "@/lib/query/error-messages";
 type State = {
   aiEnabled: boolean;
   isLoading: boolean;
@@ -109,6 +117,25 @@ function ScopedEditorProvider({
   children: ReactNode;
   initialIdentity: string;
 }) {
+  const { scope, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const parameters = useSearchParams();
+  const projectId = parameters.get("projectId") ?? "",
+    screenId = parameters.get("screenId") ?? "";
+  useQuery({
+    queryKey: [
+      ...matrixKeys.scope(scope),
+      "planning",
+      projectId,
+      screenId,
+      "access",
+    ],
+    queryFn: ({ signal }) =>
+      requestJson<State & { user: User }>(`${boardBase()}/access`, { signal }),
+    enabled: false,
+    staleTime: 0,
+    retry: false,
+  });
   const [editorStore] = useState(createEditorStore);
   const [state, setState] = useState<State>({
     aiEnabled: false,
@@ -121,6 +148,7 @@ function ScopedEditorProvider({
   const [error, setError] = useState<{
     status: number;
     message: string;
+    requestError?: RequestError;
   } | null>(null);
   const [opened, setOpened] = useState(false);
   const retry = useRef<() => void>(() => {});
@@ -133,7 +161,11 @@ function ScopedEditorProvider({
     const identity = (user: User | null) =>
       user ? `${user.id}:${user.workspaceId}` : "";
     const base = boardBase();
-    const deny = (status: number, message: string) => {
+    const deny = (
+      status: number,
+      message: string,
+      requestError?: RequestError,
+    ) => {
       setPlanningAccess(false, false);
       // Native dialogs render in the top layer, outside their hidden ancestor.
       document
@@ -149,7 +181,7 @@ function ScopedEditorProvider({
         canCreateTemplate: false,
         isLoading: false,
       }));
-      setError({ status, message });
+      setError({ status, message, requestError });
     };
     const updateUser = (user: User | null) => {
       updatingUser = true;
@@ -181,26 +213,26 @@ function ScopedEditorProvider({
       controller = new AbortController();
       const request = ++serial;
       try {
-        const response = await fetch(`${base}/access`, {
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const result = await response.json().catch(() => null);
+        const queryKey = [
+          ...matrixKeys.scope(scope),
+          "planning",
+          projectId,
+          screenId,
+          "access",
+        ];
+        const requestSignal = controller.signal;
+        await client.cancelQueries({ queryKey, exact: true });
         if (disposed || switched || request !== serial) return;
-        if (!response.ok) {
-          if (response.status === 401) updateUser(null);
-          deny(
-            response.status,
-            response.status === 401
-              ? "로그인이 만료되었습니다. 다시 로그인해 주세요."
-              : response.status === 403
-                ? "이 화면에 접근할 권한이 없습니다."
-                : response.status === 404
-                  ? "화면을 찾을 수 없습니다."
-                  : "화면 권한을 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-          );
-          return;
-        }
+        const result = await client.query({
+          queryKey,
+          queryFn: ({ signal }) =>
+            requestJson<State & { user: User }>(`${base}/access`, {
+              signal: AbortSignal.any([signal, requestSignal]),
+            }),
+          staleTime: 0,
+          retry: false,
+        });
+        if (disposed || switched || request !== serial) return;
         if (
           !result ||
           typeof result.user?.id !== "string" ||
@@ -233,17 +265,21 @@ function ScopedEditorProvider({
         setPlanningAccess(true, result.canUpdate);
         setOpened(true);
         setError(null);
-      } catch {
+      } catch (failure) {
         if (
           !disposed &&
           !switched &&
           request === serial &&
           !controller.signal.aborted
-        )
+        ) {
+          if (failure instanceof RequestError && failure.status === 401)
+            updateUser(null);
           deny(
-            503,
+            failure instanceof RequestError ? (failure.status ?? 503) : 503,
             "화면 권한을 확인할 수 없습니다. 연결 상태를 확인하고 다시 시도해 주세요.",
+            failure instanceof RequestError ? failure : undefined,
           );
+        }
       }
     };
     const onApiError = (event: Event) => {
@@ -273,14 +309,21 @@ function ScopedEditorProvider({
       window.removeEventListener("focus", refresh);
       window.removeEventListener("planning:access-error", onApiError);
     };
-  }, [initialIdentity]);
+  }, [initialIdentity, client, scope, projectId, screenId]);
   return (
     <Context.Provider value={state}>
       <StoreContext.Provider value={editorStore}>
         {state.isLoading && <p role="status">화면 권한 확인 중...</p>}
         {error && (
           <div role="alert" className="planning-access-error">
-            <p>{error.message}</p>
+            <p>
+              {error.requestError
+                ? resolveWorkspaceError(
+                    error.requestError,
+                    settings.errorMessages,
+                  )
+                : error.message}
+            </p>
             {error.status === 401 && (
               <a href="/login" target="_blank" rel="noopener noreferrer">
                 다시 로그인

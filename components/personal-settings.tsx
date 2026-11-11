@@ -1,14 +1,36 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useWorkspace } from "@/stores/workspace";
 import { toast } from "@/stores/toast";
 import type { User } from "@/lib/types";
+import { useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { matrixKeys } from "@/lib/query/keys";
+
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 export { InterfaceSettings } from "./interface-settings";
 export function AccountSettings({ user }: { user: User }) {
+  const { scope } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  const mutation = useMutation({
+    mutationFn: (name: FormDataEntryValue | null) =>
+      requestJson<{ user: User }>("/api/me", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      }),
+    retry: false,
+  });
   const setUser = useWorkspace((s) => s.setUser),
     router = useRouter();
-  const [error, setError] = useState(""),
+  const [error, setError] = useWorkspaceErrorState(""),
     [busy, setBusy] = useState(false);
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -16,18 +38,13 @@ export function AccountSettings({ user }: { user: User }) {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch("/api/me", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
+      const data = await mutation.mutateAsync(name);
+      client.setQueryData(matrixKeys.me(scope), data);
       setUser(data.user);
       router.refresh();
       toast("이름을 저장했습니다.");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "저장 실패");
+      setError(e);
     } finally {
       setBusy(false);
     }

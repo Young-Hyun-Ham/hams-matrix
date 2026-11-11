@@ -1,8 +1,14 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useCallback, useRef, useState, useEffect } from "react";
 import type { User } from "@/lib/types";
 import type { Artifact, ProjectData } from "@/lib/artifact-types";
-import { jsonRequest } from "@/lib/client-request";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
 import { useProjectAccess } from "@/components/shared/use-project-access";
 import { useArtifactActions } from "@/components/shared/use-artifact-actions";
 import { ArtifactDialogContent } from "@/components/shared/artifact-dialogs";
@@ -22,9 +28,24 @@ export function DatabaseToolPage({
   mode: "erd" | "domains";
   initialLoadedAt: string;
 }) {
+  const { scope, policy } = useWorkspaceQueryPolicy({
+    userId: user.id,
+    workspaceId: user.workspaceId,
+  });
+  const client = useQueryClient();
+  useQuery({
+    queryKey: matrixKeys.artifacts(scope, initialData.project.id),
+    queryFn: ({ signal }) =>
+      requestJson<ProjectData>(
+        `/api/projects/${initialData.project.id}/artifacts`,
+        { signal },
+      ),
+    ...policy,
+    initialData,
+  });
   const [data, setData] = useState(initialData),
     [notice, setNotice] = useState(""),
-    [error, setError] = useState(""),
+    [error, setError] = useWorkspaceErrorState(""),
     [loading, setLoading] = useState(false),
     [reloadVersion, setReloadVersion] = useState(0),
     [loadedAt, setLoadedAt] = useState(initialLoadedAt);
@@ -58,9 +79,19 @@ export function DatabaseToolPage({
     setLoading(true);
     setError("");
     try {
-      const next: ProjectData = await jsonRequest(
-        `/api/projects/${encodeURIComponent(projectId)}/artifacts`,
-      );
+      const next = await client.query({
+        queryKey: matrixKeys.artifacts(
+          { userId: user.id, workspaceId: user.workspaceId },
+          projectId,
+        ),
+        queryFn: ({ signal }) =>
+          requestJson<ProjectData>(
+            `/api/projects/${encodeURIComponent(projectId)}/artifacts`,
+            { signal },
+          ),
+        staleTime: 0,
+        retry: false,
+      });
       if (!mounted.current || current !== sequence.current) return null;
       if (!next.permissionsByTab.database.READ)
         throw new Error("DB설계 조회 권한이 없습니다.");
@@ -72,12 +103,18 @@ export function DatabaseToolPage({
       return next;
     } catch (e) {
       if (mounted.current && current === sequence.current)
-        setError(e instanceof Error ? e.message : "갱신하지 못했습니다.");
+        setError(
+          e instanceof RequestError
+            ? e
+            : e instanceof Error
+              ? e.message
+              : "갱신하지 못했습니다.",
+        );
       return null;
     } finally {
       if (mounted.current && current === sequence.current) setLoading(false);
     }
-  }, [projectId]);
+  }, [client, projectId, user.id, user.workspaceId, setError]);
   const externalRefresh = useCallback(() => {
     void refresh();
   }, [refresh]);

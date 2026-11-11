@@ -1,4 +1,6 @@
 "use client";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import {
   AI_IMAGE_MAX_BYTES,
@@ -7,6 +9,9 @@ import {
   type AiImageInput,
   type AiImageInfo,
 } from "@/lib/ai-image-types";
+import { requestBlob } from "@/lib/query/browser-fetch";
+import { RequestError } from "@/lib/query/error-messages";
+
 export type PastedAiImage = AiImageInput & {
   id: string;
   width: number;
@@ -64,7 +69,7 @@ async function captureImage(file: File): Promise<PastedAiImage> {
 export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
   const [images, setImages] = useState<PastedAiImage[]>([]),
     [imagesLoading, setImagesLoading] = useState(false),
-    [attachmentError, setAttachmentError] = useState("");
+    [attachmentError, setAttachmentError] = useWorkspaceErrorState("");
   const current = useRef<PastedAiImage[]>([]),
     busy = useRef(false),
     operation = useRef(0),
@@ -119,9 +124,11 @@ export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
     } catch (error) {
       if (active.current && operationId === operation.current)
         setAttachmentError(
-          error instanceof Error
-            ? error.message
-            : "이미지를 붙여넣지 못했습니다.",
+          error instanceof RequestError
+            ? error
+            : error instanceof Error
+              ? error.message
+              : "이미지를 붙여넣지 못했습니다.",
         );
     } finally {
       if (operationId === operation.current) {
@@ -139,11 +146,9 @@ export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
     try {
       const restored = await Promise.all(
         saved.map(async (image, index) => {
-          const response = await fetch(image.url, { cache: "no-store" });
-          if (!response.ok)
-            throw new Error("기록의 첨부 이미지를 불러오지 못했습니다.");
+          const blob = await requestBlob(image.url);
           return captureImage(
-            new File([await response.blob()], `capture-${index}.png`, {
+            new File([blob], `capture-${index}.png`, {
               type: "image/png",
             }),
           );
@@ -156,9 +161,11 @@ export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
     } catch (error) {
       if (active.current && operationId === operation.current)
         setAttachmentError(
-          error instanceof Error
-            ? error.message
-            : "이미지를 다시 사용하지 못했습니다.",
+          error instanceof RequestError
+            ? error
+            : error instanceof Error
+              ? error.message
+              : "이미지를 다시 사용하지 못했습니다.",
         );
       return false;
     } finally {

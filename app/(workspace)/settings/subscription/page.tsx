@@ -1,4 +1,10 @@
-﻿import { requireUser } from "@/lib/auth";
+import {
+  QueryClient,
+  dehydrate,
+  HydrationBoundary,
+} from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { requireUser } from "@/lib/auth";
 import { Suspense } from "react";
 import { listPlans, memberPlan } from "@/lib/plans";
 import { quotaUsage } from "@/lib/quotas";
@@ -26,13 +32,30 @@ async function SubscriptionContent({
     listPlans(),
     quotaUsage(user.id, user.workspaceId),
   ]);
+  const client = new QueryClient();
+  client.setQueryData(
+    [
+      ...matrixKeys.scope({ userId: user.id, workspaceId: user.workspaceId }),
+      "subscription",
+    ],
+    {
+      plan: current,
+      plans,
+      usage,
+      workspacePlan: user.workspacePlan,
+      tokenPeriod: "total",
+      imageTimezone: "Asia/Seoul",
+    },
+  );
   return (
-    <>
-      {(user.plan !== user.workspacePlan || user.productId !== user.workspaceProductId) && (
+    <HydrationBoundary state={dehydrate(client)}>
+      {(user.plan !== user.workspacePlan ||
+        user.productId !== user.workspaceProductId) && (
         <p role="alert">
           현재 계정 요금제는 {current.name}입니다. {user.workspaceName}을
           이용하려면{" "}
-          {user.workspaceProductName ?? plans.find((plan) => plan.code === user.workspacePlan)?.name ??
+          {user.workspaceProductName ??
+            plans.find((plan) => plan.code === user.workspacePlan)?.name ??
             user.workspacePlan}{" "}
           요금제로 변경해 주세요. 워크스페이스 플랜은 변경되지 않습니다.
         </p>
@@ -51,6 +74,6 @@ async function SubscriptionContent({
           user.plan !== user.workspacePlan ? user.workspacePlan : undefined
         }
       />
-    </>
+    </HydrationBoundary>
   );
 }

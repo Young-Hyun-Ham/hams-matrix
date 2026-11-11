@@ -1,3 +1,9 @@
+import {
+  QueryClient,
+  dehydrate,
+  HydrationBoundary,
+} from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
 import { currentUser, HttpError } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
@@ -38,15 +44,25 @@ export async function DatabaseToolServer({
         <a href="/dashboard">대시보드로 이동</a>
       </main>
     );
+  const client = new QueryClient();
+  client.setQueryData(
+    matrixKeys.artifacts(
+      { userId: user.id, workspaceId: user.workspaceId },
+      projectId,
+    ),
+    data,
+  );
   return (
-    <DatabaseToolPage
-      key={projectId}
-      user={user}
-      initialData={data}
-      mode={mode}
-      initialLoadedAt={new Date().toLocaleString("ko-KR", {
-        timeZone: "Asia/Seoul",
-      })}
-    />
+    <HydrationBoundary state={dehydrate(client)}>
+      <DatabaseToolPage
+        key={projectId}
+        user={user}
+        initialData={data}
+        mode={mode}
+        initialLoadedAt={new Date().toLocaleString("ko-KR", {
+          timeZone: "Asia/Seoul",
+        })}
+      />
+    </HydrationBoundary>
   );
 }

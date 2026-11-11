@@ -4,6 +4,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import type { Artifact } from "@/lib/artifact-types";
 import type { GeneratedImageInfo } from "@/lib/generated-image-types";
 
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
+import { matrixKeys } from "@/lib/query/keys";
+import { requestJson } from "@/lib/query/browser-fetch";
+import { resolveWorkspaceError } from "@/lib/query/error-messages";
 export function ArchitectureImageSurface({
   artifact,
   revision,
@@ -21,42 +26,46 @@ export function ArchitectureImageSurface({
 }) {
   const [attempt, setAttempt] = useState(0);
   const key = `${artifact.projectId}:${artifact.id}:${artifact.version}:${revision}:${attempt}`;
-  const [result, setResult] = useState<{
-    key: string;
-    image: GeneratedImageInfo | null;
-    error: string;
-  } | null>(null);
+  const { scope, policy, settings } = useWorkspaceQueryPolicy();
+  const client = useQueryClient();
+  const endpoint = `/api/projects/${encodeURIComponent(artifact.projectId)}/artifacts/${encodeURIComponent(artifact.id)}/image`;
+  const queryKey = matrixKeys.image(scope, endpoint, artifact.version);
+  const query = useQuery({
+    queryKey,
+    queryFn: ({ signal }) =>
+      requestJson<{ image: GeneratedImageInfo | null }>(
+        `/api/projects/${encodeURIComponent(artifact.projectId)}/artifacts/${encodeURIComponent(artifact.id)}/image`,
+        { signal },
+      ),
+    ...policy,
+  });
+  const result = {
+    key,
+    image: query.data?.image ?? null,
+    error: resolveWorkspaceError(query.error, settings.errorMessages),
+  };
   const [failedImage, setFailedImage] = useState("");
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch(
-      `/api/projects/${encodeURIComponent(artifact.projectId)}/artifacts/${encodeURIComponent(artifact.id)}/image`,
-      { cache: "no-store", signal: controller.signal },
-    )
-      .then(async (response) => {
-        if (!response.ok)
-          throw new Error("저장된 이미지를 확인하지 못했습니다.");
-        return response.json();
-      })
-      .then((value) => {
-        if (!controller.signal.aborted) {
-          setResult({ key, image: value.image, error: "" });
-          onAvailability(artifact.id, artifact.version, !!value.image);
-        }
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted) {
-          setResult({
-            key,
-            image: null,
-            error: error instanceof Error ? error.message : "이미지 조회 실패",
-          });
-          onAvailability(artifact.id, artifact.version, false);
-        }
+    if (query.data || query.isError)
+      onAvailability(
+        artifact.id,
+        artifact.version,
+        !query.isError && Boolean(query.data?.image),
+      );
+  }, [
+    query.data,
+    query.isError,
+    artifact.id,
+    artifact.version,
+    onAvailability,
+  ]);
+  useEffect(() => {
+    if (revision || attempt)
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(scope), "image", endpoint],
       });
-    return () => controller.abort();
-  }, [artifact.projectId, artifact.id, artifact.version, key, onAvailability]);
-  if (result?.key !== key)
+  }, [client, scope, endpoint, revision, attempt]);
+  if (query.isLoading)
     return <p role="status">저장된 구성도 이미지를 확인하는 중입니다.</p>;
   if (result.error || failedImage === key)
     return (

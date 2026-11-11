@@ -3,25 +3,23 @@ import { useEffect } from "react";
 import { Icon } from "@/components/icon";
 import { ArtifactList } from "@/components/shared/artifact-list";
 import { useProjectPage } from "@/components/shared/project-page-context";
-import { jsonRequest } from "@/lib/client-request";
+import { useQueryClient } from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 import "./screens-page.css";
 export function ScreensPage() {
-  const { data, updateData } = useProjectPage();
+  const { data } = useProjectPage();
+  const client = useQueryClient();
+  const { scope } = useWorkspaceQueryPolicy();
   useEffect(() => {
     const channel = new BroadcastChannel(`matrix-planning:${data.project.id}`);
-    const controller = new AbortController();
     channel.onmessage = () => {
-      void jsonRequest(`/api/projects/${data.project.id}/artifacts`, {
-        signal: controller.signal,
-      })
-        .then((result) => updateData?.(result))
-        .catch(() => {});
+      void client.invalidateQueries({
+        queryKey: matrixKeys.artifacts(scope, data.project.id),
+      });
     };
-    return () => {
-      controller.abort();
-      channel.close();
-    };
-  }, [data.project.id, updateData]);
+    return () => channel.close();
+  }, [client, scope, data.project.id]);
   return (
     <ArtifactList
       kind="screen"

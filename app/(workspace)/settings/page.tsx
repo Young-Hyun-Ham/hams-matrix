@@ -1,3 +1,12 @@
+import {
+  QueryClient,
+  dehydrate,
+  HydrationBoundary,
+} from "@tanstack/react-query";
+import { matrixKeys } from "@/lib/query/keys";
+import { getWorkspaceSystemSettings } from "@/lib/system-settings/server";
+import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
+import { serverGetJson } from "@/lib/query/server-fetch";
 import "@/styles/settings.css";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
@@ -30,24 +39,59 @@ async function Settings({
   const user = await requireUser({ allowPlanMismatch: true }),
     { tab = "usage" } = await searchParams;
   if (!items.some(([key]) => key === tab)) redirect("/settings?tab=usage");
+  const client = new QueryClient();
+  if (tab === "usage") {
+    const year = new Intl.DateTimeFormat("en", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+    }).format(new Date());
+    const query = new URLSearchParams({
+      from: `${year}-01-01`,
+      to: `${year}-12-31`,
+      group: "monthly",
+    }).toString();
+    const settings = await getWorkspaceSystemSettings(user);
+    await client
+      .query({
+        queryKey: [
+          ...matrixKeys.scope({
+            userId: user.id,
+            workspaceId: user.workspaceId,
+          }),
+          "ai-usage",
+          query,
+        ],
+        queryFn: ({ signal }) =>
+          serverGetJson(`/api/ai/usage?${query}`, { signal }),
+        ...createWorkspaceQueryPolicy(settings),
+      })
+      .catch(() => undefined);
+  }
   return (
-    <section className="settings-page">
-      <h1 className="settings-visually-hidden">
-        설정 · {items.find(([key]) => key === tab)?.[1]}
-      </h1>
-      <SettingsTabs base="/settings" tab={tab} items={items} variant="admin" />
-      <div className="settings-content">
-        {tab === "usage" ? (
-          <>
-            <p>현재 워크스페이스의 내 사용량</p>
-            <AiTokenStatistics key={`${user.id}:${user.workspaceId}`} />
-          </>
-        ) : tab === "interface" ? (
-          <InterfaceSettings userId={user.id} />
-        ) : (
-          <AccountSettings user={user} />
-        )}
-      </div>
-    </section>
+    <HydrationBoundary state={dehydrate(client)}>
+      <section className="settings-page">
+        <h1 className="settings-visually-hidden">
+          설정 · {items.find(([key]) => key === tab)?.[1]}
+        </h1>
+        <SettingsTabs
+          base="/settings"
+          tab={tab}
+          items={items}
+          variant="admin"
+        />
+        <div className="settings-content">
+          {tab === "usage" ? (
+            <>
+              <p>현재 워크스페이스의 내 사용량</p>
+              <AiTokenStatistics key={`${user.id}:${user.workspaceId}`} />
+            </>
+          ) : tab === "interface" ? (
+            <InterfaceSettings userId={user.id} />
+          ) : (
+            <AccountSettings user={user} />
+          )}
+        </div>
+      </section>
+    </HydrationBoundary>
   );
 }

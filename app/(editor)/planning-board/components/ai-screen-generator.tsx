@@ -1,5 +1,8 @@
 "use client";
-import { boardFetch as fetch } from "@/app/(editor)/planning-board/lib/client-api";
+import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
+import { RequestError } from "@/lib/query/error-messages";
+
+import { useBoardTransport } from "../lib/use-board-transport";
 
 import { useEffect, useState } from "react";
 import { usePlanningAccess } from "@/app/(editor)/planning-board/stores/editor-provider";
@@ -42,11 +45,12 @@ export function AiScreenGenerator({
   generating,
   readOnly,
 }: Props) {
+  const fetch = useBoardTransport();
   const aiEnabled = usePlanningAccess((state) => state.aiEnabled);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [aiHistory, setAiHistory] = useState<AiPromptChat[]>([]);
   const [aiHistoryLoading, setAiHistoryLoading] = useState(true);
-  const [aiHistoryError, setAiHistoryError] = useState("");
+  const [aiHistoryError, setAiHistoryError] = useWorkspaceErrorState("");
 
   useEffect(() => {
     if (!aiEnabled || !historyOpen) return;
@@ -86,14 +90,23 @@ export function AiScreenGenerator({
       })
       .catch((error) => {
         if (error instanceof Error && error.name !== "AbortError") {
-          setAiHistoryError(error.message);
+          setAiHistoryError(
+            error instanceof RequestError ? error : error.message,
+          );
         }
       })
       .finally(() => {
         if (!controller.signal.aborted) setAiHistoryLoading(false);
       });
     return () => controller.abort();
-  }, [aiEnabled, historyOpen, projectId, aiHistoryVersion]);
+  }, [
+    aiEnabled,
+    historyOpen,
+    projectId,
+    aiHistoryVersion,
+    fetch,
+    setAiHistoryError,
+  ]);
 
   if (!aiEnabled) return null;
 
