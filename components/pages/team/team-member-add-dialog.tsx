@@ -2,7 +2,7 @@
 import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import "./team-page.css";
+import "@/styles/pages/team/team-page.css";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";

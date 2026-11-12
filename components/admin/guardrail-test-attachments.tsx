@@ -2,7 +2,7 @@
 import { AiImagePreview } from "@/components/ai/ai-image-preview";
 import { GUARDRAIL_FILE_ACCEPT } from "@/lib/ai/guardrail-file-types";
 import type { useGuardrailAttachments } from "./use-guardrail-attachments";
-import "@/components/ai/ai-chatbot.css";
+import "@/styles/ai-chatbot.css";
 
 export function GuardrailTestAttachments({
   attachments,

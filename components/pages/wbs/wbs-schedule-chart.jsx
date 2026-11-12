@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import "./wbs-schedule-chart.css";
+import "@/styles/pages/projects/tabs/wbs/wbs-schedule-chart.css";
 import { useWbsSchedule } from "./use-wbs-schedule";
 import { WbsTaskDialog } from "./wbs-task-dialog";
 import { WbsOverview } from "./wbs-overview";

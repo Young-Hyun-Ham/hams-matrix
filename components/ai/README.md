@@ -40,7 +40,7 @@
 - 채팅방과 대화는 사용자·워크스페이스·프로젝트·`conv_id`별로 관리합니다. 대화는 최신 50건부터 불러오고 이전 기록을 추가 조회할 수 있습니다.
 - 검증: `pnpm test:ai`. 실제 HTTP·인증·임시 SQLite에서 외부 AI만 모의 처리합니다. 실제 생성 비용은 발생하지 않습니다.
 
-- 레이아웃: `ai-workspace-layout.tsx/css`. 데스크톱에서 본문 안쪽을 채팅 30% / 페이지 70%로 나누고 300ms로 전환합니다. 960px 이하에서는 본문 위 레이어로 표시합니다. 닫기 버튼·Escape로 접으며 같은 방을 다시 선택하면 대화와 작성 중인 입력을 유지합니다. 모션 감소 설정도 따릅니다.
+- 레이아웃: `components/ai/ai-workspace-layout.tsx`와 공통 `styles/ai-workspace-layout.css`. 챗봇 공통 CSS는 `styles/ai-chatbot.css`, 사용량 통계 전용 CSS는 `styles/pages/settings/ai-token-statistics.css`에서 관리합니다. 데스크톱에서 본문 안쪽을 채팅 30% / 페이지 70%로 나누고 300ms로 전환합니다. 960px 이하에서는 본문 위 레이어로 표시합니다. 닫기 버튼·Escape로 접으며 같은 방을 다시 선택하면 대화와 작성 중인 입력을 유지합니다. 모션 감소 설정도 따릅니다.
 
 ## 프로젝트별 채팅방
 

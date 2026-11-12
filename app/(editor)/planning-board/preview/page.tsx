@@ -14,7 +14,7 @@ import type {
   LayerStyle,
   PreviewDocument,
 } from "@/app/(editor)/planning-board/components/types";
-import "../styles/preview.css";
+import "@/styles/pages/planning-board/preview.css";
 
 const defaultSize = (kind: Layer["kind"]): LayerSize =>
   kind === "page"

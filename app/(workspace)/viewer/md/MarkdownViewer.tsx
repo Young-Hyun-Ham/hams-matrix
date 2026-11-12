@@ -23,7 +23,7 @@ import {
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
-import styles from "./MarkdownViewer.module.css";
+import styles from "@/styles/pages/viewer/md/MarkdownViewer.module.css";
 
 type ViewMode = "preview" | "source";
 

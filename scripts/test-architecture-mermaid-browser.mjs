@@ -15,7 +15,7 @@ const helper = ts.transpileModule(readFileSync("components/pages/architecture/me
 await writeFile(join(folder, "helper.mjs"), helper);
 const mermaidUrl = pathToFileURL(join(dirname(require.resolve("mermaid")), "mermaid.esm.min.mjs")).href;
 const code = 'graph TD\n %% node styles\n classDef client fill:#e1f5fe,stroke:#0288d1,color:#fff;\n classDef db fill:#fff3e0,stroke:#f57c00,color:#fff;\n subgraph ClientLayer ["1. Client Layer"]\n Browser["Web Browser (React/Next.js)"]:::client\n Mobile["Mobile Web App"]:::client\n end\n subgraph AppLayer ["2. Application and API Layer"]\n API["FastAPI Engine (Python)"]\n end\n Browser -->|HTTPS / JSON| API\n Mobile --> API\n API -->|ORM / SQL| DB[("PostgreSQL DB")]:::db';
-const css = readFileSync("components/pages/architecture/architecture-page.css", "utf8");
+const css = readFileSync("styles/pages/projects/tabs/architecture/architecture-page.css", "utf8");
 await writeFile(join(folder, "test.html"), `<!doctype html><html><head><meta charset="utf-8"><style>:root{--canvas:#181821;--surface:#22222e;--ink:#e7e7f0;--muted:#a6a5bb;--line:#343344;--primary:#a48bfa;--primary-soft:#302744}body{margin:20px;background:var(--canvas);color:var(--ink);font:14px Arial}.matrix-architecture-mermaid-preview{height:700px}${css}</style></head><body><div class="matrix-workbench"><h2>Mermaid preview · dark theme with custom light nodes</h2><div class="matrix-architecture-mermaid-preview"><div class="architecture-preview-space"><div id="canvas" class="architecture-preview-canvas"></div></div></div></div><script type="module">
 import mermaid from ${JSON.stringify(mermaidUrl)};
 import {safeMermaidSvg,readableMermaidLabels} from './helper.mjs';

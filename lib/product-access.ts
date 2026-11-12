@@ -51,6 +51,29 @@ export async function requireSuperAdmin() {
     throw new HttpError(403, "슈퍼관리자만 사용할 수 있습니다.");
   return user;
 }
+export function productPlanCode(value: string): "team" | "business" {
+  if (value !== "team" && value !== "business")
+    throw new HttpError(404, "슈퍼관리자 항목을 찾을 수 없습니다.");
+  return value;
+}
+// A status change must also work for suspended/expired products, so this check
+// deliberately does not require an active product or contract.
+export async function requireProductPlan(
+  productId: string,
+  planCode: "team" | "business",
+  executor: Executor = db(),
+) {
+  if (productId === "me" || productId === "workspace")
+    throw new HttpError(404, "상품을 찾을 수 없습니다.");
+  const row = (
+    await executor.execute({
+      sql: "SELECT plan_code FROM plan_products WHERE id=?",
+      args: [productId],
+    })
+  ).rows[0];
+  if (row?.plan_code !== planCode)
+    throw new HttpError(404, "상품을 찾을 수 없습니다.");
+}
 export async function productAdminScope(
   user: User,
   requested?: string,

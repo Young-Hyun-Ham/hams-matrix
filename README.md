@@ -28,7 +28,7 @@ pnpm dev
 
 AI Chatbot의 관리자 보안 정책은 [AI 가드레일 운영](docs/AI_GUARDRAILS.md)을 참고하세요. `/admin/ai-guardrails`에서 워크스페이스별 초안·적용·테스트·복원을 관리합니다. `pnpm db:migrate`로 `017_ai_guardrails.sql`까지 적용합니다.
 
-- 이메일 회원가입·로그인·로그아웃, owner/user 역할 및 플랜·팀 선택
+- 이메일 회원가입·로그인·로그아웃, user 역할·Free 플랜으로 시작
 - owner의 팀 가입 승인(member)·거절, Free 사용자 직접 추가(viewer), 프로젝트별 권한과 소유권 양도
 - Google / Naver / Kakao OAuth2 가입·로그인 코드, state 검증, Google PKCE
 - 서버 세션, scrypt 비밀번호 해시, HttpOnly 쿠키, 세션 만료·폐기, Origin 검사와 시도 횟수 제한
@@ -41,7 +41,7 @@ AI Chatbot의 관리자 보안 정책은 [AI 가드레일 운영](docs/AI_GUARDR
 
 ## OAuth 환경 설정
 
-역할별 가입, 테스트 플랜과 팀 승인 흐름은 [가입 및 팀 승인 문서](docs/REGISTRATION.md)를 확인하세요. 신규 소셜 가입도 인증 후 역할 선택을 완료해야 합니다.
+가입과 팀 승인 관련 문서는 [가입 및 팀 승인 문서](docs/REGISTRATION.md)를 확인하세요. 현재 이메일·신규 소셜 가입은 user 역할·Free 플랜으로 시작하며, `/onboarding`은 완료 상태를 처리한 뒤 대시보드로 이동합니다. 이전 역할·플랜·팀 선택 폼은 사용하지 않습니다.
 
 현재 `.env`에는 Turso 설정만 있으므로 소셜 로그인 사용 전에 `.env.example`의 항목을 추가해야 합니다. 각 서비스 개발자 콘솔에서 웹 앱, 동의 항목 및 다음 콜백 URL을 등록하세요.
 
@@ -59,7 +59,7 @@ AI Chatbot의 관리자 보안 정책은 [AI 가드레일 운영](docs/AI_GUARDR
 
 ## 구조와 디자이너 협업
 
-일곱 메뉴는 `components/pages/<메뉴>/<메뉴>-page.tsx`와 같은 폴더의 CSS로 분리되어 있습니다. 공통 UI는 `components/shared`, 서버 인증·조회 이력·로딩 처리는 `components/workspace-section.tsx`에서 담당합니다. 페이지별 작업 위치는 [components/pages/README.md](components/pages/README.md)를 확인하세요.
+화면 소스는 `components/pages/<메뉴>/<메뉴>-page.tsx`, 화면 전용 CSS는 `styles/pages/`에서 관리합니다. 공통 UI는 `components/shared`, 서버 인증·조회 이력·로딩 처리는 `components/workspace-section.tsx`에서 담당합니다. 페이지별 작업 위치는 [components/pages/README.md](components/pages/README.md)를 확인하세요.
 
 | 경로                                          | 역할                                                                                     |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -68,14 +68,13 @@ AI Chatbot의 관리자 보안 정책은 [AI 가드레일 운영](docs/AI_GUARDR
 | `app/api`                                     | 인증, OAuth 콜백, 프로필, 계정 활동 API                                                  |
 | `components`                                  | 인증 폼, 워크스페이스 셸, 메뉴별 화면                                                    |
 | `stores/workspace.ts`                         | Zustand의 사용자 표시 정보, 모바일 메뉴, 검색 상태. 토큰은 저장하지 않음                 |
-| `app/globals.css`                             | 색상·여백 토큰, 기본 스타일 및 공통 버튼                                                 |
+| `styles/globals.css`                          | 색상·여백 토큰, 기본 스타일 및 공통 버튼                                                 |
 | `styles/auth.css`                             | 로그인·가입·이용 안내 스타일                                                             |
 | `styles/workspace.css`                        | 역할별 공통 CSS를 고정 순서로 불러오는 진입점. [스타일 작업 위치](styles/README.md) 참고 |
-| `lib/sample-data.ts`                          | 화면 퍼블리싱 전용 샘플                                                                  |
 | `lib/auth.ts`, `lib/oauth.ts`, `lib/audit.ts` | 서버 인증 및 감사 기록                                                                   |
 | `db/migrations/001_identity_audit.sql`        | 실제 테이블·인덱스·감사 보호 트리거                                                      |
 
-브랜드 포인트 색상 등은 `app/globals.css`의 CSS 변수로 조정합니다. 워크스페이스는 1200/960/700/420px, 인증 화면은 1000/760px 기준으로 반응합니다. 700px 이하에서 사이드바는 오버레이 메뉴로 바뀌고, 긴 표는 가로 스크롤을 제공합니다. 스타일은 별도 CSS로 분리했으며, 진행률처럼 데이터에 따라 바뀌는 값만 CSS 커스텀 속성으로 전달합니다.
+브랜드 포인트 색상 등은 `styles/globals.css`의 CSS 변수로 조정합니다. 워크스페이스는 1200/960/700/420px, 인증 화면은 1000/760px 기준으로 반응합니다. 700px 이하에서 사이드바는 오버레이 메뉴로 바뀌고, 긴 표는 가로 스크롤을 제공합니다. 스타일은 별도 CSS로 분리했으며, 진행률처럼 데이터에 따라 바뀌는 값만 CSS 커스텀 속성으로 전달합니다.
 
 ## 이력과 후속 확장
 
@@ -143,3 +142,23 @@ pnpm test:auth:no-logs
 2026-11-11 추가: 커스텀도 라이트·다크로 분리해 각 프리셋 행 오른쪽에 배치했습니다. [작업 기록](docs/work/2026-11-11/커스텀테마-라이트다크-버튼분리.md).
 
 2026-11-11: 테마 커스텀 버튼 문구를 10px 한 줄로 표시합니다. [작업 기록](docs/work/2026-11-11/커스텀버튼-글자-한줄표시.md).
+
+### 관리자 API 라우팅과 업무 함수 (2026-11-12)
+
+상품 관리자·현재 workspace·슈퍼관리자 상품/계약 신청/알림 API는 URL별 `app/api/**/route.ts`에서 HTTP 메서드와 응답을 처리합니다. 권한 검사는 `lib/product-access.ts`와 `lib/master-workspace-admin.ts`, 조회·저장 업무는 `lib/product-admin-service.ts`, `lib/super-admin-service.ts`와 기존 저장 함수로 분리했습니다. 대체된 catch-all과 lib HTTP 핸들러는 삭제했습니다.
+
+기존 화면 URL·검색·응답·Query 정책을 유지하며, workspace POST와 `/api/admin/members` PATCH는 기존 JSON 405로 거절합니다. 불완전·추가 경로는 404, 그 외 미지원 메서드는 Next의 기본 405를 사용합니다. DB 변경은 없습니다. 검증과 변경 파일은 [작업 기록](docs/work/2026-11-12/관리자API-라우팅과-업무함수-분리.md)을 참고하세요.
+
+### 화면·프로젝트 탭별 CSS 위치 (2026-11-12)
+
+공통 기반 CSS 17개는 `styles/`, 화면 소유 CSS 31개는 `styles/pages/[화면주소]/`에서 관리합니다. 프로젝트 탭 전용 CSS는 `styles/pages/projects/tabs/[ProjectTab 식별자]/`에 두며 WBS는 `tabs/wbs/`, 프로그램은 `tabs/program/`, 산출물은 `tabs/export/`를 사용합니다. 기존 공통 파일과 CSS 선언·로딩 순서는 유지했고 이동 전 경로의 복사본은 남기지 않았습니다. [스타일 작업 위치](styles/README.md)와 [CSS 정리 기록](docs/work/2026-11-12/CSS-화면주소별-스타일경로-정리.md)을 참고하세요. 미사용 UI의 전용 CSS 2개는 후속 소스 정리에서 제거했습니다.
+
+### 미사용 컴포넌트 정리 (2026-11-12)
+
+현재 화면에 연결되지 않는 컴포넌트·훅·유틸리티 18개와 전용 CSS 2개, 샘플 데이터·프로젝트 store 2개를 제거했습니다. 현재 14개 프로젝트 탭, 가입·온보딩, 공개 API, 동적 아이콘과 공통 스타일은 유지합니다. 테스트가 직접 호출하는 `lib/admin-history.ts`도 유지하며 DB·의존성 변경은 없습니다. 상세 범위와 검증 결과는 [작업 기록](docs/work/2026-11-12/미사용-컴포넌트-전수조사-정리.md)을 확인하세요.
+
+## 대시보드 개편 (2026-11-12)
+
+`/dashboard`는 문서 작업 흐름 배너, 프로젝트 필터, 요약 4종, 프로젝트 카드, 최근 산출물과 재검증 후보를 표시합니다. `GET /api/dashboard`는 현재 사용자/workspace의 배정 프로젝트와 READ·이력 플랜 범위를 적용한 요약만 반환합니다. 최근 변경은 오늘 포함 한국시간 7일의 UPDATE 횟수이며, 문서함 파일과 RFP 원본은 관리 항목 수에 포함하지 않습니다. 전체 상태의 작업 버튼은 프로젝트를 먼저 고르며 RFP 시작 의도로 프로젝트를 생성한 경우 해당 프로젝트의 제안요청서 탭으로 이동합니다.
+
+기존 개인 테마를 따르고 대시보드 전용 스타일은 `styles/pages/dashboard/dashboard-page.css`에서 관리합니다. DB 스키마·운영 데이터·의존성 변경은 없습니다. `pnpm test:dashboard`는 임시 SQLite와 합성 계정으로 집계·권한/API를 검사합니다. `pnpm build` 후 `pnpm test:dashboard-browser`는 별도의 임시 DB와 headless Chrome으로 SSR·필터·반응형·RFP 진입을 검증합니다. [작업 기록](docs/work/2026-11-12/대시보드-퍼플화면-개편.md).

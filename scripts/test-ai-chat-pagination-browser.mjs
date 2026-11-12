@@ -145,7 +145,7 @@ createRoot(document.getElementById('root')).render(h(App));
 `;
 const entry = bundle(resolve("chat-scroll-fixture.js"), fixture);
 const code = `const process={env:{NODE_ENV:'production'}};const modules=${JSON.stringify(modules)};const cache={};function load(id){if(cache[id])return cache[id].exports;const item=modules[id],module={exports:{}};cache[id]=module;new Function('require','module','exports',item.source)(name=>load(item.dependencies[name]),module,module.exports);return module.exports}load(${entry});`;
-const css = ["app/globals.css", "components/ai/ai-chatbot.css"]
+const css = ["styles/globals.css", "styles/ai-chatbot.css"]
   .map((file) => readFileSync(file, "utf8").replace(/@import[^;]+;/g, ""))
   .join("\n");
 writeFileSync(join(folder, "fixture.js"), code);

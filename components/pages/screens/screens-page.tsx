@@ -6,7 +6,7 @@ import { useProjectPage } from "@/components/shared/project-page-context";
 import { useQueryClient } from "@tanstack/react-query";
 import { matrixKeys } from "@/lib/query/keys";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
-import "./screens-page.css";
+import "@/styles/pages/projects/tabs/screen/screens-page.css";
 export function ScreensPage() {
   const { data } = useProjectPage();
   const client = useQueryClient();

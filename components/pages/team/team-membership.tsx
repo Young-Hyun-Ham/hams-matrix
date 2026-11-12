@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { notifyProjectAccessChange } from "@/lib/project-access-events";
 import type { User } from "@/lib/types";
 import type { TeamMember } from "@/lib/project-types";
-import "./team-membership.css";
+import "@/styles/pages/team/team-membership.css";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";

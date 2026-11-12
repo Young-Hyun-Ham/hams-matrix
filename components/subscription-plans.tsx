@@ -9,7 +9,7 @@ import { useSubscription } from "@/components/query/use-subscription";
 import type { SubscriptionResponse } from "@/lib/query/types";
 import { SubscriptionRequests } from "./subscription-requests";
 import { PlansToggle, type BillingPeriod } from "./plans-toggle";
-import styles from "./subscription-plans.module.css";
+import styles from "@/styles/pages/settings/subscription/subscription-plans.module.css";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";

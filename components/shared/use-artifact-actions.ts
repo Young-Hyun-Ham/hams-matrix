@@ -40,6 +40,7 @@ export function useArtifactActions(
       queryKey: matrixKeys.artifacts(scope, projectId),
     });
     void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
+    void client.invalidateQueries({ queryKey: matrixKeys.dashboards(scope) });
   };
   const session = useRef(0);
   useEffect(

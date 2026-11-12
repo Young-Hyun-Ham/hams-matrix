@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import "./globals.css";
+import "@/styles/globals.css";
 import "@/styles/themes.css";
 import { THEME_INIT_SCRIPT } from "@/lib/theme";
 import Providers from "./providers";

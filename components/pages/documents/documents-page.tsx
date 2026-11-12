@@ -25,7 +25,7 @@ import {
   type DocumentListing,
   type DocumentFile,
 } from "@/lib/document-types";
-import "./documents-page.css";
+import "@/styles/pages/projects/tabs/documents/documents-page.css";
 import { useWorkspace } from "@/stores/workspace";
 
 type LibraryAction = {

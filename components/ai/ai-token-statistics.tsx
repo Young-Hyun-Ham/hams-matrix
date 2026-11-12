@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import type { TokenStatistics, TokenBucket } from "@/lib/ai/token-types";
-import "./ai-token-statistics.css";
+import "@/styles/pages/settings/ai-token-statistics.css";
 
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";

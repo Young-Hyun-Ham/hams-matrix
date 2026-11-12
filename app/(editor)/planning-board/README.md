@@ -7,7 +7,7 @@
 - `lib/server/`: 범위별 인증·권한, 유효성 검사, 원자적 저장·검토·AI, 비공개 자산
 - `app/api/planning/[...path]/route.ts`: 설계서의 `/api/planning/projects/{projectId}/screens/{screenId}/...` 경로를 한 Route Handler에서 분배
 - `preview/`: 저장본 조회 및 원본 창·동일 출처·nonce가 일치하는 미저장 스냅샷 미리보기
-- `data/templates/`, `styles/`, `types/`: 기능 전용 자원
+- `data/templates/`, `types/`: 기능 전용 자원. CSS는 프로젝트 루트의 `styles/pages/planning-board/`에서 관리
 
 Firebase·SSO 데이터는 자동 이전하지 않습니다. 기존 화면의 필드·관리번호·상태·연결은 유지하며 보드 본문 저장은 화면 버전과 경량 참조만 함께 갱신합니다. 보드의 검토 상태는 Matrix 화면 상태와 별도입니다.
 
@@ -15,7 +15,7 @@ API 진입점은 `app/api/planning/[...path]/route.ts`이며 서버 서비스는
 
 검증: `pnpm test:planning-board`, 빌드 후 `pnpm test:planning-board-browser`. 두 검증은 임시 DB 및 외부 서비스 대역을 사용하며 유료 AI 호출을 하지 않습니다.
 
-`styles/dark-theme.css`는 Matrix 테마 토큰으로 헤더·좌우 패널·캔버스 도구/격자·팝오버·미리보기 UI의 다크 스타일을 공통 관리합니다. 라이트 스타일은 기존 `editor.css`를 유지하며, 설계 문서의 페이지·요소·이미지·메모 배경색을 자동으로 반전하거나 저장하지 않습니다.
+기획 보드 CSS는 `styles/pages/planning-board/`에서 관리합니다. `dark-theme.css`는 Matrix 테마 토큰으로 헤더·좌우 패널·캔버스 도구/격자·팝오버·미리보기 UI의 다크 스타일을 관리합니다. 라이트 스타일은 같은 폴더의 `editor.css`, 선택 요소는 `select-element.css`, 독립 preview는 `preview.css`를 사용합니다. 공통 CSS 위치와 기존 import 순서는 유지하며 설계 문서의 페이지·요소·이미지·메모 배경색을 자동으로 반전하거나 저장하지 않습니다. [스타일 작업 위치](../../../styles/README.md)를 참고하세요.
 
 선택 도구에서 페이지 빈 배경을 드래그하면 한 페이지의 보이는 요소를 교차 기준으로 다중 선택합니다. Shift 드래그는 기존 선택에 추가합니다. 선택된 요소 중앙은 이동, 상·하·좌·우 경계는 한 축 크기 조절, 모서리는 두 축 크기 조절입니다. 캔버스에 포커스가 있을 때 방향키로 문서 좌표 1px씩 이동하며, 입력란에서는 커서 이동을 유지합니다. 여러 요소는 함께 이동하고 그룹 크기 조절은 제공하지 않습니다. 페이지는 선택 후 제목 라벨로 이동합니다.
 

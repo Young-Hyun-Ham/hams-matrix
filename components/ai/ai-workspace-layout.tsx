@@ -5,7 +5,7 @@ import { Icon } from "@/components/icon";
 import { AiChatbot } from "./ai-chatbot";
 import { useAiWindow } from "./use-ai-window";
 import { usePathname } from "next/navigation";
-import "./ai-workspace-layout.css";
+import "@/styles/ai-workspace-layout.css";
 
 function focusMenu() {
   const selector = window.matchMedia("(max-width: 700px)").matches

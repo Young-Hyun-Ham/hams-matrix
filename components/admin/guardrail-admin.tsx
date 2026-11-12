@@ -17,7 +17,7 @@ import { GuardrailTestAttachments } from "./guardrail-test-attachments";
 import { BlockedTermsEditor } from "./blocked-terms-editor";
 import { AllowedDomainsEditor } from "./allowed-domains-editor";
 import { GlobalCompliancePanel } from "./global-compliance-panel";
-import "./guardrail-admin.css";
+import "@/styles/pages/admin/settings/guardrail-admin.css";
 
 import { useQuery } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";

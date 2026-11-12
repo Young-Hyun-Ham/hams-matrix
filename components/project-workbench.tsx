@@ -29,7 +29,7 @@ import { AcceptancePage } from "./pages/acceptance/acceptance-page";
 import { HistoryPage } from "./pages/history/history-page";
 import { DeliverablesPage } from "./pages/deliverables/deliverables-page";
 import { DocumentsPage } from "./pages/documents/documents-page";
-import "./project-workbench.css";
+import "@/styles/project-workbench.css";
 const pages: Record<ProjectTab, ComponentType> = {
   overview: ProjectOverviewPage,
   rfp: RfpPage,

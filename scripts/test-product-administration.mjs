@@ -59,6 +59,40 @@ function load(file) {
 }
 const one = async (sql, args = []) =>
   (await client.execute({ sql, args })).rows[0];
+// Invoke the actual route exports with async params. Framework matching and
+// automatic 404/405/HEAD/OPTIONS are verified separately against Next itself.
+const routeFiles = (await readdir("app/api", { recursive: true }))
+  .filter(
+    (file) => /(?:^|[\\/])route\.ts$/.test(file) && !file.includes("[..."),
+  )
+  .map((file) => ({
+    file: resolve("app/api", file),
+    parts: ["api", ...file.replaceAll("\\", "/").split("/").slice(0, -1)],
+  }))
+  .sort(
+    (a, b) =>
+      b.parts.filter((p) => !p.startsWith("[")).length -
+      a.parts.filter((p) => !p.startsWith("[")).length,
+  );
+async function routeCall(path, method = "GET", input, query = "", origin) {
+  const parts = path.split("/").filter(Boolean);
+  const match = routeFiles.find(
+    (route) =>
+      route.parts.length === parts.length &&
+      route.parts.every((p, i) => p.startsWith("[") || p === parts[i]),
+  );
+  assert.ok(match, `Missing route: ${path}`);
+  const params = Object.fromEntries(
+    match.parts.flatMap((p, i) =>
+      p.startsWith("[") ? [[p.slice(1, -1), parts[i]]] : [],
+    ),
+  );
+  const action = load(match.file)[method];
+  assert.equal(typeof action, "function", `Missing ${method}: ${match.file}`);
+  return action(req(path + query, method, input, origin), {
+    params: Promise.resolve(params),
+  });
+}
 function req(
   path,
   method = "GET",
@@ -170,8 +204,6 @@ try {
   const auth = load(resolve("lib/auth.ts")),
     products = load(resolve("lib/plan-products.ts")),
     access = load(resolve("lib/product-access.ts"));
-  const superApi = load(resolve("lib/super-admin-api.ts")),
-    customerApi = load(resolve("lib/product-admin-api.ts"));
   const billing = load(resolve("lib/team-payments.ts")),
     business = load(resolve("lib/business-requests.ts")),
     plans = load(resolve("lib/plans.ts"));
@@ -182,21 +214,14 @@ try {
   await newUser(auth, "candidate");
   for (let i = 0; i < 24; i++) await newUser(auth, `team-member-${i}`);
   const superCall = (segments, method = "GET", input) =>
-    superApi.handleSuperAdmin(
-      req(`/api/super-admin/${segments.join("/")}`, method, input),
-      segments,
-    );
+    routeCall(`/api/super-admin/${segments.join("/")}`, method, input);
   const productCall = (
     id,
     resource = "overview",
     method = "GET",
     input,
     query = "",
-  ) =>
-    customerApi.handleProductAdmin(
-      req(`/api/admin/products/${id}/${resource}${query}`, method, input),
-      [id, ...resource.split("/")],
-    );
+  ) => routeCall(`/api/admin/products/${id}/${resource}`, method, input, query);
   const master = await auth.currentUser();
   const workspaceRoute = load(resolve("app/api/me/workspace/route.ts"));
   const directTables = [
@@ -484,6 +509,111 @@ try {
     ),
   );
   assert.equal(candidate.members.length, 1);
+  // The legacy aliases remain product-scoped reads; PATCH never gains writes.
+  assert.deepEqual(
+    await json(routeCall(`/api/admin/products/${a.id}`)),
+    await json(productCall(a.id)),
+  );
+  assert.deepEqual(
+    await json(routeCall("/api/admin/products/me")),
+    await json(routeCall(`/api/admin/products/${a.id}`)),
+  );
+  assert.deepEqual(
+    await json(routeCall("/api/admin/members")),
+    await json(productCall(a.id, "members")),
+  );
+  const aliasDetail = await json(
+    routeCall(`/api/admin/members/${bizAdmin.id}`),
+  );
+  assert.equal(aliasDetail.member.id, bizAdmin.id);
+  assert.equal(aliasDetail.canEditRole, false);
+  await json(routeCall(`/api/admin/members/${other.member.id}`), 404);
+  await json(
+    routeCall(
+      `/api/admin/members/${bizAdmin.id}`,
+      "GET",
+      undefined,
+      "?q=no-match",
+    ),
+    404,
+  );
+  await json(routeCall("/api/admin/members", "PATCH", {}), 405);
+  await json(
+    routeCall("/api/admin/members", "PATCH", {}, "", "http://foreign.test"),
+    403,
+  );
+  assert.deepEqual(
+    await json(routeCall("/api/admin/history")),
+    await json(productCall(a.id, "history")),
+  );
+  assert.equal(
+    (await json(routeCall("/api/admin/history/product/history-product"))).id,
+    "history-product",
+  );
+  await json(productCall(b.id, "history/product/history-product"), 403);
+  await json(productCall(a.id, "history/audit/history-master"), 404);
+  await json(productCall(a.id, "history/secrets/history-product"), 404);
+  await json(
+    productCall(a.id, "members", "GET", undefined, "?pageSize=200"),
+    400,
+  );
+  assert.equal(
+    (await json(productCall(a.id, "members", "GET", undefined, "?q=%25")))
+      .total,
+    0,
+  );
+  assert.equal(
+    (await json(productCall(a.id, "members", "GET", undefined, "?page=999")))
+      .page,
+    1,
+  );
+  assert.equal(
+    (
+      await json(
+        productCall(
+          a.id,
+          "candidates",
+          "GET",
+          undefined,
+          "?email=%20CANDIDATE%40EXAMPLE.TEST%20",
+        ),
+      )
+    ).members.length,
+    1,
+  );
+  await json(
+    productCall(a.id, "candidates", "GET", undefined, "?email=invalid"),
+    400,
+  );
+  await json(
+    routeCall(
+      `/api/admin/products/${a.id}/members`,
+      "POST",
+      {},
+      "",
+      "http://foreign.test",
+    ),
+    403,
+  );
+  const memberPost = load(
+    resolve("app/api/admin/products/[productId]/members/route.ts"),
+  ).POST;
+  for (const [raw, status] of [
+    ["{", 400],
+    ["x".repeat(10001), 413],
+  ]) {
+    await json(
+      memberPost(
+        new Request(`http://test.local/api/admin/products/${a.id}/members`, {
+          method: "POST",
+          headers: { origin: "http://test.local" },
+          body: raw,
+        }),
+        { params: Promise.resolve({ productId: a.id }) },
+      ),
+      status,
+    );
+  }
   await json(
     productCall(a.id, "members", "POST", {
       action: "grant",
@@ -794,6 +924,183 @@ try {
     mapped.product_id,
     null,
     "Legacy workspaces must not be assigned arbitrarily",
+  );
+  token = "master-session";
+  await json(
+    superCall(["team", "products"], "POST", { name: "Forbidden" }),
+    404,
+  );
+  await json(superCall(["unknown", "products"]), 404);
+  await json(superCall(["team", "products", a.id]), 404);
+  for (const reserved of ["me", "workspace"])
+    await json(superCall(["business", "products", reserved]), 404);
+  await json(
+    superCall([
+      "business",
+      "products",
+      b.id,
+      "history",
+      "product",
+      "history-product",
+    ]),
+    404,
+  );
+  await json(superCall(["notifications", "missing-notice"], "PATCH", {}), 404);
+  await json(
+    routeCall(
+      `/api/super-admin/business/products/${a.id}`,
+      "PATCH",
+      {},
+      "",
+      "http://foreign.test",
+    ),
+    403,
+  );
+  const productVersion = Number(
+    (await one("SELECT version FROM plan_products WHERE id=?", [a.id])).version,
+  );
+  await json(
+    superCall(["business", "products", a.id], "PATCH", {
+      status: "suspended",
+      version: productVersion,
+    }),
+  );
+  await json(superCall(["business", "products", a.id]), 404);
+  await json(
+    superCall(["business", "products", a.id], "PATCH", {
+      status: "active",
+      version: productVersion + 1,
+    }),
+  );
+  await json(
+    superCall(["business", "products", a.id], "PATCH", {
+      status: "active",
+      version: productVersion,
+    }),
+    409,
+  );
+  await json(
+    superCall(["business", "products", a.id], "PATCH", {
+      status: "invalid",
+      version: productVersion + 2,
+    }),
+    400,
+  );
+  await client.execute({
+    sql: "UPDATE contracts SET ends_at='2020-01-01T00:00:00.000Z' WHERE product_id=?",
+    args: [a.id],
+  });
+  await json(superCall(["business", "products", a.id]), 404);
+  await client.execute({
+    sql: "UPDATE contracts SET ends_at=NULL WHERE product_id=?",
+    args: [a.id],
+  });
+  // Model a legacy Business workspace that existed before its owner joined a
+  // product. The insert trigger links already-supported owners automatically.
+  await newUser(auth, "mapping-owner");
+  await client.execute({
+    sql: "INSERT INTO workspaces(id,name,owner_id,plan,subscription_plan) VALUES ('legacy-route','Legacy route',?,'business','business')",
+    args: ["mapping-owner"],
+  });
+  await client.execute(
+    "UPDATE workspaces SET plan='business',subscription_plan='business' WHERE id='legacy-route'",
+  );
+  await products.changeProductMember(
+    await auth.currentUser(),
+    a.id,
+    {
+      userId: "mapping-owner",
+      action: "grant",
+      version: 1,
+    },
+    true,
+  );
+  await json(
+    superCall(["business", "products", a.id, "mapping"], "POST", {
+      workspaceId: "legacy-route",
+    }),
+  );
+  assert.equal(
+    (await one("SELECT product_id FROM workspaces WHERE id='legacy-route'"))
+      .product_id,
+    a.id,
+  );
+  await json(
+    superCall(["business", "products", a.id, "mapping"], "POST", {
+      workspaceId: "legacy-route",
+    }),
+    409,
+  );
+  assert.equal(
+    Number(
+      (
+        await one(
+          "SELECT count(*) AS n FROM product_events WHERE action='legacy_workspace_mapped' AND target_id='legacy-route'",
+        )
+      ).n,
+    ),
+    1,
+  );
+  // Candidate throttling is keyed by actor, shared across product routes.
+  const candidateBucket = auth.digest("product-candidate:master");
+  await client.execute({
+    sql: "INSERT INTO auth_rate_limits(bucket,attempts,resets_at) VALUES (?,30,?) ON CONFLICT(bucket) DO UPDATE SET attempts=30,resets_at=excluded.resets_at",
+    args: [candidateBucket, Date.now() + 60000],
+  });
+  await json(superCall(["business", "products", a.id, "candidates"]), 400);
+  await json(
+    routeCall(
+      `/api/super-admin/business/products/${a.id}/candidates`,
+      "GET",
+      undefined,
+      "?email=buyer%40example.test",
+    ),
+    429,
+  );
+  await json(
+    routeCall(
+      `/api/super-admin/business/products/${b.id}/candidates`,
+      "GET",
+      undefined,
+      "?email=buyer%40example.test",
+    ),
+    429,
+  );
+  token = "";
+  const coveredRoutes = routeFiles.filter(
+    ({ parts }) =>
+      (parts[1] === "admin" &&
+        ["products", "members", "history"].includes(parts[2])) ||
+      (parts[1] === "super-admin" &&
+        !["plans", "ai-guardrails"].includes(parts[2])),
+  );
+  let checkedMethods = 0;
+  for (const route of coveredRoutes) {
+    const exports = load(route.file);
+    const params = Object.fromEntries(
+      route.parts
+        .filter((p) => p.startsWith("["))
+        .map((p) => [p.slice(1, -1), "unknown"]),
+    );
+    const path =
+      "/" +
+      route.parts.map((p) => (p.startsWith("[") ? "unknown" : p)).join("/");
+    for (const method of ["GET", "POST", "PATCH"].filter(
+      (m) => typeof exports[m] === "function",
+    )) {
+      await json(
+        exports[method](req(path, method), { params: Promise.resolve(params) }),
+        401,
+      );
+      checkedMethods++;
+    }
+  }
+  assert.ok(
+    checkedMethods >= 40,
+    `Expected all explicit route methods, got ${checkedMethods}`,
+  );
+  console.log(
+    `PASS: ${checkedMethods} explicit route methods require authentication; aliases, Origin/body validation, scoped details, status recovery, legacy mapping and shared candidate throttling.`,
   );
   assert.equal(
     (await client.execute("PRAGMA foreign_key_check")).rows.length,

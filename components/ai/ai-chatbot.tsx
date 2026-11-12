@@ -18,7 +18,7 @@ import { AiConversationTitle } from "./ai-conversation-title";
 import { AiConversationMessages } from "./ai-conversation-messages";
 import { useAiTarget } from "./use-ai-target";
 import { aiTargetContext, isAiTargetPage } from "@/lib/ai-target-pages";
-import "./ai-chatbot.css";
+import "@/styles/ai-chatbot.css";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";

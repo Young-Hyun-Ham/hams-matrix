@@ -1,0 +1,568 @@
+﻿.matrix-dashboard {
+  container: dashboard / inline-size;
+  color: var(--ink);
+  gap: 22px;
+}
+.matrix-dashboard :is(h2, h3, p) {
+  margin: 0;
+}
+.matrix-dashboard h2 {
+  font-size: 15px;
+  line-height: 1.5;
+}
+.matrix-dashboard h3 {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.matrix-dashboard .dashboard-heading h1 {
+  font-size: 27px;
+  margin: 6px 0 8px;
+}
+.matrix-dashboard .dashboard-heading p {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.matrix-dashboard .dashboard-heading .matrix-eyebrow {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+}
+.matrix-dashboard .dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.matrix-dashboard .dashboard-actions .button {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.matrix-dashboard .dashboard-picker {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  min-width: 0;
+}
+.matrix-dashboard .dashboard-picker select {
+  max-width: 220px;
+  font-size: 12px;
+}
+.matrix-dashboard .dashboard-workflow {
+  padding: 22px;
+  background: linear-gradient(110deg, var(--surface) 35%, var(--primary-soft));
+}
+.matrix-dashboard .dashboard-workflow-top,
+.matrix-dashboard .dashboard-workflow-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.matrix-dashboard .dashboard-workflow-top {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.matrix-dashboard .dashboard-workflow-title p {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+  line-height: 1.7;
+}
+.matrix-dashboard .dashboard-symbol {
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+}
+.matrix-dashboard .dashboard-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  border-radius: 5px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-steps {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin: 22px 0 12px;
+}
+.matrix-dashboard .dashboard-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  padding: 10px 6px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.matrix-dashboard .dashboard-step:hover:not(:disabled) {
+  background: var(--primary-soft);
+  border-color: var(--primary);
+}
+.matrix-dashboard .dashboard-step:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.matrix-dashboard .dashboard-step > svg {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.matrix-dashboard .dashboard-step-number {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 10px;
+  color: var(--primary);
+}
+.matrix-dashboard .dashboard-help {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+.matrix-dashboard .dashboard-range {
+  margin-top: -14px;
+}
+.matrix-dashboard .dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.matrix-dashboard .dashboard-stat {
+  padding: 18px;
+  min-width: 0;
+}
+.matrix-dashboard .dashboard-stat > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+.matrix-dashboard .dashboard-stat-icon {
+  display: grid;
+  place-items: center;
+  padding: 7px;
+  background: var(--canvas);
+  border-radius: 8px;
+}
+.matrix-dashboard .dashboard-stat .dashboard-stat-number {
+  font-size: 30px;
+  color: var(--ink);
+  font-weight: 700;
+  margin: 10px 0;
+  line-height: 1.1;
+}
+.matrix-dashboard .dashboard-stat-number small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 5px;
+}
+.matrix-dashboard .dashboard-stat > p:last-child {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+.matrix-dashboard .dashboard-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.matrix-dashboard .dashboard-section-heading p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.matrix-dashboard .dashboard-section-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.matrix-dashboard .dashboard-project-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+.matrix-dashboard .dashboard-project {
+  padding: 18px;
+  min-width: 0;
+}
+.matrix-dashboard .dashboard-project:hover {
+  border-color: var(--primary);
+}
+.matrix-dashboard .dashboard-project-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 13px;
+}
+.matrix-dashboard .dashboard-monogram {
+  display: grid;
+  place-items: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 5px;
+  border-radius: 9px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+.matrix-dashboard .dashboard-project h3 {
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-project h3 a {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 6px;
+}
+.matrix-dashboard .dashboard-project h3 svg {
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+.matrix-dashboard .dashboard-project-description {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 6px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.matrix-dashboard .dashboard-progress-label {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 18px;
+}
+.matrix-dashboard .dashboard-progress {
+  height: 4px;
+  background: var(--line);
+  border-radius: 5px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.matrix-dashboard .dashboard-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+}
+.matrix-dashboard .dashboard-project-bottom {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 13px;
+  margin-top: 18px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.matrix-dashboard .dashboard-project-bottom > span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.matrix-dashboard .dashboard-project-details {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+.matrix-dashboard .dashboard-project-details summary {
+  cursor: pointer;
+}
+.matrix-dashboard .dashboard-project-details p {
+  margin-top: 8px;
+}
+.matrix-dashboard .dashboard-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.3fr);
+  align-items: stretch;
+  gap: 16px;
+}
+.matrix-dashboard .dashboard-documents {
+  min-width: 0;
+  overflow: hidden;
+}
+.matrix-dashboard .dashboard-panel-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px;
+}
+.matrix-dashboard .dashboard-panel-heading p {
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+  line-height: 1.7;
+}
+.matrix-dashboard .dashboard-panel-heading > svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.matrix-dashboard .dashboard-text-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  cursor: pointer;
+}
+.matrix-dashboard .dashboard-text-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.matrix-dashboard .dashboard-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+.matrix-dashboard table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  text-align: left;
+  min-width: 650px;
+}
+.matrix-dashboard th {
+  background: var(--canvas);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+.matrix-dashboard :is(th, td) {
+  padding: 13px 16px;
+  border-top: 1px solid var(--line);
+  white-space: nowrap;
+}
+.matrix-dashboard td:first-child {
+  white-space: normal;
+  min-width: 230px;
+}
+.matrix-dashboard .dashboard-document-cell {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.matrix-dashboard .dashboard-document-cell a {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-document-cell p {
+  color: var(--muted);
+  font-size: 11px;
+  margin-top: 5px;
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-document-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 36px;
+  color: var(--primary);
+  background: var(--primary-soft);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.matrix-dashboard .dashboard-empty {
+  padding: 18px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.matrix-dashboard .dashboard-impact {
+  min-width: 0;
+}
+.matrix-dashboard .dashboard-impact-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 18px 18px;
+}
+.matrix-dashboard .dashboard-impact-body p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-impact-codes {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  color: var(--primary);
+  font-size: 12px;
+}
+.matrix-dashboard .dashboard-impact-links {
+  display: grid;
+  gap: 10px;
+  font-size: 12px;
+}
+.matrix-dashboard .dashboard-impact-links .button {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  align-items: center;
+}
+.matrix-dashboard .dashboard-activity {
+  padding: 18px;
+  font-size: 12px;
+}
+.matrix-dashboard .dashboard-activity summary {
+  font-weight: 600;
+  cursor: pointer;
+}
+.matrix-dashboard .dashboard-activity ul {
+  padding-left: 18px;
+  margin-bottom: 0;
+}
+.matrix-dashboard .dashboard-activity :is(li, p) {
+  margin-top: 10px;
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-activity p {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.matrix-dashboard .dashboard-footer {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+}
+.matrix-dashboard .dashboard-footer > svg {
+  color: var(--primary);
+  flex-shrink: 0;
+}
+.matrix-dashboard .dashboard-footer p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.7;
+  margin-top: 3px;
+}
+.matrix-dashboard .dashboard-footer .dashboard-text-button {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.matrix-dashboard .dashboard-navigation-dialog {
+  max-width: min(480px, calc(100vw - 32px));
+}
+.matrix-dashboard .dashboard-navigation-options {
+  display: grid;
+  gap: 10px;
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: 20px;
+}
+.matrix-dashboard .dashboard-navigation-options a {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+.matrix-dashboard .dashboard-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.matrix-dashboard :is(a, button, select, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+@container dashboard (max-width: 1050px) {
+  .matrix-dashboard .dashboard-steps {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .matrix-dashboard .dashboard-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .matrix-dashboard .dashboard-project-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@container dashboard (max-width: 720px) {
+  .matrix-dashboard .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .matrix-dashboard .dashboard-heading {
+    align-items: start;
+  }
+  .matrix-dashboard .dashboard-workflow-top > .dashboard-badge {
+    display: none;
+  }
+  .matrix-dashboard .dashboard-panel-heading {
+    flex-wrap: wrap;
+  }
+}
+@container dashboard (max-width: 460px) {
+  .matrix-dashboard .dashboard-stats,
+  .matrix-dashboard .dashboard-project-grid,
+  .matrix-dashboard .dashboard-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .matrix-dashboard .dashboard-step > svg {
+    display: none;
+  }
+  .matrix-dashboard .dashboard-workflow {
+    padding: 16px;
+  }
+  .matrix-dashboard .dashboard-heading .dashboard-actions {
+    width: 100%;
+  }
+  .matrix-dashboard .dashboard-picker {
+    width: 100%;
+  }
+  .matrix-dashboard .dashboard-picker select {
+    max-width: 100%;
+    width: 100%;
+  }
+  .matrix-dashboard .dashboard-footer {
+    flex-wrap: wrap;
+  }
+  .matrix-dashboard .dashboard-footer > div {
+    flex: 1;
+  }
+  .matrix-dashboard .dashboard-footer .dashboard-text-button {
+    margin-left: 0;
+    width: 100%;
+    justify-content: start;
+  }
+}

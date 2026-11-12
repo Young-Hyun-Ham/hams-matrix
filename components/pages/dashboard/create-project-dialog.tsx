@@ -4,7 +4,7 @@ import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-s
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Project } from "@/lib/project-types";
 import type { User } from "@/lib/types";
-import "./create-project-dialog.css";
+import "@/styles/pages/dashboard/create-project-dialog.css";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
@@ -70,6 +70,7 @@ export function CreateProjectDialog({
         memberIds: selected,
       });
       void client.invalidateQueries({ queryKey: matrixKeys.projects(scope) });
+      void client.invalidateQueries({ queryKey: matrixKeys.dashboards(scope) });
       void client.invalidateQueries({
         queryKey: [...matrixKeys.scope(scope), "subscription"],
       });

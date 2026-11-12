@@ -1,13 +1,16 @@
-import { searchValue } from "./admin-query";
+import { searchPattern } from "./admin-query";
 
 // Scope the actor's current project assignments as the member search does.
 // The outer query must already restrict history rows to the authorized scope.
-export function historyFilter(url: URL, workspaceIds: string[]) {
-  const q = searchValue(url);
-  const projectId = url.searchParams.get("projectId") ?? "";
+export function historyFilter(
+  input: { q: string; projectId: string },
+  workspaceIds: string[],
+) {
+  const q = searchPattern(input.q);
+  const projectId = input.projectId;
   const clauses: string[] = [];
   const args: string[] = [];
-  if (url.searchParams.get("q")?.trim()) {
+  if (input.q.trim()) {
     clauses.push(
       "(h.actorName LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM users hu WHERE hu.id=h.actorId AND (hu.name LIKE ? ESCAPE '\\' OR hu.email LIKE ? ESCAPE '\\')))",
     );

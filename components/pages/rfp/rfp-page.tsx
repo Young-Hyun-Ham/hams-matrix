@@ -29,7 +29,7 @@ import {
   rfpValidation,
   type RfpSectionId,
 } from "@/lib/rfp-template";
-import "./rfp-page.css";
+import "@/styles/pages/projects/tabs/rfp/rfp-page.css";
 
 type Field = {
   key: string;

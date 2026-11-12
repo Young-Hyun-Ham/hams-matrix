@@ -1,5 +1,5 @@
 "use client";
-import "./project-overview-page.css";
+import "@/styles/pages/projects/tabs/overview/project-overview-page.css";
 import { useProjectPage } from "@/components/shared/project-page-context";
 import { IntegrationOverview } from "./integration-overview";
 import { kinds } from "@/lib/artifact-types";

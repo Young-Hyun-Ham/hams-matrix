@@ -11,7 +11,7 @@ import { requestJson, requestBlob } from "@/lib/query/browser-fetch";
 import { RequestError } from "@/lib/query/error-messages";
 
 import type { GeneratedImageInfo } from "@/lib/generated-image-types";
-import "./database-erd-preview.css";
+import "@/styles/pages/projects/database/erd/database-erd-preview.css";
 
 export function DatabaseErdPreview({
   projectId,

@@ -1,6 +1,6 @@
 "use client";
 
-import styles from "./plans-toggle.module.css";
+import styles from "@/styles/pages/settings/plans-toggle.module.css";
 
 export type BillingPeriod = "month" | "year";
 

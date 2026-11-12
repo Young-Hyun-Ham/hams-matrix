@@ -1,0 +1,380 @@
+@import "./project-tabs.css";
+
+.matrix-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  gap: 20px;
+}
+.matrix-heading,
+.matrix-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.matrix-heading h1 {
+  margin: 6px 0;
+  font-size: 28px;
+}
+.matrix-heading p {
+  color: var(--muted);
+}
+.matrix-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+}
+.matrix-workbench input:not([type="checkbox"]),
+.matrix-workbench select,
+.matrix-workbench textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: inherit;
+  max-width: 100%;
+}
+.matrix-project-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.matrix-workbench .matrix-project-picker select {
+  min-height: 28px;
+  min-width: 0;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font: inherit;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  .matrix-workbench .matrix-project-picker select {
+    min-height: 32px;
+  }
+}
+.matrix-section {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
+}
+.matrix-section h2,
+.matrix-section p {
+  margin: 0;
+}
+.matrix-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.matrix-stats .panel {
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  text-align: left;
+  color: inherit;
+}
+.matrix-stats button {
+  cursor: pointer;
+}
+.matrix-stats strong {
+  font-size: 30px;
+}
+.matrix-stats small,
+.matrix-section small {
+  color: var(--muted);
+}
+.matrix-empty {
+  padding: 32px;
+  text-align: center;
+}
+.matrix-error {
+  color: #c43b43;
+  padding: 12px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+}
+.matrix-notice {
+  padding: 12px;
+  background: #e8f5ed;
+  color: #205e38;
+  border-radius: 8px;
+}
+.matrix-dialog {
+  width: min(820px, calc(100vw - 32px));
+  max-height: 88dvh;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: var(--surface);
+  overflow-y: auto;
+}
+.matrix-dialog::backdrop {
+  background: #13152c88;
+}
+.matrix-dialog form {
+  display: grid;
+  gap: 18px;
+}
+.matrix-dialog fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  display: grid;
+  gap: 16px;
+}
+.matrix-dialog label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.matrix-dialog input:not([type="checkbox"]),
+.matrix-dialog textarea,
+.matrix-dialog select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.matrix-dialog .matrix-links {
+  border: 1px solid var(--line);
+  padding: 16px;
+  max-height: 240px;
+  overflow: auto;
+}
+.matrix-links label {
+  display: flex;
+  align-items: center;
+}
+.matrix-section details {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}
+.matrix-section summary {
+  cursor: pointer;
+}
+.matrix-section dl {
+  display: grid;
+  gap: 12px;
+}
+.matrix-section dt {
+  font-weight: 600;
+}
+.matrix-section dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .matrix-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .matrix-section {
+    padding: 16px;
+  }
+  .matrix-heading h1 {
+    font-size: 22px;
+  }
+}
+.matrix-structure,
+.matrix-column {
+  border: 1px solid var(--line) !important;
+  border-radius: 10px;
+  padding: 16px !important;
+}
+.matrix-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.matrix-check-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.matrix-check-row label,
+.matrix-dialog .matrix-confirm {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.matrix-section pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+@media (max-width: 760px) {
+  .matrix-field-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shared settings density for project tabs and standalone database tools. */
+.matrix-tab-content {
+  display: contents;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(
+    h1,
+    h2,
+    h3,
+    h4,
+    p,
+    span,
+    strong,
+    small,
+    legend,
+    label,
+    input,
+    select,
+    textarea,
+    button,
+    table,
+    th,
+    td,
+    pre,
+    a,
+    li
+  ) {
+  font-size: 12px;
+  line-height: 1.45;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(h2, h3, h4, legend) {
+  font-weight: 650;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) p {
+  margin: 0 0 8px;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(.button, button:not(.icon-button, .theme-toggle)) {
+  min-height: 26px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.45;
+  gap: 5px;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools) .button {
+  width: auto;
+  flex-shrink: 0;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  .icon-button,
+.database-tools .theme-toggle {
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 4px;
+  border-radius: 5px;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(input:not([type="checkbox"]):not([type="radio"]), select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background-color: var(--surface);
+  color: var(--ink);
+  padding: 4px 8px;
+  font: inherit;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(
+    input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+    select
+  ) {
+  min-height: 28px;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  :is(th, td) {
+  padding: 6px 8px;
+}
+:is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+  .matrix-section {
+  padding: 12px;
+  gap: 12px;
+}
+@media (max-width: 700px), (pointer: coarse) {
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+    :is(.button, button:not(.icon-button, .theme-toggle)) {
+    min-height: 32px;
+  }
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+    .icon-button,
+  .database-tools .theme-toggle {
+    width: 32px;
+    height: 32px;
+    min-height: 32px;
+  }
+  :is(.matrix-workbench .matrix-tab-content-compact, .database-tools)
+    :is(
+      input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+      select
+    ) {
+    min-height: 32px;
+  }
+}
+.database-domain-select {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.database-domain-trigger {
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.database-domain-panel {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px;
+  min-width: 0;
+}
+.database-domain-search-row {
+  display: flex;
+  gap: 6px;
+}
+.database-domain-search-row input {
+  min-width: 0;
+  flex: 1;
+}
+.database-domain-options {
+  max-height: 260px;
+  overflow: auto;
+  display: grid;
+  gap: 4px;
+  margin: 8px 0;
+}
+.database-domain-options button {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: inherit;
+  padding: 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.database-domain-options button[aria-selected="true"] {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+.database-domain-options button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

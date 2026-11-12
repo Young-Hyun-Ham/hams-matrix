@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 import { CalendarDays } from "lucide-react";
 import { koreaToday, scheduleDay, scheduleDate } from "@/lib/wbs-schedule";
 import { inRange, emptyRange } from "@/lib/wbs-date-constraints";
-import "./wbs-date-picker.css";
+import "@/styles/pages/projects/tabs/wbs/wbs-date-picker.css";
 
 export function WbsDatePicker({
   value,

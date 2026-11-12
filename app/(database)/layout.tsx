@@ -12,8 +12,8 @@ import "@/styles/table.css";
 import "@/styles/project-tabs.css";
 import "@/styles/dialog.css";
 import "@/styles/personal-theme.css";
-import "@/components/project-workbench.css";
-import "@/components/pages/database/database-tools.css";
+import "@/styles/project-workbench.css";
+import "@/styles/database-tools.css";
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <Suspense fallback={<p role="status">로그인 확인 중…</p>}>

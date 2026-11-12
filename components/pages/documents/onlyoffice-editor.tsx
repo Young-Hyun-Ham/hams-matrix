@@ -10,7 +10,7 @@ import { requestJson } from "@/lib/query/browser-fetch";
 import { resolveWorkspaceError } from "@/lib/query/error-messages";
 
 import type { OnlyofficeConfiguration } from "@/lib/onlyoffice-types";
-import "./onlyoffice-editor.css";
+import "@/styles/pages/projects/documents/onlyoffice-editor.css";
 
 const DocumentEditor = dynamic(
   () =>

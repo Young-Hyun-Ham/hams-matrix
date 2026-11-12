@@ -7,7 +7,7 @@ import { matrixKeys } from "@/lib/query/keys";
 import { getWorkspaceSystemSettings } from "@/lib/system-settings/server";
 import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
 import { serverGetJson } from "@/lib/query/server-fetch";
-import "@/styles/settings.css";
+import "@/styles/pages/settings/settings.css";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";

@@ -12,7 +12,7 @@ import { useAiModels } from "@/components/query/use-ai-models";
 import { matrixKeys } from "@/lib/query/keys";
 import { requestJson, requestBlob } from "@/lib/query/browser-fetch";
 import { RequestError } from "@/lib/query/error-messages";
-import "./ai-image-actions.css";
+import "@/styles/pages/projects/ai-image-actions.css";
 
 type Intent = "preview" | "download";
 type Mode = Intent | "generate" | null;

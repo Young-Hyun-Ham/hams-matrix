@@ -4,7 +4,7 @@
 
 | 폴더             | 화면과 전용 컴포넌트                                                                                                    |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| dashboard        | 프로젝트 목록, 통계, 최근 활동, 프로젝트 생성                                                                           |
+| dashboard        | 문서 작업 흐름, URL 프로젝트 필터, 요약 4종, 프로젝트 카드, 최근 산출물·재검증 후보, 최근 활동·프로젝트 생성 |
 | project-overview | 프로젝트 개요, 통합 흐름, 개요 전용 스타일                                                                              |
 | wbs              | WBS 목록·간트, 부모/선행 작업 편집, 마일스톤 날짜 동기화, AI 로드맵 이미지 생성·암호화 저장·미리보기·다운로드·재생성    |
 | architecture     | 아키텍처 목록·구성 요약 카드, AI 이미지 모델/프롬프트 선택·암호화 저장·미리보기·PNG 다운로드·재생성, 구성요소/연결 편집 |
@@ -34,10 +34,12 @@
 - `shared/artifact-structure-editor.tsx`: 문서 종류에 맞는 페이지 전용 구조 편집기를 선택합니다.
 - `shared/date-input.tsx`: 공통 연·월·일 입력, 자동 포커스 및 달력 선택.
 
-공통 목록/폼/레이아웃 스타일은 `components/project-workbench.css`, 전역 테마는 `styles/themes.css`입니다.
-간트·프로젝트 흐름·검수 전용 스타일은 각 페이지 폴더에서 관리합니다.
+공통 목록/폼/레이아웃 스타일은 `styles/project-workbench.css`, 전역 테마는 `styles/themes.css`입니다.
+컴포넌트 소스는 기존 폴더에 유지하고 화면 CSS는 `styles/pages/`에서 관리합니다. 프로젝트 탭 전용 CSS는 `styles/pages/projects/tabs/[ProjectTab 식별자]/`에 둡니다. 예를 들어 간트는 tabs/wbs, 프로젝트 개요는 tabs/overview, 검수는 tabs/acceptance에 있으며 requirements·screens·specifications·deliverables는 각각 requirement·screen·program·export에 대응합니다. 프로젝트 문서 탭은 tabs/documents, 독립 문서 편집기는 projects/documents로 구분합니다. 전체 위치·공유 관계·로딩 순서는 [스타일 작업 위치](../../styles/README.md)를 참고하세요.
 
 필드 정의는 `lib/artifact-types.ts`, 관계 검증은 `lib/artifact-validation.ts`,
 공수·버전·검수 집계는 `lib/integration.ts`, 추적 경로는 `lib/traceability.ts`,
 서버 CRUD는 `lib/artifacts.ts`, Excel 출력은 `lib/workbook.ts`에서 관리합니다.
 전체 규칙은 [통합 산출물 체계](../../docs/INTEGRATED_DELIVERABLES.md)를 참조하세요.
+
+대시보드는 `dashboard-page.tsx`가 `GET /api/dashboard`를 사용자/workspace/URL 필터별로 조회합니다. 서버 프리패치는 `WorkspaceSection`에서 같은 키를 사용합니다. 전용 DTO·읽기 조회·계산은 `lib/dashboard-types.ts`, `lib/dashboard-query.ts`, `lib/dashboard-model.ts`에 있으며 `.matrix-dashboard` 범위의 전용 CSS를 명시적으로 불러옵니다. 기존 프로젝트 생성 모달과 플랜 확인을 보존합니다. 검증·제약은 [작업 기록](../../docs/work/2026-11-12/대시보드-퍼플화면-개편.md)을 확인하세요.

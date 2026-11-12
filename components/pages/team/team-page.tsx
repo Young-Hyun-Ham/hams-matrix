@@ -8,7 +8,7 @@ import { TeamMembership } from "./team-membership";
 import { ProjectPermissionsDialog } from "./project-permissions-dialog";
 import { TeamMemberAddDialog } from "./team-member-add-dialog";
 import { Icon } from "@/components/icon";
-import "./team-page.css";
+import "@/styles/pages/team/team-page.css";
 import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceMutation as useMutation } from "@/components/query/use-workspace-mutation";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";

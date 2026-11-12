@@ -16,16 +16,32 @@ import type { MenuKey, User } from "@/lib/types";
 import { WorkspaceLoading } from "./workspace-loading";
 
 // Each route owns this boundary so navigation below the shared layout can stream.
-type SectionProps = { section: MenuKey; page: ComponentType<{ user: User }> };
-export function WorkspaceSection({ section, page }: SectionProps) {
+type SectionProps = {
+  section: MenuKey;
+  page: ComponentType<{ user: User }>;
+  dashboardSearchParams?: Promise<{ projectId?: string | string[] }>;
+};
+export function WorkspaceSection({
+  section,
+  page,
+  dashboardSearchParams,
+}: SectionProps) {
   return (
     <Suspense fallback={<WorkspaceLoading />}>
-      <SectionContent section={section} page={page} />
+      <SectionContent
+        section={section}
+        page={page}
+        dashboardSearchParams={dashboardSearchParams}
+      />
     </Suspense>
   );
 }
 
-async function SectionContent({ section, page: Page }: SectionProps) {
+async function SectionContent({
+  section,
+  page: Page,
+  dashboardSearchParams,
+}: SectionProps) {
   const user = await currentUser();
   if (!user) redirect("/login");
   if (!user.onboardingComplete) redirect("/onboarding");
@@ -43,15 +59,26 @@ async function SectionContent({ section, page: Page }: SectionProps) {
     metadata: { section, sample: section === "team" },
   });
   if (section === "dashboard") {
+    const params = await dashboardSearchParams;
+    const selected = Array.isArray(params?.projectId)
+      ? (params.projectId[0] ?? "")
+      : (params?.projectId ?? "");
     const settings = await getWorkspaceSystemSettings(user);
     const client = new QueryClient();
     await client
       .query({
-        queryKey: matrixKeys.projects({
-          userId: user.id,
-          workspaceId: user.workspaceId,
-        }),
-        queryFn: ({ signal }) => serverGetJson("/api/projects", { signal }),
+        queryKey: matrixKeys.dashboard(
+          {
+            userId: user.id,
+            workspaceId: user.workspaceId,
+          },
+          selected,
+        ),
+        queryFn: ({ signal }) =>
+          serverGetJson(
+            `/api/dashboard${selected ? `?projectId=${encodeURIComponent(selected)}` : ""}`,
+            { signal },
+          ),
         ...createWorkspaceQueryPolicy(settings),
       })
       .catch(() => undefined);

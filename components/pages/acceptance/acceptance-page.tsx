@@ -1,5 +1,5 @@
 "use client";
-import "./acceptance-page.css";
+import "@/styles/pages/projects/tabs/acceptance/acceptance-page.css";
 import type { Artifact } from "@/lib/artifact-types";
 import { definitions } from "@/lib/artifact-types";
 import { acceptanceReport, referencesFor } from "@/lib/integration";

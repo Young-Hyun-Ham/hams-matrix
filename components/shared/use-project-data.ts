@@ -86,6 +86,12 @@ export function useProjectData(user: User, initialProjectId?: string) {
   useEffect(() => {
     if (!aiDataVersion) return;
     void client.invalidateQueries({
+      queryKey: matrixKeys.dashboards({
+        userId: user.id,
+        workspaceId: user.workspaceId,
+      }),
+    });
+    void client.invalidateQueries({
       queryKey: matrixKeys.projects({
         userId: user.id,
         workspaceId: user.workspaceId,

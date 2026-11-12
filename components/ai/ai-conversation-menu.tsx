@@ -15,7 +15,7 @@ import type { AiConversation } from "@/lib/ai-context";
 import { Icon } from "@/components/icon";
 import { AiConversationRoom } from "./ai-conversation-room";
 import { AiConversationDialog } from "./ai-conversation-dialog";
-import "./ai-chatbot.css";
+import "@/styles/ai-chatbot.css";
 import { NavigationTooltip } from "@/components/shared/navigation-tooltip";
 import { targetFromLocation } from "@/lib/ai-target-pages";
 

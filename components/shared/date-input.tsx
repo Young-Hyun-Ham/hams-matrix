@@ -5,7 +5,7 @@ import {
   type ClipboardEvent,
   type KeyboardEvent,
 } from "react";
-import "./date-input.css";
+import "@/styles/pages/projects/date-input.css";
 
 export function DateInput({
   id,

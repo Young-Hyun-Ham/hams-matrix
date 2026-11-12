@@ -1,13 +1,10 @@
-# WBS 일정 및 AI 마일스톤 이미지
+# WBS 간트·공개본 및 보존된 AI 이미지 API
 
-`wbs-schedule.tsx`의 일정·공수 표 위에 미리보기와 PNG 이미지 다운로드를 표시합니다. 버튼은 프로젝트 전체 WBS를 기준으로 동작합니다.
+현재 진입점은 `wbs-page.tsx` → `wbs-schedule-chart.jsx`입니다. `use-wbs-schedule.ts`가 일정·편집 상태를 관리하고, `wbs-task-dialog.tsx`·`wbs-fields.tsx`·`wbs-form-state.tsx`가 작업을 편집합니다. `wbs-publication-actions.tsx`와 `wbs-overview.tsx`는 일정 공개본·상세·간트 미리보기를 표시합니다. 프로젝트 전환 시 컴포넌트 key를 바꾸며 초안·버전·권한 보호를 유지합니다.
 
-- 이미지가 없으면 모델 조회·선택과 추가 요청 입력 모달을 엽니다.
-- 생성 성공 시 PNG를 AES-256-GCM으로 암호화해 DB에 저장한 뒤 요청한 미리보기 또는 다운로드 모달로 이동합니다.
-- 이미지가 있으면 모델 조회와 AI 호출 없이 저장한 이미지를 사용합니다.
-- 미리보기의 다시 생성은 모델 선택 모달을 엽니다. 새 이미지 저장이 성공해야 기존 이미지를 교체합니다.
+현재 간트에는 AI 마일스톤 이미지 생성 버튼이 연결되어 있지 않습니다. 2026-11-12 미사용 소스 정리에서 이전 일정 표·로컬 이미지 출력 UI를 제거했습니다. 이 기능의 재연결은 별도 작업입니다. [작업 기록](../../../docs/work/2026-11-12/미사용-컴포넌트-전수조사-정리.md).
 
-아키텍처와 `components/shared/ai-image-actions.tsx`를 공유합니다. 모델 조회·AI 호출·암호화도 기존 `lib/ai/image-generation.ts`, `image-crypto.ts`를 사용합니다. 생성/재생성에는 프로젝트 편집 권한, 조회/다운로드에는 프로젝트 조회 권한이 필요합니다.
+WBS AI 이미지 서버 API는 기존 계약대로 유지합니다. 모델 조회·AI 호출·암호화는 기존 `lib/ai/image-generation.ts`, `image-crypto.ts`를 사용합니다. 생성/재생성에는 프로젝트 편집 권한, 조회/다운로드에는 프로젝트 조회 권한이 필요합니다. `components/shared/ai-image-actions.tsx`는 현재 아키텍처 UI가 사용하므로 유지합니다. 아래는 보존한 서버 이미지 기능의 설명입니다.
 
 ## 데이터와 시각화
 
@@ -19,7 +16,7 @@
 
 ## 저장과 API
 
-`pnpm db:migrate`로 `013_wbs_images.sql`을 적용합니다. 기존 AI API 키와 이미지 암호화 키를 그대로 사용합니다.
+기존 `013_wbs_images.sql`의 저장 구조와 이미지 암호화 설정을 사용합니다. 이번 미사용 소스 정리는 DB 변경이나 새 마이그레이션을 필요로 하지 않습니다.
 
 - `GET /api/projects/:projectId/wbs/image`: 현재 원본 해시와 저장 이미지 메타데이터.
 - `POST .../image`: `{model,prompt,sourceHash,regenerate?,expectedImageId?}`.

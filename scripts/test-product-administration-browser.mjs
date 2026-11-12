@@ -245,6 +245,19 @@ try {
       httpOnly: true,
     });
   }
+  async function api(path, status = 200, options = {}) {
+    const result = await evaluate(`(async()=>{
+      const response=await fetch(${JSON.stringify(path)},${JSON.stringify(options)});
+      const text=await response.text();
+      return {status:response.status,text,cache:response.headers.get('cache-control'),allow:response.headers.get('allow')};
+    })()`);
+    assert.equal(
+      result.status,
+      status,
+      `${options.method || "GET"} ${path}: ${result.text.slice(0, 300)}`,
+    );
+    return result;
+  }
   await login("master");
   trackSubscription = true;
   await navigate("/settings/subscription");
@@ -255,6 +268,75 @@ try {
       ),
     "master subscription hydrated",
   );
+  // Exercise Next's actual static/dynamic route matching and automatic methods.
+  for (const path of [
+    "/api/admin/products/workspace",
+    "/api/admin/products/workspace/overview",
+    "/api/admin/products/workspace/members",
+    "/api/admin/products/workspace/history",
+    "/api/super-admin/business/products",
+    "/api/super-admin/team/products",
+    "/api/super-admin/business/products/company",
+    "/api/super-admin/business/products/company/overview",
+    "/api/super-admin/business/products/company/members",
+    "/api/super-admin/business/products/company/members/biz",
+    "/api/super-admin/business/products/company/history",
+    "/api/super-admin/business/products/company/candidates?email=user%40example.test",
+    "/api/super-admin/business/requests",
+    "/api/super-admin/notifications",
+    "/api/super-admin/notifications/count",
+    "/api/super-admin/plans",
+    "/api/super-admin/ai-guardrails?workspaceId=biz-ws",
+  ])
+    await api(path);
+  const guardrailScope = await api(
+    "/api/super-admin/ai-guardrails?workspaceId=master-ws",
+    404,
+  );
+  assert.ok(guardrailScope.text.includes("상품 워크스페이스"));
+  for (const path of [
+    "/api/admin/products/workspace/candidates?email=user%40example.test",
+    "/api/admin/products/workspace/members/master",
+    "/api/admin/products/workspace/history/audit",
+    "/api/admin/products/workspace/history/audit/missing",
+    "/api/admin/products/workspace/members/master/extra",
+    "/api/super-admin/team/products/company",
+    "/api/super-admin/unknown/products",
+    "/api/super-admin/business/products/me",
+    "/api/super-admin/business/products/workspace",
+    "/api/super-admin/business/products/company/history/product",
+    "/api/super-admin/business/products/company/members/biz/extra",
+    "/api/super-admin/business/requests/missing/extra",
+    "/api/super-admin/notifications/count/extra",
+  ])
+    await api(path, 404);
+  const rejectedWorkspace = await api(
+    "/api/admin/products/workspace/members",
+    405,
+    { method: "POST" },
+  );
+  assert.ok(rejectedWorkspace.text.includes("슈퍼관리자설정"));
+  await api("/api/super-admin/team/products", 404, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: '{"name":"Forbidden"}',
+  });
+  await api("/api/super-admin/business/products/company/members/biz", 405, {
+    method: "POST",
+  });
+  await api("/api/super-admin/business/requests/missing", 405);
+  const head = await api("/api/admin/products/workspace", 200, {
+    method: "HEAD",
+  });
+  assert.equal(head.text, "");
+  assert.ok(head.cache.includes("no-store"));
+  const options = await api(
+    "/api/super-admin/business/products/company/members",
+    204,
+    { method: "OPTIONS" },
+  );
+  for (const method of ["GET", "HEAD", "POST", "OPTIONS"])
+    assert.ok(options.allow.includes(method));
   assert.equal(
     await evaluate(
       "document.body.textContent.includes('승인·결제 없이 선택한 요금제가 즉시 적용됩니다.')",
@@ -819,6 +901,24 @@ try {
         ),
       "scoped member list loaded",
     );
+    for (const path of [
+      "/api/admin/products/company",
+      "/api/admin/products/company/overview",
+      "/api/admin/products/me",
+      "/api/admin/products/company/members",
+      "/api/admin/products/company/members/biz",
+      "/api/admin/products/company/history",
+      "/api/admin/products/company/candidates?email=user%40example.test",
+      "/api/admin/members",
+      "/api/admin/members/biz",
+      "/api/admin/history",
+    ])
+      assert.ok((await api(path)).cache.includes("no-store"));
+    await api("/api/admin/members", 405, { method: "PATCH" });
+    await api("/api/admin/members", 405, { method: "POST" });
+    await api("/api/admin/products/workspace/members", 403);
+    await api("/api/admin/products/company/history/product", 404);
+    await api("/api/admin/products/company/members/biz/extra", 404);
     assert.equal(
       await evaluate("!!document.querySelector('[role=alert]')"),
       false,

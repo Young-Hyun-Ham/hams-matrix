@@ -14,9 +14,9 @@ import "@/styles/shared-ui.css";
 import "@/styles/project-tabs.css";
 import "@/styles/dialog.css";
 import "@/styles/personal-theme.css";
-import "./styles/editor.css";
-import "./styles/dark-theme.css";
-import "./styles/select-element.css";
+import "@/styles/pages/planning-board/editor.css";
+import "@/styles/pages/planning-board/dark-theme.css";
+import "@/styles/pages/planning-board/select-element.css";
 export default function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="planning-root">
