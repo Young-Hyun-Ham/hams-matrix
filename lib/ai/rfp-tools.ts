@@ -188,5 +188,9 @@ export function createRfpAgent(
     commit,
     actions,
     pendingCount: () => (pending ? 1 : 0),
+    exportChanges: () => (pending ? [structuredClone(pending)] : []),
+    restoreChanges: (changes: NonNullable<typeof pending>[]) => {
+      pending = changes[0] ? structuredClone(changes[0]) : null;
+    },
   };
 }

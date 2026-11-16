@@ -137,6 +137,7 @@ export const navigationMenus: NavigationMenu[] = [
 export const personalTabs = {
   usage: "토큰 사용량",
   interface: "인터페이스 관리",
+  ai: "AI 설정",
   account: "계정 설정",
 };
 export const adminTabs = {

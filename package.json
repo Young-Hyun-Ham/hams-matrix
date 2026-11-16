@@ -54,7 +54,8 @@
     "test:deliverable-generation": "node scripts/test-deliverable-generation.mjs",
     "test:artifact-detail-browser": "node scripts/test-artifact-detail-navigation-browser.mjs",
     "worker:deliverables": "node scripts/deliverable-worker.mjs",
-    "test:deliverable-background": "node scripts/test-deliverable-background.mjs"
+    "test:deliverable-background": "node scripts/test-deliverable-background.mjs",
+    "test:ai-settings-reviews": "node scripts/test-ai-settings-reviews.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",

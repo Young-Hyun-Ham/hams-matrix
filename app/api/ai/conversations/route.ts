@@ -12,7 +12,7 @@ import { db } from "@/lib/db";
 import { projectAccess } from "@/lib/artifacts";
 import { conversationColumns, conversationInfo } from "@/lib/ai/conversations";
 import { validateTarget } from "@/lib/ai/resolve-target";
-import { targetFromLocation } from "@/lib/ai-target-pages";
+import { aiSourceTarget, targetFromLocation } from "@/lib/ai-target-pages";
 
 export async function GET(request: Request) {
   try {
@@ -58,6 +58,11 @@ export async function POST(request: Request) {
     if (initialTarget !== null) {
       if (
         source &&
+        !(
+          projectId &&
+          initialTarget === "project-analysis" &&
+          aiSourceTarget(projectId, source.pathname, source.tab)
+        ) &&
         targetFromLocation(projectId, source.pathname, source.tab) !==
           initialTarget
       )
@@ -70,6 +75,8 @@ export async function POST(request: Request) {
           : "temporary-") + randomUUID(),
       projectId,
       title: "새 채팅",
+      titleSource: "auto_pending",
+      titleVersion: 0,
       isPinned: false,
       createdAt: new Date().toISOString(),
       updatedAt: "",
@@ -79,7 +86,7 @@ export async function POST(request: Request) {
     conversation.updatedAt = conversation.createdAt;
     if (!conversation.convId.startsWith("temporary-"))
       await db().execute({
-        sql: "INSERT INTO ai_conversations(conv_id,workspace_id,user_id,project_id,title,created_at,updated_at,target_page,target_version) VALUES (?,?,?,?,?,?,?,?,?)",
+        sql: "INSERT INTO ai_conversations(conv_id,workspace_id,user_id,project_id,title,created_at,updated_at,target_page,target_version,title_source) VALUES (?,?,?,?,?,?,?,?,?,?)",
         args: [
           conversation.convId,
           user.workspaceId,
@@ -90,6 +97,7 @@ export async function POST(request: Request) {
           conversation.updatedAt,
           conversation.targetPage,
           conversation.targetVersion,
+          conversation.titleSource,
         ],
       });
     return Response.json(

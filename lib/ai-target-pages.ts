@@ -5,8 +5,18 @@ import {
 } from "./project-tabs";
 import type { AiContext } from "./ai-context";
 
-export type AiTargetPage = ProjectTab | "dashboard" | "team";
+export type AiTargetPage =
+  | ProjectTab
+  | "dashboard"
+  | "team"
+  | "project-analysis";
 export const aiTargetPages = [
+  {
+    key: "project-analysis" as const,
+    label: "프로젝트 전체 분석",
+    project: true,
+    supported: true,
+  },
   ...Object.entries(projectTabLabels).map(([key, label]) => ({
     key: key as AiTargetPage,
     label,
@@ -56,6 +66,14 @@ export function aiTargetContext(
   projectId: string,
   projectName: string,
 ): AiContext {
+  if (target === "project-analysis")
+    return {
+      pathname: `/projects/${projectId}`,
+      screen: "프로젝트 전체 분석",
+      tab: null,
+      projectId,
+      projectName,
+    };
   return projectId
     ? {
         pathname: `/projects/${projectId}`,
@@ -75,13 +93,33 @@ export function aiTargetContext(
 
 // Older metadata responses must not undo a newer target or a temporary room's choice.
 export function mergeConversationTarget<
-  T extends { targetPage?: AiTargetPage | null; targetVersion?: number },
+  T extends {
+    targetPage?: AiTargetPage | null;
+    targetVersion?: number;
+    title?: string;
+    titleSource?: string;
+    titleVersion?: number;
+  },
 >(current: T, incoming: T): T {
-  return (current.targetVersion ?? 0) > (incoming.targetVersion ?? 0)
-    ? {
-        ...incoming,
-        targetPage: current.targetPage,
-        targetVersion: current.targetVersion,
-      }
-    : incoming;
+  const merged = { ...incoming };
+  if ((current.targetVersion ?? 0) > (incoming.targetVersion ?? 0)) {
+    merged.targetPage = current.targetPage;
+    merged.targetVersion = current.targetVersion;
+  }
+  if ((current.titleVersion ?? 0) > (incoming.titleVersion ?? 0)) {
+    merged.title = current.title;
+    merged.titleVersion = current.titleVersion;
+    merged.titleSource = current.titleSource;
+  }
+  return merged;
+}
+export function aiSourceTarget(
+  projectId: string,
+  pathname: unknown,
+  tab: unknown,
+) {
+  return (
+    targetFromLocation(projectId, pathname, tab) ??
+    targetFromLocation("", pathname, tab)
+  );
 }

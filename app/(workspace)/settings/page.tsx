@@ -1,3 +1,4 @@
+import { AiSettings } from "@/components/ai/ai-settings";
 import {
   QueryClient,
   dehydrate,
@@ -20,6 +21,7 @@ import {
 const items = [
   ["usage", "토큰 사용량"],
   ["interface", "인터페이스 관리"],
+  ["ai", "AI 설정"],
   ["account", "계정 설정"],
 ] as const;
 export default function Page(props: {
@@ -85,6 +87,8 @@ async function Settings({
               <p>현재 워크스페이스의 내 사용량</p>
               <AiTokenStatistics key={`${user.id}:${user.workspaceId}`} />
             </>
+          ) : tab === "ai" ? (
+            <AiSettings key={`${user.id}:${user.workspaceId}`} />
           ) : tab === "interface" ? (
             <InterfaceSettings userId={user.id} />
           ) : (

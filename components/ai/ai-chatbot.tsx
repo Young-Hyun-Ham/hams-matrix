@@ -1,4 +1,6 @@
 "use client";
+import { AiProjectPicker } from "./ai-project-picker";
+
 import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
 
 import { useEffect, useRef, useState } from "react";
@@ -32,9 +34,16 @@ import {
   resolveWorkspaceError,
 } from "@/lib/query/error-messages";
 export function AiChatbot() {
-  const { user, aiContext, aiConversation } = useWorkspace();
-  if (!aiConversation || aiConversation.projectId !== aiContext.projectId)
+  const { user, aiContext, aiProject, aiConversation } = useWorkspace();
+  if (
+    !aiConversation ||
+    aiConversation.projectId !== (aiContext.projectId || aiProject.id)
+  )
     return null;
+  if (aiConversation.convId.startsWith("draft-"))
+    return (
+      <AiDraftPanel key={aiConversation.convId} conversation={aiConversation} />
+    );
   return (
     <AiPanel
       key={`${user?.workspaceId}:${user?.id}:${aiConversation.convId}`}
@@ -42,9 +51,50 @@ export function AiChatbot() {
     />
   );
 }
+function AiDraftPanel({ conversation }: { conversation: AiConversation }) {
+  const { user } = useWorkspace();
+  const subscription = useSubscription();
+  const limit = subscription.data?.plan.attachmentLimit ?? 0;
+  const [prompt, setPrompt] = useState("");
+  const images = useAiImages(!limit, limit);
+  const owner = `${user?.id}:${user?.workspaceId}`;
+  useEffect(() => {
+    useWorkspace
+      .getState()
+      .saveAiDraft(
+        conversation.convId,
+        { prompt, images: images.images },
+        owner,
+      );
+  }, [conversation.convId, prompt, images.images, owner]);
+  return (
+    <div className="matrix-ai">
+      <div className="matrix-ai-panel-content">
+        <h2>새 채팅</h2>
+        <AiProjectPicker createRoom disabled={images.imagesLoading} />
+        <p>프로젝트를 선택한 뒤 질문을 전송할 수 있습니다.</p>
+        <textarea
+          aria-label="AI 요청 내용"
+          value={prompt}
+          maxLength={2000}
+          onChange={(e) => setPrompt(e.target.value)}
+          onPaste={images.handlePaste}
+        />
+        {images.images.map((i) => (
+          <div key={i.id}>
+            <AiImagePreview src={i.dataUrl} label="초안 첨부" />
+            <button onClick={() => images.removeImage(i.id)}>삭제</button>
+          </div>
+        ))}
+        {images.attachmentError && <p role="alert">{images.attachmentError}</p>}
+        <button disabled>질문 전송</button>
+      </div>
+    </div>
+  );
+}
 function AiPanel({ conversation }: { conversation: AiConversation }) {
   const pathname = usePathname();
-  const { aiOpen, aiContext, user } = useWorkspace();
+  const { aiOpen, aiContext, aiProject, user } = useWorkspace();
   const context =
     aiContext.pathname === pathname
       ? aiContext
@@ -54,11 +104,13 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     ? aiTargetContext(
         conversation.targetPage,
         conversation.projectId,
-        context.projectName,
+        context.projectName || aiProject.name,
       )
     : context;
   const { title, placeholder } = aiPresentation(targetContext);
-  const [prompt, setPrompt] = useState(""),
+  const [prompt, setPrompt] = useState(
+      useWorkspace.getState().aiDrafts[conversation.convId]?.prompt ?? "",
+    ),
     [selectedModel, setModel] = useState("");
   const {
     scope: queryScope,
@@ -145,13 +197,23 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     removeImage,
     restoreImages,
     clearImages,
-  } = useAiImages(generating || attachmentLimit === 0, attachmentLimit);
+  } = useAiImages(
+    generating || attachmentLimit === 0,
+    attachmentLimit,
+    useWorkspace.getState().aiDrafts[conversation.convId]?.images ?? [],
+  );
+  const draftOwner = `${user?.id}:${user?.workspaceId}`;
+  useEffect(() => {
+    useWorkspace
+      .getState()
+      .saveAiDraft(conversation.convId, { prompt, images }, draftOwner);
+  }, [conversation.convId, prompt, images, draftOwner]);
   const dialog = useRef<HTMLDialogElement>(null),
     promptInput = useRef<HTMLTextAreaElement>(null),
     resultSession = useRef(0),
     busyRef = useRef(false),
     generation = useRef<AbortController | null>(null);
-  const scope = `${user?.workspaceId}:${user?.id}:${context.projectId}`;
+  const scope = `${user?.workspaceId}:${user?.id}:${conversation.projectId}:${conversation.convId}`;
   const activeScope = useRef(scope);
   useEffect(() => {
     activeScope.current = scope;
@@ -286,7 +348,8 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
           images: images.map((image) => ({ dataUrl: image.dataUrl })),
           model,
           pathname: context.pathname,
-          projectId: context.projectId,
+          projectId: conversation.projectId,
+          temporaryTitle: conversation.title,
           tab: context.tab,
           sourceContext: { pathname: context.pathname, tab: context.tab },
           targetPage: conversation.targetPage,
@@ -295,8 +358,37 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         signal: controller.signal,
       });
       const data = await response.json();
-      if (data.conversation)
+      if (activeScope.current !== requestScope || controller.signal.aborted)
+        return;
+      if (data.conversation) {
         useWorkspace.getState().updateAiConversation(data.conversation);
+        client.setQueriesData(
+          {
+            queryKey: [
+              ...matrixKeys.scope(queryScope),
+              "project",
+              conversation.projectId,
+              "conversation",
+              conversation.convId,
+              "chats",
+            ],
+          },
+          (current: unknown) => {
+            const value = current as
+              | { pages?: Record<string, unknown>[] }
+              | undefined;
+            return value?.pages
+              ? {
+                  ...value,
+                  pages: value.pages.map((p) => ({
+                    ...p,
+                    conversation: data.conversation,
+                  })),
+                }
+              : current;
+          },
+        );
+      }
       if (data.stopUnconfirmed) setStopRetry(requestId);
       if (data.actions?.length) useWorkspace.getState().notifyAiChange();
       if (!response.ok)
@@ -338,12 +430,32 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       setGenerating(false);
       setStopping(false);
       generation.current = null;
+      void client.invalidateQueries({
+        queryKey: [
+          ...matrixKeys.scope(queryScope),
+          "team",
+          "notification-count",
+        ],
+      });
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(queryScope), "ai", "notifications"],
+      });
+      void client.invalidateQueries({
+        queryKey: [...matrixKeys.scope(queryScope), "ai", "settings"],
+      });
     }
   }
   return (
     <div className="matrix-ai">
       <div className="matrix-ai-panel-content">
         <AiConversationTitle conversation={conversation} />
+        <AiProjectPicker
+          createRoom
+          disabled={generating || stopping || !!stopRetry}
+        />
+        {conversation.convId.startsWith("temporary-") && (
+          <p>이력 미저장 · 조회/초안 전용</p>
+        )}
         <AiConversationMessages
           conversation={conversationState}
           generating={generating}

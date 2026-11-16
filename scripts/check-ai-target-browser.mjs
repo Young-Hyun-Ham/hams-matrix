@@ -405,6 +405,191 @@ export async function checkAiTargetBrowser({
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).value`),
     "requirement",
   );
+
+  // New settings, outside-project selection and human approval run through the actual UI.
+  await navigate("nav-admin", "/settings?tab=ai");
+  await waitFor(
+    () =>
+      evaluate("!!document.querySelector('.settings-form input[type=number]')"),
+    "AI settings loaded",
+  );
+  assert.equal(
+    await evaluate(
+      "[...document.querySelectorAll('.admin-settings-tabs a')].map(e=>e.textContent).join('|')",
+    ),
+    "토큰 사용량|인터페이스 관리|AI 설정|계정 설정",
+  );
+  await evaluate(
+    "(()=>{const c=document.querySelector('.settings-form input[type=checkbox]');if(!c.checked)c.click();const n=document.querySelector('.settings-form input[type=number]');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(n,'1');n.dispatchEvent(new Event('input',{bubbles:true}));})()",
+  );
+  await click(
+    ".settings-form button[type=submit],.settings-form button.primary",
+  );
+  await waitFor(
+    async () =>
+      Number(
+        (
+          await db.execute(
+            "SELECT hitl_enabled FROM user_ai_settings WHERE user_id='nav-admin' AND workspace_id='nav-ws'",
+          )
+        ).rows[0]?.hitl_enabled,
+      ) === 1,
+    "HITL setting saved",
+  );
+  await navigate("nav-admin", "/dashboard");
+  await options();
+  await click(".matrix-ai-new-chat");
+  await waitFor(
+    () => evaluate("!!document.querySelector('.matrix-ai-panel-content h2')"),
+    "unselected local draft",
+  );
+  await input("선택 전 작성한 질문");
+  await evaluate(
+    "(()=>{const e=document.querySelector('.matrix-ai-panel-content select[aria-label=\"분석 프로젝트\"]');e.value='nav-project';e.dispatchEvent(new Event('change',{bubbles:true}));})()",
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('[aria-label=\"AI 대상 페이지\"]')?.value==='project-analysis'&&!document.querySelector('[aria-label=\"AI 대상 페이지\"]').disabled",
+      ),
+    "project analysis selected outside project",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelector('textarea[aria-label=\"AI 요청 내용\"]').value",
+    ),
+    "선택 전 작성한 질문",
+  );
+  assert.equal(await evaluate("location.pathname"), "/dashboard");
+  await input("프로젝트 요구사항 누락을 분석해줘 [UI]");
+  await waitFor(
+    () => evaluate("!document.querySelector('.matrix-ai-generate').disabled"),
+    "analysis ready",
+  );
+  await click(".matrix-ai-generate");
+  await waitFor(
+    () => evaluate("document.querySelectorAll('.matrix-ai-turn').length===1"),
+    "analysis answer",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelector('.matrix-ai-conversation-title strong').textContent",
+    ),
+    "첫 질문의 핵심 내용 요약",
+  );
+  await setTarget("requirement");
+  const n = Number(
+    (
+      await db.execute(
+        "SELECT COUNT(*) AS n FROM project_artifacts WHERE project_id='nav-project' AND kind='requirement'",
+      )
+    ).rows[0].n,
+  );
+  const spec = Buffer.from(
+    JSON.stringify({
+      name: "save_artifact",
+      args: {
+        action: "CREATE",
+        title: "Browser reviewed requirement",
+        status: "초안",
+        fields: {
+          category: "SFR",
+          definition: "Human approval",
+          details: "UI review",
+          priority: "중",
+        },
+      },
+    }),
+  ).toString("base64");
+  await input(`요구사항을 등록해줘 [TOOL]${spec}`);
+  await click(".matrix-ai-generate");
+  await waitFor(
+    () =>
+      evaluate(
+        "!!document.querySelector('.matrix-ai-review')?.textContent.includes('검토 대기')",
+      ),
+    "durable review card",
+  );
+  assert.equal(
+    Number(
+      (
+        await db.execute(
+          "SELECT COUNT(*) AS n FROM project_artifacts WHERE project_id='nav-project' AND kind='requirement'",
+        )
+      ).rows[0].n,
+    ),
+    n,
+  );
+  await click(".matrix-ai-review button");
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('.matrix-ai-review')?.textContent.includes('승인 후 적용 완료')",
+      ),
+    "approval applied",
+  );
+  assert.equal(
+    Number(
+      (
+        await db.execute(
+          "SELECT COUNT(*) AS n FROM project_artifacts WHERE project_id='nav-project' AND kind='requirement'",
+        )
+      ).rows[0].n,
+    ),
+    n + 1,
+  );
+  await screenshot("project-analysis-human-review");
+  await click("[aria-controls=team-notifications-panel]");
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('#team-notifications-panel')?.textContent.includes('AI 토큰 사용량 제한 초과')",
+      ),
+    "budget header notification",
+  );
+  await screenshot("ai-budget-notification");
+  const badgeBefore = await evaluate(
+    "Number(document.querySelector('[aria-controls=team-notifications-panel] .notification-badge')?.textContent ?? 0)",
+  );
+  await click("#team-notifications-panel .notification-card-content");
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('#team-notifications-panel .notification-card-status')?.textContent === '확인함'",
+      ),
+    "notification acknowledged",
+  );
+  assert.equal(
+    await evaluate(
+      "Number(document.querySelector('[aria-controls=team-notifications-panel] .notification-badge')?.textContent ?? 0)",
+    ),
+    badgeBefore - 1,
+  );
+  assert.equal(
+    await evaluate(
+      "getComputedStyle(document.querySelector('#team-notifications-panel .notification-card')).boxShadow !== 'none'",
+    ),
+    true,
+  );
+  await screenshot("ai-budget-notification-read");
+  await click("[aria-controls=team-notifications-panel]");
+  await click("[aria-controls=team-notifications-panel]");
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('#team-notifications-panel .notification-card-status')?.textContent === '확인함'",
+      ),
+    "notification read status retained",
+  );
+
+  await navigate("nav-admin", "/settings?tab=ai");
+  await resize(390, 844);
+  await waitFor(
+    () =>
+      evaluate("!!document.querySelector('.settings-form input[type=number]')"),
+    "mobile AI settings",
+  );
+  await screenshot("ai-settings-mobile");
   console.log(
     "PASS browser targets: current-page default, selection without navigation, draft/image preservation, successful target generation, immediate persistence/reload, physical tab changes, save failure, busy state, floating/mobile/dark, documents and temporary room state.",
   );

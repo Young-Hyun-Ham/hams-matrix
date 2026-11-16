@@ -1,3 +1,4 @@
+import type { AiChangeReview } from "./ai-review-types";
 import type { AiImageInfo } from "./ai-image-types";
 import type { AiTargetPage } from "./ai-target-pages";
 import { projectTabLabels, type ProjectTab } from "./project-tabs";
@@ -10,6 +11,7 @@ export type AiContext = {
   projectName: string;
 };
 export type AiChat = {
+  review?: AiChangeReview;
   id: string;
   convId: string;
   prompt: string;
@@ -25,6 +27,8 @@ export type AiConversation = {
   convId: string;
   projectId: string;
   title: string;
+  titleSource?: string;
+  titleVersion?: number;
   isPinned: boolean;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +79,6 @@ export function aiPresentation(context: AiContext) {
   return {
     title,
     label,
-    placeholder: `예: ${(context.tab && examples[context.tab]) || (context.screen === "팀 공유" ? "팀의 산출물 검토 역할과 협업 절차를 정리해줘" : "프로젝트의 목표와 단계별 산출물을 정리해줘")}`,
+    placeholder: `예: ${context.screen === "프로젝트 전체 분석" ? "이 프로젝트의 요구사항과 검증 누락을 분석해줘" : (context.tab && examples[context.tab]) || (context.screen === "팀 공유" ? "팀의 산출물 검토 역할과 협업 절차를 정리해줘" : "프로젝트의 목표와 단계별 산출물을 정리해줘")}`,
   };
 }

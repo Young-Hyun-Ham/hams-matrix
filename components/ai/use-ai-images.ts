@@ -66,11 +66,15 @@ async function captureImage(file: File): Promise<PastedAiImage> {
     bitmap.close();
   }
 }
-export function useAiImages(disabled: boolean, limit = AI_IMAGE_MAX_COUNT) {
-  const [images, setImages] = useState<PastedAiImage[]>([]),
+export function useAiImages(
+  disabled: boolean,
+  limit = AI_IMAGE_MAX_COUNT,
+  initial: PastedAiImage[] = [],
+) {
+  const [images, setImages] = useState<PastedAiImage[]>(initial),
     [imagesLoading, setImagesLoading] = useState(false),
     [attachmentError, setAttachmentError] = useWorkspaceErrorState("");
-  const current = useRef<PastedAiImage[]>([]),
+  const current = useRef<PastedAiImage[]>(initial),
     busy = useRef(false),
     operation = useRef(0),
     active = useRef(true);

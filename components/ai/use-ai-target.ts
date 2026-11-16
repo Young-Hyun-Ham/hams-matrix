@@ -76,7 +76,9 @@ export function useAiTarget(
         if (
           target === "dashboard" ||
           target === "team" ||
-          !latest.permissionsByTab[target]?.READ
+          !(target === "project-analysis"
+            ? true
+            : latest.permissionsByTab[target]?.READ)
         )
           throw new RequestError(403, "AI_TARGET_ACCESS_DENIED");
       } else {
@@ -266,13 +268,17 @@ export function useAiTarget(
     .filter((page) => page.project === !!projectId)
     .map((page) => {
       const rights =
-        projectId && page.key !== "dashboard" && page.key !== "team"
+        projectId &&
+        page.key !== "dashboard" &&
+        page.key !== "team" &&
+        page.key !== "project-analysis"
           ? access?.[page.key]
           : null;
       return {
         ...page,
         allowed: projectId
-          ? !!rights?.READ && !accessError
+          ? (page.key === "project-analysis" ? !!access : !!rights?.READ) &&
+            !accessError
           : page.key !== "team" || user?.teamSharingEnabled === true,
         readOnly: !rights || !(rights.CREATE || rights.UPDATE || rights.DELETE),
       };

@@ -1,3 +1,4 @@
+import { readProjectAnalysis } from "./project-analysis";
 import { readRfp } from "../rfp-server";
 import "server-only";
 import type { User } from "../types";
@@ -9,6 +10,8 @@ import { acceptanceReport } from "../integration";
 import { domainContext, readDomainCatalog } from "../database-domains";
 
 export async function readAiPage(user: User, context: AiContext, page: AiPage) {
+  if (page.key === "project-analysis")
+    return readProjectAnalysis(user, context.projectId);
   if (page.key === "rfp") return readRfp(db(), user, context.projectId);
   if (page.source === "dashboard") {
     const projects = await db().execute({

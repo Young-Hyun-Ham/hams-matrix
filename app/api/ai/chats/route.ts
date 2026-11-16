@@ -1,3 +1,11 @@
+import { aiUserSettings } from "@/lib/ai/user-settings";
+import {
+  assertNoPendingReview,
+  projectVersions,
+  storeChangeReview,
+} from "@/lib/ai/change-reviews";
+import { firstQuestionTitle } from "@/lib/ai/conversation-title";
+import type { AiChangeReview } from "@/lib/ai-review-types";
 import { randomUUID } from "node:crypto";
 import type { Client } from "@libsql/client";
 import {
@@ -13,7 +21,7 @@ import { db } from "@/lib/db";
 import { projectTabLabels, type ProjectTab } from "@/lib/project-tabs";
 import { aiModels, generateAi } from "@/lib/ai-server";
 import { pageInstructions } from "@/lib/ai/page-prompts";
-import { targetFromLocation } from "@/lib/ai-target-pages";
+import { aiSourceTarget } from "@/lib/ai-target-pages";
 import { validateTarget, targetAiPage } from "@/lib/ai/resolve-target";
 import {
   ConversationTargetConflict,
@@ -90,21 +98,31 @@ export async function POST(request: Request) {
     const projectId =
       typeof input.projectId === "string" ? input.projectId : "";
     const source = (input.sourceContext ?? input) as Record<string, unknown>;
-    const sourceTarget = targetFromLocation(
-      projectId,
-      source.pathname,
-      source.tab,
-    );
+    const sourceTarget = aiSourceTarget(projectId, source.pathname, source.tab);
     if (!sourceTarget)
       throw new HttpError(400, "현재 화면 정보를 확인해 주세요.");
     const pathname = source.pathname as string;
-    const sourceTab = projectId
-      ? typeof source.tab === "string"
-        ? (source.tab as ProjectTab)
-        : null
-      : null;
+    const sourceTab =
+      sourceTarget !== "dashboard" && sourceTarget !== "team"
+        ? typeof source.tab === "string"
+          ? (source.tab as ProjectTab)
+          : null
+        : null;
     const convId = conversationId(input.convId);
     let conversation = await requireConversation(user, projectId, convId);
+    await assertNoPendingReview(user, convId);
+    const settingsAtStart = await aiUserSettings(user);
+    if (
+      !plan.historyEnabled &&
+      Array.isArray(input.history) &&
+      input.history.length &&
+      typeof input.temporaryTitle === "string"
+    )
+      conversation = {
+        ...conversation,
+        title: input.temporaryTitle.slice(0, 100),
+        titleSource: "auto",
+      };
     const explicitTarget = Object.hasOwn(input, "targetPage");
     const requestedTarget = explicitTarget ? input.targetPage : sourceTarget;
     const expectedVersion = explicitTarget
@@ -134,7 +152,10 @@ export async function POST(request: Request) {
     const context = resolved.context;
     const projectName = context.projectName;
     const tab = context.tab;
-    let canWrite = resolved.canWrite;
+    let canWrite = resolved.canWrite && plan.historyEnabled;
+    const sourceVersions = canWrite
+      ? await projectVersions(user, projectId)
+      : "";
     const executionTarget = resolved.targetPage;
     const executionVersion = plan.historyEnabled
       ? (conversation.targetVersion ?? 0)
@@ -280,7 +301,8 @@ export async function POST(request: Request) {
     try {
       result = await generateAi(
         model,
-        pageInstructions(context, page, canWrite),
+        pageInstructions(context, page, canWrite) +
+          "\n이력 미저장 대화는 조회·초안 전용입니다. 변경안은 사람의 승인 대기가 될 수 있으며 아직 저장 완료라고 말하지 마세요.",
         JSON.stringify({ pageContext, request: prompt }),
         agent,
         images,
@@ -307,6 +329,18 @@ export async function POST(request: Request) {
     }
     await guard.inspect("output", result);
     await checkpoint();
+    const titleCandidate =
+      conversation.titleSource === "auto_pending"
+        ? await firstQuestionTitle(
+            prompt,
+            model,
+            track,
+            checkpoint,
+            requestDeadline,
+            (text) => guard.inspect("output", text),
+          )
+        : null;
+    await checkpoint();
     // Atomic boundary: either stop wins, or the completed result is committed.
     const finalizing = await db().execute({
       sql: "UPDATE ai_generation_requests SET status='finalizing' WHERE request_id=? AND status='running' RETURNING request_id",
@@ -322,14 +356,38 @@ export async function POST(request: Request) {
     const createdAt = new Date().toISOString(),
       screenTitle = [
         projectName || context.screen,
-        tab ? projectTabLabels[tab] : "",
+        tab
+          ? projectTabLabels[tab]
+          : executionTarget === "project-analysis"
+            ? "프로젝트 전체 분석"
+            : "",
       ]
         .filter(Boolean)
         .join(" · ");
     const saveTx = await db().transaction("write");
     let committed: AiAction[] = [];
+    let review: AiChangeReview | undefined;
     try {
-      committed = await agent.commit(saveTx);
+      const finalSettings = await aiUserSettings(user, saveTx);
+      const needsReview =
+        (settingsAtStart.hitlEnabled || finalSettings.hitlEnabled) &&
+        agent.pendingCount() > 0;
+      if (titleCandidate && plan.historyEnabled)
+        await saveTx.execute({
+          sql: "UPDATE ai_conversations SET title=?,title_source='auto',title_version=title_version+1 WHERE conv_id=? AND user_id=? AND workspace_id=? AND project_id IS ? AND title_source='auto_pending' AND title_version=? AND NOT EXISTS (SELECT 1 FROM ai_prompt_chats WHERE conv_id=ai_conversations.conv_id AND user_id=ai_conversations.user_id AND workspace_id=ai_conversations.workspace_id)",
+          args: [
+            titleCandidate,
+            convId,
+            user.id,
+            user.workspaceId,
+            projectId || null,
+            conversation.titleVersion ?? 0,
+          ],
+        });
+      if (!needsReview) committed = await agent.commit(saveTx);
+      else
+        result +=
+          "\n\n[검토 대기 · 아직 반영되지 않음] 변경 내용을 확인하고 승인해 주세요.";
       if (committed.length)
         result +=
           "\n\n[서버 확인 실행 결과]\n" +
@@ -376,6 +434,19 @@ export async function POST(request: Request) {
           ]
         : [];
       for (const statement of statements) await saveTx.execute(statement);
+      if (needsReview)
+        review = await storeChangeReview(saveTx, user, {
+          requestId,
+          chatId: id,
+          convId,
+          projectId,
+          targetPage: executionTarget,
+          targetVersion: executionVersion,
+          guardrailVersion: guardrail.version,
+          settingsVersion: finalSettings.version,
+          source: sourceVersions,
+          changes: agent.exportChanges(),
+        });
       await checkpoint(saveTx);
       await saveTx.commit();
       agent.actions.push(...committed);
@@ -385,6 +456,15 @@ export async function POST(request: Request) {
     } finally {
       saveTx.close();
     }
+    if (plan.historyEnabled)
+      conversation = await requireConversation(user, projectId, convId);
+    else if (titleCandidate)
+      conversation = {
+        ...conversation,
+        title: titleCandidate,
+        titleSource: "auto",
+        titleVersion: 1,
+      };
     outcome = "completed";
     return Response.json(
       {
@@ -397,6 +477,7 @@ export async function POST(request: Request) {
           model,
           result,
           images: encrypted.images,
+          review,
           targetPage: executionTarget,
           targetVersion: executionVersion,
         },

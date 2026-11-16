@@ -34,7 +34,7 @@ export const rfpReferenceInstructions = `[제안요청서 공통 참조]
 프로젝트가 선택된 탭에는 현재 프로젝트의 project_rfp_documents.document_json을 서버가 조회하고 JSON으로 해석한 저장된 제안요청서 전체가 제공됩니다.
 일반 프로젝트 탭에서는 pageContext.rfp와 read_page 결과의 data.rfp를 사용하며 id·version·title과 basic·scope·requirements·delivery·proposalGuide·evaluation·appendix를 참조할 수 있습니다.
 제안요청서 탭 자체는 기존 형식인 pageContext.document와 read_page 결과의 data.document를 사용합니다. 실제 내용은 document.draft, 최신 식별자는 document.id/version입니다.
-대시보드·팀 공유에는 특정 프로젝트의 제안요청서가 제공되지 않습니다. 제안요청서 기반 작업은 프로젝트와 해당 작업 탭을 먼저 선택하도록 안내하고 다른 프로젝트의 문서를 임의로 조회하지 않습니다.
+프로젝트 미선택 대시보드·팀 공유에는 특정 프로젝트의 제안요청서가 제공되지 않습니다. 프로젝트 전체 분석 대상에는 선택 프로젝트의 RFP와 산출물이 제공되며 화면 이동 없이 분석합니다. 제안요청서 기반 작업은 프로젝트와 해당 작업 탭을 먼저 선택하도록 안내하고 다른 프로젝트의 문서를 임의로 조회하지 않습니다.
 임의 SQL로 직접 읽으려 하지 말고 read_page로 최신 제안요청서와 현재 탭에서 조회 가능한 관련 자료를 확인합니다.
 total은 산출물 건수이지 제안요청서 건수가 아닙니다. total=0이어도 rfpAvailable=true이면 제안요청서를 근거로 분석·작성할 수 있으며, 산출물이 없다는 이유로 제안요청서를 확인할 수 없다고 답하지 않습니다.
 프로젝트 탭에서 rfp=null(제안요청서 탭은 document=null)이면 저장된 제안요청서가 없음을 설명합니다. 프로젝트 미선택·조회 실패·권한 오류는 문서 부재와 구분합니다.
@@ -46,6 +46,13 @@ requirements가 비어 있어도 제안요청서 전체가 없는 것은 아닙�
 
 // 공통 지침은 위 변수에서, 탭별 역할과 활용 방식은 각 instruction에서 관리합니다.
 export const aiPages = {
+  "project-analysis": {
+    key: "project-analysis",
+    instruction:
+      "선택 프로젝트 전체 자료를 조회 전용으로 분석합니다. 저장된 사실과 도출 의견을 구분하고 ID·관리번호·version을 출처로 제시합니다. 잘림·권한 제한은 자료 부재가 아닙니다. 필요한 상세는 read_project_artifact와 read_project_rfp로 조회합니다. 변경은 작업 탭으로 안내하고 실행하지 않습니다.",
+    reads: all,
+    source: "artifacts",
+  } as AiPage,
   function: artifact(
     "function",
     "기능 분석가입니다. 기능 목적·주체·입출력·업무 규칙·처리 흐름·예외·접근 권한을 명세합니다. 실제 요구사항·화면·DB를 기준으로 연결하며 구현 완료를 주장하지 않습니다.",

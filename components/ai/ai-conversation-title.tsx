@@ -35,7 +35,9 @@ export function AiConversationTitle({
     setSaving(true);
     setError("");
     try {
-      const data = await command.mutateAsync({ input: { title } });
+      const data = await command.mutateAsync({
+        input: { title, expectedTitleVersion: conversation.titleVersion ?? 0 },
+      });
 
       useWorkspace.getState().updateAiConversation(data.conversation);
       if (active.current) setEditing(false);

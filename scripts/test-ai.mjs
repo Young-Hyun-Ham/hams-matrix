@@ -98,8 +98,19 @@ try {
       },
     });
     assert.equal(response.status, 201, await response.clone().text());
+    await client.execute({
+      sql: "UPDATE workspaces SET plan='business',subscription_plan='business' WHERE id IN (SELECT m.workspace_id FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE u.email=?)",
+      args: [email],
+    });
     // This regression suite exercises persisted history; quota/Free policies have separate tests.
-    await client.execute({ sql: "UPDATE user_subscriptions SET plan_code='business' WHERE user_id=(SELECT id FROM users WHERE email=?)", args: [email] });
+    await client.execute({
+      sql: "UPDATE user_subscriptions SET plan_code='business' WHERE user_id=(SELECT id FROM users WHERE email=?)",
+      args: [email],
+    });
+    await client.execute({
+      sql: "INSERT INTO user_ai_settings(user_id,workspace_id,hitl_enabled,token_limit,version,updated_at) SELECT m.user_id,m.workspace_id,0,1000000,1,'synthetic' FROM workspace_members m JOIN users u ON u.id=m.user_id WHERE u.email=?",
+      args: [email],
+    });
     return {
       cookie: response.headers
         .getSetCookie()
@@ -355,8 +366,25 @@ try {
     base,
     makeRoom,
   });
-  await checkAiCancellation({ request, client, cookie, other, project, base, makeRoom });
-  await checkAiGuardrails({ request, client, cookie, owner, other, project, base, makeRoom });
+  await checkAiCancellation({
+    request,
+    client,
+    cookie,
+    other,
+    project,
+    base,
+    makeRoom,
+  });
+  await checkAiGuardrails({
+    request,
+    client,
+    cookie,
+    owner,
+    other,
+    project,
+    base,
+    makeRoom,
+  });
   const clientHtml = await (
     await request(`/projects/${project.id}`, { cookie })
   ).text();

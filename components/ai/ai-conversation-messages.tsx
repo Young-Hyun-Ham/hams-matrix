@@ -1,4 +1,6 @@
 "use client";
+import { AiChangeReview } from "./ai-change-review";
+
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { AiChat } from "@/lib/ai-context";
 import { AiImagePreview } from "./ai-image-preview";
@@ -191,6 +193,21 @@ export function AiConversationMessages({
                   {chat.screenTitle} · {chat.model}
                 </small>
                 <pre>{chat.result}</pre>
+                {chat.review && (
+                  <AiChangeReview
+                    initial={chat.review}
+                    disabled={generating}
+                    revise={(feedback) =>
+                      reuse({
+                        ...chat,
+                        prompt: `${chat.prompt}\n수정 요청: ${feedback}`.slice(
+                          0,
+                          2000,
+                        ),
+                      })
+                    }
+                  />
+                )}
                 <div className="matrix-ai-message-actions">
                   <button type="button" onClick={() => showResult(chat)}>
                     결과 크게 보기

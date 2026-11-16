@@ -20,6 +20,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
     user,
     aiContext,
     aiConversation,
+    aiProject,
   } = useWorkspace();
   const pathname = usePathname();
   const aiOpen =
@@ -27,7 +28,7 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
     !pathname.startsWith("/admin") &&
     requestedOpen &&
     !!aiConversation &&
-    aiConversation.projectId === aiContext.projectId &&
+    aiConversation.projectId === (aiContext.projectId || aiProject.id) &&
     aiContext.pathname === pathname;
   const panel = useRef<HTMLElement>(null);
   const windowState = useAiWindow(panel, aiOpen);

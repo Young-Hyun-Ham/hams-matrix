@@ -1,4 +1,6 @@
 "use client";
+import { AiProjectPicker } from "./ai-project-picker";
+
 import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
 
 import { useEffect, useRef, useState } from "react";
@@ -67,8 +69,9 @@ export function AiChatbotToggle({
   );
 }
 function ConversationList({ version }: { version: number }) {
-  const { aiContext, aiConversation, selectAiConversation, user } =
+  const { aiContext, aiProject, aiConversation, selectAiConversation, user } =
     useWorkspace();
+  const projectId = aiContext.projectId || aiProject.id;
   const pathname = usePathname();
   const requiresProject =
     pathname.startsWith("/projects/") ||
@@ -93,14 +96,14 @@ function ConversationList({ version }: { version: number }) {
   const queryKey = [
     ...matrixKeys.scope(scope),
     "project",
-    aiContext.projectId,
+    projectId,
     "conversations",
   ];
   const listing = useQuery({
     queryKey,
     queryFn: ({ signal }) =>
       requestJson<{ conversations: AiConversation[] }>(
-        `/api/ai/conversations?projectId=${encodeURIComponent(aiContext.projectId)}`,
+        `/api/ai/conversations?projectId=${encodeURIComponent(projectId)}`,
         { signal },
       ),
     ...policy,
@@ -151,32 +154,46 @@ function ConversationList({ version }: { version: number }) {
         queryKey: [
           ...matrixKeys.scope(scope),
           "project",
-          aiContext.projectId,
+          projectId,
           "conversations",
         ],
       });
-  }, [client, scope, ready, aiContext.projectId, version, retry]);
+  }, [client, scope, ready, projectId, version, retry]);
   async function create() {
     if (!ready || creatingRef.current) return;
     creatingRef.current = true;
     setCreating(true);
     setError("");
-    const projectId = aiContext.projectId;
+    if (!projectId) {
+      const now = new Date().toISOString();
+      selectAiConversation({
+        convId: `draft-${crypto.randomUUID()}`,
+        projectId: "",
+        title: "새 채팅",
+        isPinned: false,
+        createdAt: now,
+        updatedAt: now,
+        targetPage: null,
+        targetVersion: 0,
+      });
+      creatingRef.current = false;
+      setCreating(false);
+      return;
+    }
     try {
       const data = await command.mutateAsync({
         projectId,
-        targetPage: targetFromLocation(
-          projectId,
-          aiContext.pathname,
-          aiContext.tab,
-        ),
+        targetPage: aiContext.projectId
+          ? targetFromLocation(projectId, aiContext.pathname, aiContext.tab)
+          : "project-analysis",
         sourceContext: { pathname: aiContext.pathname, tab: aiContext.tab },
       });
       void client.invalidateQueries({ queryKey });
       // A project switch or collapsed menu must not open a stale conversation.
       if (
         active.current &&
-        useWorkspace.getState().aiContext.projectId === projectId &&
+        (useWorkspace.getState().aiContext.projectId ||
+          useWorkspace.getState().aiProject.id) === projectId &&
         useWorkspace.getState().user?.id === scope.userId &&
         useWorkspace.getState().user?.workspaceId === scope.workspaceId
       ) {
@@ -217,6 +234,7 @@ function ConversationList({ version }: { version: number }) {
   }
   return (
     <div id="matrix-ai-conversations" className="matrix-ai-conversations">
+      <AiProjectPicker />
       <button
         type="button"
         className="matrix-ai-project-toggle"
@@ -224,8 +242,11 @@ function ConversationList({ version }: { version: number }) {
         aria-controls="matrix-ai-project-chats"
         onClick={() => setExpanded(!expanded)}
       >
-        <span title={aiContext.projectName || "공통 작업 공간"}>
+        <span
+          title={aiContext.projectName || aiProject.name || "공통 작업 공간"}
+        >
           {aiContext.projectName ||
+            aiProject.name ||
             (requiresProject ? "프로젝트 선택" : "공통 작업 공간")}
         </span>
         <Icon name={expanded ? "down" : "chevron"} size={15} />

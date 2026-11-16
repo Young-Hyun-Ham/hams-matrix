@@ -1,4 +1,6 @@
 "use client";
+import type { PastedAiImage } from "@/components/ai/use-ai-images";
+
 import { create } from "zustand";
 import type { User } from "@/lib/types";
 import { mergeConversationTarget } from "@/lib/ai-target-pages";
@@ -8,6 +10,14 @@ import {
   type AiConversation,
 } from "@/lib/ai-context";
 type State = {
+  aiProject: { id: string; name: string };
+  setAiProject: (project: { id: string; name: string }) => void;
+  aiDrafts: Record<string, { prompt: string; images: PastedAiImage[] }>;
+  saveAiDraft: (
+    id: string,
+    draft: { prompt: string; images: PastedAiImage[] },
+    owner: string,
+  ) => void;
   aiDataVersion: number;
   notifyAiChange: () => void;
   aiOpen: boolean;
@@ -31,6 +41,16 @@ type State = {
 };
 // Session credentials are only in HttpOnly cookies. Zustand stores presentation state in memory.
 export const useWorkspace = create<State>((set) => ({
+  aiProject: { id: "", name: "" },
+  aiDrafts: {},
+  saveAiDraft: (id, draft, owner) =>
+    set((state) =>
+      owner === `${state.user?.id}:${state.user?.workspaceId}`
+        ? { aiDrafts: { ...state.aiDrafts, [id]: draft } }
+        : {},
+    ),
+  setAiProject: (aiProject) =>
+    set({ aiProject, aiConversation: null, aiOpen: false }),
   aiDataVersion: 0,
   notifyAiChange: () =>
     set((state) => ({ aiDataVersion: state.aiDataVersion + 1 })),
@@ -70,7 +90,8 @@ export const useWorkspace = create<State>((set) => ({
   setAiContext: (aiContext) =>
     set((state) => ({
       aiContext,
-      ...(state.aiContext.projectId !== aiContext.projectId
+      ...(aiContext.projectId &&
+      state.aiConversation?.projectId !== aiContext.projectId
         ? { aiConversation: null, aiOpen: false }
         : {}),
     })),
@@ -89,6 +110,8 @@ export const useWorkspace = create<State>((set) => ({
             aiMenuOpen: false,
             aiConversation: null,
             aiContext: emptyAiContext,
+            aiProject: { id: "", name: "" },
+            aiDrafts: {},
           }
         : { user },
     ),

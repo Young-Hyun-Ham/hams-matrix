@@ -32,10 +32,18 @@ export async function validateTarget(
     };
   }
   const project = await projectAccess(db(), user, projectId);
+  if (value === "project-analysis") {
+    await projectPermissionAccess(db(), user, projectId);
+    return {
+      targetPage: value,
+      context: aiTargetContext(value, projectId, String(project.name)),
+      canWrite: false,
+    };
+  }
   const access = await projectPermissionAccess(db(), user, projectId);
   const rights =
     access.permissionsByTab[
-      value as Exclude<AiTargetPage, "dashboard" | "team">
+      value as Exclude<AiTargetPage, "dashboard" | "team" | "project-analysis">
     ];
   if (!rights?.READ)
     throw new HttpError(403, "선택한 AI 대상의 조회 권한이 없습니다.");

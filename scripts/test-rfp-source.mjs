@@ -149,6 +149,9 @@ try {
         new Date(Date.now() + 3600000).toISOString(),
       ],
     });
+  await client.execute(
+    "INSERT INTO user_ai_settings(user_id,workspace_id,hitl_enabled,token_limit,version,updated_at) SELECT user_id,workspace_id,0,1000000,1,'synthetic' FROM workspace_members",
+  );
   const source = load(
     resolve("app/api/projects/[projectId]/rfp/source/route.ts"),
   );

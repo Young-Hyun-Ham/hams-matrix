@@ -187,6 +187,9 @@ try {
     UPDATE plans SET team_sharing_enabled=1 WHERE code='team';
     UPDATE user_subscriptions SET plan_code='team' WHERE user_id='nav-admin';
   `);
+  await db.execute(
+    "INSERT INTO user_ai_settings(user_id,workspace_id,hitl_enabled,token_limit,version,updated_at) SELECT user_id,workspace_id,0,1000000,1,'synthetic' FROM workspace_members",
+  );
   if (targetMode || databaseMode)
     await db.executeMultiple(`
     UPDATE workspaces SET plan='team',subscription_plan='team' WHERE id='nav-ws';

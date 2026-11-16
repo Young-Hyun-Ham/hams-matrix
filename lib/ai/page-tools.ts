@@ -1,3 +1,4 @@
+import { readProjectDetail } from "./project-analysis";
 import "server-only";
 import { createRfpAgent } from "./rfp-tools";
 import { requireProjectPermission } from "../project-permissions";
@@ -196,10 +197,42 @@ export function createPageAgent(
         additionalProperties: false,
       },
     });
+  if (page.key === "project-analysis")
+    for (const name of ["read_project_artifact", "read_project_rfp"])
+      tools.push({
+        type: "function",
+        name,
+        description:
+          name === "read_project_artifact"
+            ? "현재 프로젝트 산출물 ID의 상세를 구간별 조회합니다."
+            : "현재 프로젝트 RFP 장의 상세를 구간별 조회합니다.",
+        parameters: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            section: { type: "string" },
+            offset: { type: "integer" },
+          },
+          additionalProperties: false,
+        },
+      });
   async function execute(name: string, input: Record<string, unknown>) {
     try {
       await checkpoint?.();
       await guard?.inspect("tool", { name, input });
+      if (
+        page.key === "project-analysis" &&
+        ["read_project_artifact", "read_project_rfp"].includes(name)
+      ) {
+        const data = await readProjectDetail(
+          user,
+          context.projectId,
+          name,
+          input,
+        );
+        await guard?.inspect("tool-result", data);
+        return { success: true, data };
+      }
       if (name === "read_database_domains") {
         if (
           page.kind !== "database" ||
@@ -598,5 +631,9 @@ export function createPageAgent(
     actions,
     commit,
     pendingCount,
+    exportChanges: () => structuredClone(pending),
+    restoreChanges: (changes: typeof pending) => {
+      pending.splice(0, pending.length, ...structuredClone(changes));
+    },
   };
 }

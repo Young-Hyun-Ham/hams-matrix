@@ -1,3 +1,4 @@
+import { assertNoPendingReview } from "./change-reviews";
 import "server-only";
 import { HttpError } from "../auth";
 import { db } from "../db";
@@ -32,6 +33,7 @@ export async function saveConversationTarget(
   expectedVersion: unknown,
   allowUnsupported = false,
 ) {
+  await assertNoPendingReview(user, convId);
   const version = targetVersion(expectedVersion);
   const conversation = await requireConversation(user, projectId, convId);
   const { targetPage } = await validateTarget(
@@ -48,6 +50,7 @@ export async function saveConversationTarget(
   const updated = await db().execute({
     sql: `UPDATE ai_conversations SET target_page=?,target_version=target_version+1
       WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND target_version=?
+        AND NOT EXISTS (SELECT 1 FROM ai_change_reviews r WHERE r.conv_id=ai_conversations.conv_id AND r.user_id=ai_conversations.user_id AND r.workspace_id=ai_conversations.workspace_id AND r.status='pending')
         AND (request_id IS NULL OR busy_until < ?)
         AND NOT EXISTS (SELECT 1 FROM ai_generation_requests g WHERE g.conv_id=ai_conversations.conv_id AND g.workspace_id=ai_conversations.workspace_id AND g.user_id=ai_conversations.user_id AND g.status IN ('running','stop_requested','finalizing') AND g.finished_at IS NULL AND datetime(g.created_at)>=datetime(?))
         AND NOT EXISTS (SELECT 1 FROM ai_token_usage t WHERE t.conv_id=ai_conversations.conv_id AND t.workspace_id=ai_conversations.workspace_id AND t.user_id=ai_conversations.user_id AND t.status IN ('queued','in_progress'))

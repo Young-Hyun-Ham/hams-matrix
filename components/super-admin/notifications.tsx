@@ -128,20 +128,23 @@ export function SuperNotifications() {
             !list.data?.notifications.length &&
             !error && <p>알림이 없습니다.</p>
           )}
-          {list.data?.notifications.map((item) => (
-            <p key={item.id}>
-              <Link
-                href={`/super-admin/settings?tab=business#request-${item.requestId}`}
-                onClick={() => {
-                  if (!mutation.isPending) mutation.mutate(item.id);
-                  setOpen(false);
-                }}
-              >
-                {item.read_at ? "" : "[미확인] "}
-                {item.company_name}
-              </Link>
-            </p>
-          ))}
+          <div className="notification-cards">
+            {list.data?.notifications.map((item) => (
+              <div key={item.id}>
+                <Link
+                  className={`notification-card${item.read_at ? " is-read" : ""}`}
+                  href={`/super-admin/settings?tab=business#request-${item.requestId}`}
+                  onClick={() => {
+                    if (!mutation.isPending) mutation.mutate(item.id);
+                    setOpen(false);
+                  }}
+                >
+                  {item.read_at ? "" : "[미확인] "}
+                  {item.company_name}
+                </Link>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

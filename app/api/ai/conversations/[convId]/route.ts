@@ -1,3 +1,4 @@
+import { assertNoPendingReview } from "@/lib/ai/change-reviews";
 import {
   body,
   checkOrigin,
@@ -57,9 +58,19 @@ export async function PATCH(
       (hasPin && typeof input.isPinned !== "boolean")
     )
       throw new HttpError(400, "변경할 제목 또는 고정 여부를 확인해 주세요.");
-    await requireConversation(user, projectId, convId);
+    const currentConversation = await requireConversation(
+      user,
+      projectId,
+      convId,
+    );
+    if (
+      hasTitle &&
+      input.expectedTitleVersion !== undefined &&
+      input.expectedTitleVersion !== currentConversation.titleVersion
+    )
+      throw new HttpError(409, "제목이 변경되었습니다. 다시 확인해 주세요.");
     const updated = await db().execute({
-      sql: `UPDATE ai_conversations SET ${[hasTitle ? "title=?,updated_at=?" : "", hasPin ? "is_pinned=?" : ""].filter(Boolean).join(",")} WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? RETURNING ${conversationColumns}`,
+      sql: `UPDATE ai_conversations SET ${[hasTitle ? "title=?,updated_at=?,title_source='manual',title_version=title_version+1" : "", hasPin ? "is_pinned=?" : ""].filter(Boolean).join(",")} WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? ${hasTitle ? "AND title_version=?" : ""} RETURNING ${conversationColumns}`,
       args: [
         ...(hasTitle ? [title, new Date().toISOString()] : []),
         ...(hasPin ? [input.isPinned ? 1 : 0] : []),
@@ -67,6 +78,7 @@ export async function PATCH(
         user.workspaceId,
         user.id,
         projectId || null,
+        ...(hasTitle ? [currentConversation.titleVersion ?? 0] : []),
       ],
     });
     if (!updated.rows.length)
@@ -99,6 +111,7 @@ export async function DELETE(
     await requireConversation(user, projectId, convId);
     const tx = await db().transaction("write");
     try {
+      await assertNoPendingReview(user, convId, tx);
       const args = [convId, user.workspaceId, user.id, projectId || null];
       const room = await tx.execute({
         sql: "SELECT request_id,busy_until FROM ai_conversations WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?",

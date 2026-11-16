@@ -1,3 +1,4 @@
+import { reviewInfo } from "./change-reviews";
 import "server-only";
 import type { Row } from "@libsql/client";
 import { workspacePlan } from "@/lib/plans";
@@ -10,11 +11,13 @@ import { decryptAiImage, imageInfo } from "./chat-images";
 import { isAiTargetPage } from "../ai-target-pages";
 
 export const conversationColumns =
-  "conv_id AS convId,title,is_pinned AS isPinned,project_id AS projectId,created_at AS createdAt,updated_at AS updatedAt,target_page AS targetPage,target_version AS targetVersion";
+  "conv_id AS convId,title,is_pinned AS isPinned,project_id AS projectId,created_at AS createdAt,updated_at AS updatedAt,target_page AS targetPage,target_version AS targetVersion,title_source AS titleSource,title_version AS titleVersion";
 export function conversationInfo(row: Row): AiConversation {
   return {
     convId: String(row.convId),
     title: String(row.title),
+    titleSource: String(row.titleSource),
+    titleVersion: Number(row.titleVersion ?? 0),
     isPinned: Number(row.isPinned) === 1,
     projectId: String(row.projectId ?? ""),
     createdAt: String(row.createdAt),
@@ -41,7 +44,9 @@ export async function requireConversation(
     return {
       convId,
       projectId,
-      title: "임시 채팅 · 이력 미저장",
+      title: "새 채팅",
+      titleSource: "auto_pending",
+      titleVersion: 0,
       isPinned: false,
       createdAt: now,
       updatedAt: now,
@@ -85,10 +90,21 @@ export async function conversationChats(
         args: [user.workspaceId, user.id, ...ids],
       })
     : { rows: [] };
+  const reviews = ids.length
+    ? (
+        await db().execute({
+          sql: `SELECT * FROM ai_change_reviews WHERE workspace_id=? AND user_id=? AND chat_id IN (${ids.map(() => "?").join(",")})`,
+          args: [user.workspaceId, user.id, ...ids],
+        })
+      ).rows
+    : [];
   return {
     chats: rows.map((row) => ({
       id: String(row.id),
       convId: String(row.convId),
+      review: reviews.find((r) => r.chat_id === row.id)
+        ? reviewInfo(reviews.find((r) => r.chat_id === row.id)!)
+        : undefined,
       prompt: String(row.prompt),
       model: String(row.model),
       screenTitle: String(row.screenTitle),
@@ -134,6 +150,12 @@ export async function conversationHistory(
         ],
       })
     : { rows: [] };
+  const reviewStates = (
+    await db().execute({
+      sql: "SELECT chat_id,status,applied_actions_json FROM ai_change_reviews WHERE conv_id=? AND workspace_id=? AND user_id=?",
+      args: [convId, user.workspaceId, user.id],
+    })
+  ).rows;
   return selected.reverse().flatMap((row) => {
     const captures = images.rows
       .filter((image) => image.chat_id === row.id)
@@ -151,7 +173,18 @@ export async function conversationHistory(
           ...captures,
         ],
       },
-      { role: "assistant", content: String(row.result).slice(0, 60000) },
+      {
+        role: "assistant",
+        content:
+          String(row.result).slice(0, 60000) +
+          reviewStates
+            .filter((r) => r.chat_id === row.id)
+            .map(
+              (r) =>
+                `\n[?? ?? ?? ??: ${r.status}; applied? ?? ??. ?? ??: ${r.applied_actions_json}]`,
+            )
+            .join(""),
+      },
     ];
   });
 }

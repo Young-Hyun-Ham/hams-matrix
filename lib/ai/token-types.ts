@@ -7,7 +7,7 @@ export type AiCallEvent = {
   usage?: unknown;
   reservedTokens?: number;
   durationMs?: number;
-  purpose?: "generation" | "guardrail";
+  purpose?: "generation" | "guardrail" | "title";
 };
 export type TokenTotals = {
   input: number;

@@ -44,7 +44,11 @@ export function AiConversationDialog({
     try {
       const data = await command.mutateAsync({
         method: kind === "rename" ? "PATCH" : "DELETE",
-        input: { ...(kind === "rename" ? { title } : {}) },
+        input: {
+          ...(kind === "rename"
+            ? { title, expectedTitleVersion: room.titleVersion ?? 0 }
+            : {}),
+        },
       });
 
       if (kind === "delete") {

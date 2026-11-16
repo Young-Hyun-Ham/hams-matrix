@@ -19,7 +19,7 @@ export async function checkAiTokenUsage({
   const records = async () =>
     (
       await client.execute({
-        sql: "SELECT * FROM ai_token_usage WHERE conv_id=? ORDER BY created_at,call_index",
+        sql: "SELECT * FROM ai_token_usage WHERE conv_id=? AND purpose<>'title' ORDER BY created_at,call_index",
         args: [room.convId],
       })
     ).rows;
@@ -27,6 +27,15 @@ export async function checkAiTokenUsage({
   assert.equal(response.status, 200, await response.clone().text());
   let rows = await records();
   assert.equal(rows.length, 1);
+  assert.equal(
+    (
+      await client.execute({
+        sql: "SELECT COUNT(*) AS n FROM ai_token_usage WHERE conv_id=? AND purpose='title' AND call_index=100000",
+        args: [room.convId],
+      })
+    ).rows[0].n,
+    1,
+  );
   assert.equal(rows[0].input_tokens, 100);
   assert.equal(rows[0].output_tokens, 40);
   assert.equal(rows[0].total_tokens, 140);
