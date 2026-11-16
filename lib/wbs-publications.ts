@@ -90,6 +90,18 @@ export async function publishWbsSchedule(
     const artifacts = data.artifacts.filter(
       (artifact) => artifact.kind === "wbs",
     );
+    if (
+      artifacts.some(
+        (a) =>
+          a.detailLevel === "skeleton" ||
+          !a.fields.startDate ||
+          !a.fields.endDate,
+      )
+    )
+      throw new HttpError(
+        400,
+        "일정 미정인 초기 초안을 상세 작성한 뒤 일정을 배포해 주세요.",
+      );
     if (!artifacts.length)
       throw new HttpError(400, "배포할 저장된 일정이 없습니다.");
     const expected = Object.fromEntries(

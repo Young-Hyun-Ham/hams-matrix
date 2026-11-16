@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import "@/styles/pages/projects/tabs/wbs/wbs-schedule-chart.css";
+import { useProjectPage } from "@/components/shared/project-page-context";
 import { useWbsSchedule } from "./use-wbs-schedule";
 import { WbsTaskDialog } from "./wbs-task-dialog";
 import { WbsOverview } from "./wbs-overview";
@@ -39,6 +40,7 @@ const REGISTRATION_COLUMNS = [
 
 export default function WbsComponement() {
   const model = useWbsSchedule();
+  const { openDetail, openEdit } = useProjectPage();
   const { tasks, setTasks } = model;
   const [viewMode, setViewMode] = useState("Day"); // 'Day' | 'Week' | 'Month'
   const [searchTerm, setSearchTerm] = useState("");
@@ -77,7 +79,8 @@ export default function WbsComponement() {
 
   // Calculate Date Range for Timeline
   const { startDateRange, totalDays, datesHeader } = useMemo(() => {
-    if (tasks.length === 0) {
+    const scheduled = tasks.filter((task) => task.startDate && task.endDate);
+    if (scheduled.length === 0) {
       const today = parseDate(koreaToday());
       return {
         startDateRange: today,
@@ -88,10 +91,10 @@ export default function WbsComponement() {
       };
     }
 
-    let minDate = parseDate(tasks[0].startDate);
-    let maxDate = parseDate(tasks[0].endDate);
+    let minDate = parseDate(scheduled[0].startDate);
+    let maxDate = parseDate(scheduled[0].endDate);
 
-    tasks.forEach((task) => {
+    scheduled.forEach((task) => {
       const s = parseDate(task.startDate);
       const e = parseDate(task.endDate);
       if (s < minDate) minDate = s;
@@ -178,7 +181,13 @@ export default function WbsComponement() {
 
   // Timeline Mouse Interaction Handlers for Dragging/Resizing
   const handleBarMouseDown = (e, task, type) => {
-    if (!model.canEdit || task.artifact.fields.taskType === "요약") return;
+    if (
+      !model.canEdit ||
+      !task.startDate ||
+      !task.endDate ||
+      task.artifact.fields.taskType === "요약"
+    )
+      return;
     e.stopPropagation();
     e.preventDefault();
     setDragState({
@@ -308,7 +317,7 @@ export default function WbsComponement() {
 
   const renderOverview = (expanded = false) => (
     <WbsOverview
-      tasks={visibleTasks}
+      tasks={visibleTasks.filter((task) => task.startDate && task.endDate)}
       start={formatDate(startDateRange)}
       days={totalDays}
       expanded={expanded}
@@ -621,7 +630,7 @@ export default function WbsComponement() {
                       className="wbs-task-detail"
                       disabled={!model.canEdit}
                       title="작업 상세 편집"
-                      onClick={() => model.openTask(null, task.id)}
+                      onClick={() => (openDetail ?? openEdit)(task.artifact)}
                     >
                       {task.wbs}
                     </button>
@@ -868,6 +877,7 @@ export default function WbsComponement() {
 
               {/* Task Gantt Bars Container */}
               {visibleTasks.map((task, index) => {
+                if (!task.startDate || !task.endDate) return null;
                 const { left, width } = getTaskBarPosition(task);
                 const hasChildren = task.artifact.fields.taskType === "요약";
                 const isHovered = hoveredTask === task.id;

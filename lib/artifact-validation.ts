@@ -132,7 +132,8 @@ export function prepareStructure(
         fail("선행 작업은 실제 작업 또는 마일스톤을 선택해 주세요.");
     }
     const f = after.fields;
-    if (f.endDate < f.startDate) fail("계획 종료일은 시작일 이후여야 합니다.");
+    if (f.endDate && f.startDate && f.endDate < f.startDate)
+      fail("계획 종료일은 시작일 이후여야 합니다.");
     if (Number(f.progress) < 0 || Number(f.progress) > 100)
       fail("진척률은 0~100입니다.");
     if (f.actualEnd && !f.actualStart)
@@ -159,6 +160,32 @@ export function prepareStructure(
       (after.links.length || structure.dependencies.length)
     )
       fail("산출물은 요약 작업의 하위 실제 작업에 배정해 주세요.");
+  }
+  if (
+    after.kind === "database" &&
+    after.detailLevel === "skeleton" &&
+    (!raw.columns || (Array.isArray(raw.columns) && raw.columns.length === 0))
+  ) {
+    if (
+      after.fields.physicalName &&
+      !/^[\p{L}_][\p{L}\p{N}_$]*$/u.test(after.fields.physicalName)
+    )
+      fail("물리 테이블명을 확인해 주세요.");
+    if (
+      after.fields.physicalName &&
+      artifacts.some(
+        (a) =>
+          a.id !== after.id &&
+          a.kind === "database" &&
+          (a.fields.physicalName ?? "").toLowerCase() ===
+            after.fields.physicalName.toLowerCase() &&
+          (a.fields.schema ?? "").toLowerCase() ===
+            (after.fields.schema ?? "").toLowerCase(),
+      )
+    )
+      fail("같은 스키마에 동일한 테이블명이 있습니다.");
+    structure.columns = [];
+    return structure;
   }
   if (after.kind === "database") {
     if (!/^[\p{L}_][\p{L}\p{N}_$]*$/u.test(after.fields.physicalName))
@@ -354,13 +381,20 @@ export function validateProjectGraph(artifacts: Artifact[]) {
     for (const a of wbs) visit(a.id, new Set(), seen, next);
   }
   for (const a of wbs) {
-    const dateError = validateWbsDates(a, artifacts);
+    const dateError =
+      a.fields.startDate && a.fields.endDate
+        ? validateWbsDates(a, artifacts)
+        : "";
     if (dateError) fail(dateError);
     const parent = a.structure?.parentId
       ? byId.get(a.structure.parentId)
       : undefined;
     if (
       parent &&
+      a.fields.startDate &&
+      a.fields.endDate &&
+      parent.fields.startDate &&
+      parent.fields.endDate &&
       (parent.fields.taskType !== "요약" ||
         a.fields.startDate < parent.fields.startDate ||
         a.fields.endDate > parent.fields.endDate)
@@ -370,7 +404,9 @@ export function validateProjectGraph(artifacts: Artifact[]) {
       const predecessor = byId.get(id)!;
       if (
         predecessor.fields.taskType === "요약" ||
-        predecessor.fields.endDate > a.fields.startDate
+        (predecessor.fields.endDate &&
+          a.fields.startDate &&
+          predecessor.fields.endDate > a.fields.startDate)
       )
         fail("후속 작업은 선행 작업의 계획 종료일 이후에 시작해야 합니다.");
     }

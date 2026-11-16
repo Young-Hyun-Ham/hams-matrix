@@ -229,3 +229,11 @@
     padding: 20px;
   }
 }
+
+/* Document navigation stays left; edit and close stay together on the right. */
+.workspace-dialog.admin-detail-dialog .artifact-detail-header h2 {
+  flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere;
+}
+.workspace-dialog.admin-detail-dialog .artifact-detail-actions {
+  display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0;
+}

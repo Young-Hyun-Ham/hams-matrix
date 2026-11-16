@@ -60,6 +60,9 @@ export function scheduleRows(
     }
   }
   walk("");
+  // Scheduled children stay visible while their parent is still unscheduled.
+  for (const artifact of artifacts)
+    if (!seen.has(artifact.id)) walk(artifact.structure?.parentId ?? "");
   return result;
 }
 export function useWbsSchedule() {
@@ -147,6 +150,19 @@ export function useWbsSchedule() {
       onDirtyChange?.(false);
     };
   }, [dirty, onDirtyChange]);
+  // Synchronize CRUD performed by the shared modal without discarding local edits.
+  useEffect(() => {
+    if (dirty || !remoteChanged) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled) return;
+      setBaseline(context.data);
+      setDraft(context.data.artifacts.filter((a) => a.kind === "wbs"));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [context.data, dirty, remoteChanged]);
   const tasks = scheduleRows(normalized, expanded);
   function setTasks(
     update: ScheduleRow[] | ((current: ScheduleRow[]) => ScheduleRow[]),
@@ -164,8 +180,9 @@ export function useWbsSchedule() {
       !canEdit
     )
       return;
-    setDraft(
-      next.map((task) => {
+    setDraft([
+      ...normalized.filter((a) => !tasks.some((t) => t.id === a.id)),
+      ...next.map((task) => {
         const fields: Record<string, string> = {
           ...task.artifact.fields,
           owner: task.assignee,
@@ -190,7 +207,7 @@ export function useWbsSchedule() {
           },
         };
       }),
-    );
+    ]);
   }
   function openTask(parentId: string | null = null, id?: string) {
     if (id ? !canEdit : !canCreate) return;

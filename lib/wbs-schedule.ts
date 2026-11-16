@@ -40,7 +40,12 @@ export function koreaToday() {
   }).format(new Date());
 }
 export function aggregateSchedule(artifacts: Artifact[]) {
-  const wbs = artifacts.filter((artifact) => artifact.kind === "wbs");
+  const wbs = artifacts.filter(
+    (artifact) =>
+      artifact.kind === "wbs" &&
+      !!artifact.fields.startDate &&
+      !!artifact.fields.endDate,
+  );
   const byId = new Map(wbs.map((artifact) => [artifact.id, artifact]));
   const done = new Map<string, Artifact>();
   const visiting = new Set<string>();

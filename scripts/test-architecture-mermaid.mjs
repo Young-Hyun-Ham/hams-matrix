@@ -72,7 +72,8 @@ try {
     INSERT INTO users(id,name,account_role) VALUES ('owner','Owner','user'),('reader','Reader','user'),('outsider','Outside','user');
     INSERT INTO workspaces(id,name) VALUES ('ws','Workspace'),('other-ws','Other');
     INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','viewer'),('other-ws','outsider','owner');
-    UPDATE user_subscriptions SET plan_code='business' WHERE user_id='owner';
+    UPDATE user_subscriptions SET plan_code='business' WHERE user_id IN ('owner','reader');
+    UPDATE workspaces SET plan='business',subscription_plan='business' WHERE id='ws';
     INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('project','ws','Test','owner','owner');
     INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner'),('project','ws','reader');
     UPDATE project_members SET role='viewer' WHERE user_id='reader';
@@ -83,6 +84,14 @@ try {
   const collection = load(resolve("app/api/projects/[projectId]/artifacts/route.ts"));
   const item = load(resolve("app/api/projects/[projectId]/artifacts/[artifactId]/route.ts"));
   const pure = load(resolve("lib/architecture-mermaid.ts"));
+  const plainTopology = { nodes: [{ id:"a", name:"API (업무) · 서비스", technology:"#40;Next.js#41; #183; API", layer:"backend", shape:"service" }, { id:"b", name:'DB <script> "test"', technology:"PostgreSQL", layer:"data", shape:"database" }], edges:[{id:"edge",source:"a",target:"b",label:"SQL (조회) · 저장"}] };
+  const plainCode = pure.serializeMermaid(plainTopology, {nodeIds:["a","b"],edgeIds:["edge"]});
+  assert.match(plainCode, /API \(업무\) · 서비스/);
+  assert.match(plainCode, /\(Next.js\) · API/);
+  assert.doesNotMatch(plainCode, /&?#(?:[0-9]+|x[0-9a-f]+);/i);
+  assert.doesNotMatch(plainCode, /<script>/);
+  assert.ok(pure.isSafeArchitectureMermaid(plainCode));
+
   const topology = { nodes: [
     { id: "api-uuid", name: 'API "한글" <script>', technology: "Spring (6)\nJava & SQL", layer: "backend", shape: "service" },
     { id: "db-uuid", name: "DB", technology: "PostgreSQL", layer: "data", shape: "database" },

@@ -236,13 +236,11 @@ export function useAiTarget(
     try {
       if (temporary) {
         await verifyTarget(target);
-        useWorkspace
-          .getState()
-          .updateAiConversation({
-            ...conversation,
-            targetPage: target,
-            targetVersion: targetVersion + 1,
-          });
+        useWorkspace.getState().updateAiConversation({
+          ...conversation,
+          targetPage: target,
+          targetVersion: targetVersion + 1,
+        });
         return;
       }
       await mutateAsync({

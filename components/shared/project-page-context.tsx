@@ -19,6 +19,7 @@ export type ProjectPageContext = {
   onDirtyChange?: (dirty: boolean) => void;
   selectTab: (tab: ProjectTab) => void;
   openCreate: (kind: ArtifactKind, draft?: Artifact) => void;
+  openDetail?: (artifact: Artifact) => void;
   openEdit: (artifact: Artifact) => void;
   openDelete: (artifact: Artifact) => void;
 };

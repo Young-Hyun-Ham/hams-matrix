@@ -9,6 +9,8 @@ import {
   validateWbsDates,
 } from "@/lib/wbs-date-constraints";
 
+import { withPlannedEffort } from "@/lib/wbs-effort";
+
 const Context = createContext<ReturnType<typeof useFormState> | null>(null);
 export const useWbsForm = () => useContext(Context);
 function useFormState(
@@ -16,9 +18,11 @@ function useFormState(
   artifacts: Artifact[],
   onModified: () => void,
 ) {
-  const [fields, setFields] = useState(() =>
-    initialArtifactFields("wbs", artifact),
-  );
+  const [fields, setFields] = useState(() => {
+    const initial = initialArtifactFields("wbs", artifact);
+    initial.actualEffort = initial.actualEffort || "0";
+    return initial;
+  });
   const [structure, setStructure] = useState(() => ({
     parentId: artifact?.structure?.parentId || "",
     dependencies: artifact?.structure?.dependencies || [],
@@ -51,8 +55,14 @@ function useFormState(
         next.progress = next.progress === "100" ? "100" : "0";
       }
     }
+    if (key === "taskType" && value === "요약")
+      setStructure((previous) => ({ ...previous, dependencies: [] }));
     if (key === "actualStart" && !value) next.actualEnd = "";
-    setFields(next);
+    setFields(
+      key === "startDate" || key === "endDate" || key === "taskType"
+        ? withPlannedEffort(next)
+        : next,
+    );
     onModified();
   }
   function changeStructure(next: typeof structure) {
@@ -66,7 +76,12 @@ function useFormState(
         ? "관계의 허용 기간에 맞춰 계획일을 조정했습니다. 작업 기간 길이는 유지했습니다."
         : "",
     );
-    setFields(adjusted);
+    setFields(
+      adjusted.startDate !== fields.startDate ||
+        adjusted.endDate !== fields.endDate
+        ? withPlannedEffort(adjusted)
+        : adjusted,
+    );
     setStructure(next);
     if (c.hasRelations) setPlanTouched(true);
     onModified();

@@ -116,9 +116,13 @@ function toUser(row: Row | undefined): User | null {
     plan: String(row.plan),
     workspacePlan: String(row.workspacePlan),
     productId: row.productId == null ? null : String(row.productId),
-    workspaceProductId: row.workspaceProductId == null ? null : String(row.workspaceProductId),
+    workspaceProductId:
+      row.workspaceProductId == null ? null : String(row.workspaceProductId),
     productName: row.productName == null ? null : String(row.productName),
-    workspaceProductName: row.workspaceProductName == null ? null : String(row.workspaceProductName),
+    workspaceProductName:
+      row.workspaceProductName == null
+        ? null
+        : String(row.workspaceProductName),
     teamSharingEnabled: Number(row.teamSharingEnabled) === 1,
     accountRole: row.account_role as User["accountRole"],
     onboardingComplete: Number(row.onboarding_complete) === 1,
@@ -128,6 +132,17 @@ export async function userById(id: string): Promise<User | null> {
   const result = await db().execute({
     sql: `${userSelect} WHERE u.id=? ORDER BY CASE WHEN m.workspace_id=u.active_workspace_id THEN 0 ELSE 1 END,m.joined_at,m.workspace_id LIMIT 1`,
     args: [id],
+  });
+  return toUser(result.rows[0]);
+}
+// Background jobs bind to their original workspace, independent of the active UI workspace.
+export async function userInWorkspace(
+  id: string,
+  workspaceId: string,
+): Promise<User | null> {
+  const result = await db().execute({
+    sql: userSelect + " WHERE u.id=? AND m.workspace_id=? LIMIT 1",
+    args: [id, workspaceId],
   });
   return toUser(result.rows[0]);
 }

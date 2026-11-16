@@ -56,13 +56,14 @@ try {
   await client.executeMultiple(await readFile('db/migrations/030_project_permissions_rfp.sql','utf8'));
   for(const name of (await readdir('db/migrations')).filter(n=>n.endsWith('.sql')&&n>'030_project_permissions_rfp.sql').sort())await client.executeMultiple(await readFile(join('db/migrations',name),'utf8'));
   assert.deepEqual((await client.execute('SELECT * FROM project_members ORDER BY project_id,user_id')).rows,existing);
-  assert.equal((await client.execute('SELECT * FROM project_role_tab_permissions')).rows.length,112);
+  assert.equal((await client.execute('SELECT * FROM project_role_tab_permissions')).rows.length,load(resolve('lib/project-permission-model.ts')).permissionTabs.length*4*2);
   assert.equal((await client.execute('SELECT * FROM project_rfp_documents')).rows.length,0);
   for(const id of ['owner','admin','member','viewer','outsider'])await client.execute({sql:'INSERT INTO sessions(id,token_hash,user_id,workspace_id,created_at,expires_at) VALUES (?,?,?,?,?,?)',args:[id,createHash('sha256').update(`${id}-token`).digest('hex'),id,'ws',new Date().toISOString(),new Date(Date.now()+3600000).toISOString()]});
   const perms=load(resolve('lib/project-permissions.ts')),model=load(resolve('lib/project-permission-model.ts'));
   const auth=load(resolve('lib/auth.ts'));
   // Role-policy tests require an active sharing entitlement for each actor.
   await client.execute("UPDATE user_subscriptions SET plan_code='team'");
+  await client.execute("UPDATE workspaces SET plan='team',subscription_plan='team' WHERE id='ws'");
   const user=async id=>{token=`${id}-token`;return auth.requireUser();};
   const owner=await user('owner');
   await perms.initializeProjectPolicy(client,'ws','p','owner');
@@ -148,7 +149,9 @@ try {
   const denied=createPageAgent(request('POST'),owner,aiContext,page,true,'저장하지 말고 초안만 작성해줘');assert.equal((await denied.execute('save_rfp_document',{action:'UPDATE',id:doc.id,expectedVersion:doc.version,patch:{title:'Denied'}})).success,false);
   const reader=createPageAgent(request('POST'),await user('viewer'),aiContext,page,false,'조회해줘');assert.equal(reader.tools.some(t=>t.name==='save_rfp_document'),false);assert.equal((await reader.execute('read_page',{})).success,true);assert.equal((await reader.execute('save_rfp_document',{action:'DELETE'})).status,403);
   token='owner-token';const revoked=createPageAgent(request('POST'),owner,aiContext,page,true,'제안요청서 배경을 수정해줘');assert.equal((await revoked.execute('save_rfp_document',{action:'UPDATE',id:doc.id,expectedVersion:doc.version,patch:{basic:{background:'Must not save'}}})).pending,true);
-  await client.execute("UPDATE projects SET owner_id='admin' WHERE id='p'");tx=await client.transaction('write');try{await assert.rejects(revoked.commit(tx),e=>e.status===403);}finally{await tx.rollback();tx.close();}await client.execute("UPDATE projects SET owner_id='owner' WHERE id='p'");
+  await assert.rejects(()=>client.execute("UPDATE projects SET owner_id='admin' WHERE id='p'"),/ownership transfer/i);
+  await assert.rejects(()=>client.execute("DELETE FROM project_members WHERE project_id='p' AND user_id='owner'"),/removing the owner/i);
+  await client.execute("UPDATE users SET onboarding_complete=0 WHERE id='owner'");tx=await client.transaction('write');try{await assert.rejects(revoked.commit(tx),e=>e.status===403||e.status===404);}finally{await tx.rollback();tx.close();}await client.execute("UPDATE users SET onboarding_complete=1 WHERE id='owner'");
   assert.equal((await (await api.GET(request('GET'),context)).json()).document.draft.basic.background,'AI background');
   assert.equal((await api.DELETE(request('DELETE',{id:doc.id,expectedVersion:doc.version}),context)).status,200);
   const creator=createPageAgent(request('POST'),owner,aiContext,page,true,'제안요청서를 작성해줘');assert.equal((await creator.execute('save_rfp_document',{action:'CREATE',draft})).pending,true);tx=await client.transaction('write');try{await creator.commit(tx);await tx.commit();}finally{tx.close();}
@@ -174,21 +177,21 @@ try {
   doc=(await (await api.GET(request('GET'),context)).json()).document;assert.equal((await api.PATCH(request('PATCH',{id:doc.id,expectedVersion:doc.version,patch:{title:'Logging disabled'}}),context)).status,200);assert.equal((await client.execute('SELECT COUNT(*) AS n FROM audit_logs')).rows[0].n,count);
   assert.deepEqual((await client.execute('PRAGMA foreign_key_check')).rows,[]);
   console.log('PASS: alternate WBS/artifact/image/file mutation denial, audit toggle, and foreign key integrity.');
-  token='owner-token';await client.execute("UPDATE user_subscriptions SET plan_code='business' WHERE user_id='owner'");
+  token='owner-token';
   const projects=load(resolve('app/api/projects/route.ts'));
   response=await projects.POST(request('POST',{name:'New project',description:'',memberIds:['outsider']}));assert.equal(response.status,201,await response.clone().text());
   const created=(await response.json()).project;assert.equal(created.members.find(m=>m.id==='owner').role,'owner');assert.equal(created.members.find(m=>m.id==='outsider').role,'viewer');
-  assert.equal((await client.execute({sql:'SELECT COUNT(*) AS n FROM project_role_tab_permissions WHERE project_id=?',args:[created.id]})).rows[0].n,56);
+  assert.equal((await client.execute({sql:'SELECT COUNT(*) AS n FROM project_role_tab_permissions WHERE project_id=?',args:[created.id]})).rows[0].n,model.permissionTabs.length*4);
   await client.execute("UPDATE users SET email='outsider@example.test' WHERE id='outsider'");
   const team=load(resolve('app/api/team/members/route.ts'));
   assert.equal((await team.POST(request('POST',{projectId:'p',email:'outsider@example.test'}))).status,201);
   assert.equal((await client.execute("SELECT role FROM project_members WHERE project_id='p' AND user_id='outsider'")).rows[0].role,'viewer');
-  assert.equal((await team.PATCH(request('PATCH',{projectId:'p',userId:'admin',role:'owner',expectedOwnerId:'owner',confirmTransfer:true}))).status,200);
-  assert.equal((await policyApi.GET(request('GET'),context)).status,403);token='admin-token';assert.equal((await policyApi.GET(request('GET'),context)).status,200);
-  assert.equal((await client.execute("SELECT role FROM project_members WHERE project_id='p' AND user_id='owner'")).rows[0].role,'member');
+  assert.equal((await team.PATCH(request('PATCH',{projectId:'p',userId:'admin',role:'owner',expectedOwnerId:'owner',confirmTransfer:true}))).status,403);
+  assert.equal((await policyApi.GET(request('GET'),context)).status,200);token='admin-token';assert.equal((await policyApi.GET(request('GET'),context)).status,403);
+  assert.equal((await client.execute("SELECT role FROM project_members WHERE project_id='p' AND user_id='owner'")).rows[0].role,'admin');
   assert.equal((await client.execute("SELECT account_role FROM users WHERE id='admin'")).rows[0].account_role,'user');
   assert.equal((await client.execute("SELECT owner_id FROM projects WHERE id='other'")).rows[0].owner_id,'outsider');
-  console.log('PASS: new project viewer default, default policy creation, direct invite viewer, atomic role transfer and account/other-project isolation.');
+  console.log('PASS: new project viewer default, default policy creation, direct invite viewer, owner-transfer denial and account/other-project isolation.');
   await client.execute("INSERT INTO users(id,name,account_role,onboarding_complete) VALUES ('applicant','Applicant','user',1)");
   await client.execute("INSERT INTO team_join_requests(id,workspace_id,user_id) VALUES ('join-new','ws','applicant'),('join-existing','ws','viewer')");
   const requests=load(resolve('app/api/team/requests/route.ts'));token='owner-token';

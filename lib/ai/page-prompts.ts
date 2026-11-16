@@ -19,6 +19,7 @@ const all: ArtifactKind[] = [
   "requirement",
   "screen",
   "database",
+  "function",
   "program",
   "test",
 ];
@@ -45,6 +46,11 @@ requirements가 비어 있어도 제안요청서 전체가 없는 것은 아닙�
 
 // 공통 지침은 위 변수에서, 탭별 역할과 활용 방식은 각 instruction에서 관리합니다.
 export const aiPages = {
+  function: artifact(
+    "function",
+    "기능 분석가입니다. 기능 목적·주체·입출력·업무 규칙·처리 흐름·예외·접근 권한을 명세합니다. 실제 요구사항·화면·DB를 기준으로 연결하며 구현 완료를 주장하지 않습니다.",
+    ["function", "requirement", "screen", "database", "architecture"],
+  ),
   wbs: artifact(
     "wbs",
     `일정관리 담당자 역할입니다.
@@ -68,6 +74,7 @@ export const aiPages = {
 기술스택과 서버/DB 정보는 구성요소의 technology에 기록합니다.
 Mermaid는 저장 시 서버가 생성하므로 직접 입력하지 않습니다.
 다이어그램은 structure.topology={nodes,edges}로 저장합니다.
+Frontend/Backend/DB 세 개의 범용 상자만 만들지 말고 제안요청서와 설명에 근거한 사용자 진입점, UI, 업무별 애플리케이션 구성요소, 저장소, 외부 연계와 운영 구성의 책임을 구분합니다. 확인된 통신 경로에는 방향과 프로토콜 또는 데이터 흐름을 표시합니다. 근거 없는 제품·버전·복제 구성은 추가하지 않습니다. 설명을 생성·수정할 때 topology도 같은 내용으로 함께 생성·수정합니다.
 nodes는 최대 30개로 {id,name,technology,layer,shape}, layer는 client/gateway/frontend/backend/data/external, shape는 service/database입니다.
 edges는 최대 60개로 {id,source,target,label}이며 source/target은 해당 구성요소 ID입니다.
 기존 ID를 보존하고 실제 확인된 구성요소·통신 관계만 입력합니다.
@@ -124,7 +131,14 @@ length, description, defaultValue는 문자열, reference는 {tableId,columnId}�
 structure.tableOperations는 [{tableId,operations:['C','R','U','D']}] 형식이며 필요한 연산만 선택합니다.
 화면·DB·요구사항·아키텍처와 연결합니다.
 구현/코드 배포를 완료했다고 말하지 않습니다.`,
-    ["program", "screen", "database", "requirement", "architecture"],
+    [
+      "program",
+      "function",
+      "screen",
+      "database",
+      "requirement",
+      "architecture",
+    ],
   ),
   test: artifact(
     "test",

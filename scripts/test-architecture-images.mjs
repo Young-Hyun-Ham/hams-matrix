@@ -47,6 +47,7 @@ const originalFetch = globalThis.fetch;
 const png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jQIoAAAAASUVORK5CYII=";
 let generations = 0, modelQueries = 0, failProvider = false, failMermaid = false, onGeneration;
 let generationInput;
+let invalidTopology = false;
 globalThis.fetch = async (url, init) => {
   assert.equal(init.headers.Authorization, "Bearer test-key");
   if (url === "https://api.openai.com/v1/models") {
@@ -58,7 +59,7 @@ globalThis.fetch = async (url, init) => {
     assert.equal(input.text.format.name,"architecture_mermaid_order");
     assert.ok(input.input.some(message=>Array.isArray(message.content)&&message.content.some(part=>part.type==="input_image"&&part.image_url===`data:image/png;base64,${png}`)));
     if(failMermaid)return new Response("failed",{status:502});
-    return Response.json({status:"completed",usage:{input_tokens:50,output_tokens:50,total_tokens:100},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({nodeIds:["db","api"],edgeIds:["sql"],direction:"LR"})}]}]});
+    return Response.json({status:"completed",usage:{input_tokens:50,output_tokens:50,total_tokens:100},output:[{type:"message",content:[{type:"output_text",text:JSON.stringify({topology:{nodes:[{id:"api",name:"Backend API",technology:"FastAPI 0.115",layer:"backend",shape:"service"},{id:"db",name:"PostgreSQL",technology:"PostgreSQL 16",layer:"data",shape:"database"},{id:"web",name:"웹 진입 프록시",technology:"Nginx",layer:"gateway",shape:"service"}].filter(node=>!invalidTopology||node.id!=="api"),edges:[{id:"sql",source:"api",target:"db",label:"ORM / SQL"},{id:"proxy",source:"web",target:"api",label:"API 요청"}]},nodeIds:["db","api","web"],edgeIds:["sql","proxy"],direction:"LR"})}]}]});
   }
   assert.equal(url, "https://api.openai.com/v1/images/generations");
   generations++;
@@ -75,7 +76,8 @@ try {
     INSERT INTO users(id,name,account_role) VALUES ('owner','소유자','user'),('reader','조회자','user'),('outsider','외부 사용자','user');
     INSERT INTO workspaces(id,name) VALUES ('ws','워크스페이스'),('other-ws','다른 워크스페이스');
     INSERT INTO workspace_members(workspace_id,user_id,role) VALUES ('ws','owner','owner'),('ws','reader','viewer'),('other-ws','outsider','owner');
-    UPDATE user_subscriptions SET plan_code='business' WHERE user_id='owner';
+    UPDATE user_subscriptions SET plan_code='business' WHERE user_id IN ('owner','reader');
+    UPDATE workspaces SET plan='business',subscription_plan='business' WHERE id='ws';
     INSERT INTO projects(id,workspace_id,name,created_by,owner_id) VALUES ('project','ws','검증 프로젝트','owner','owner');
     INSERT INTO project_members(project_id,workspace_id,user_id) VALUES ('project','ws','owner'),('project','ws','reader');
     UPDATE project_members SET role='viewer' WHERE user_id='reader';
@@ -137,7 +139,14 @@ try {
   assert.equal(first.artifactVersion,2);
   const firstStructure=JSON.parse((await client.execute("SELECT structure_json FROM project_artifacts WHERE id='arc'")).rows[0].structure_json);
   assert.ok(firstStructure.mermaid.code.startsWith("flowchart LR"));
-  assert.deepEqual(firstStructure.topology,topology);
+  assert.equal(firstStructure.topology.nodes.length, 3, "image-derived components persist alongside Mermaid");
+  assert.equal(firstStructure.topology.edges.length, 2);
+  assert.match(firstStructure.mermaid.code, /Nginx/);
+  assert.match(firstStructure.mermaid.code, /API 요청/);
+  const { mermaidHash } = load(resolve("lib/ai/architecture-mermaid.ts"));
+  assert.equal(firstStructure.mermaid.sourceHash, mermaidHash({ title:"풀스택 구성도", fields, structure:firstStructure }), "Mermaid hash uses enriched topology");
+  assert.deepEqual(firstStructure.topology.nodes.slice(0, 2), topology.nodes, "registered nodes remain intact");
+  assert.deepEqual(firstStructure.topology.edges.slice(0, 1), topology.edges, "registered directed edges remain intact");
   assert.equal(generationInput.size, "1536x1024");
   assert.equal(generationInput.quality, "high");
   for (const value of ["FastAPI 0.115", "PostgreSQL 16", "ORM / SQL", "연결선과 인프라 경계를 강조", '"source":"api"', "SOFTWARE SYSTEM ARCHITECTURE DIAGRAM", "side by side"])
@@ -168,6 +177,11 @@ try {
   assert.equal(generations, callsBeforeReuse);
   assert.equal(modelQueries, queriesBeforeReuse);
   const regen = { regenerate: true, expectedImageId: first.id };
+  invalidTopology = true;
+  assert.equal((await post(regen)).status, 502, "invalid enriched topology is rejected");
+  invalidTopology = false;
+  assert.equal((await stored()).id, first.id);
+  assert.deepEqual(JSON.parse((await client.execute("SELECT structure_json FROM project_artifacts WHERE id='arc'")).rows[0].structure_json), firstStructure, "failed topology enrichment preserves Mermaid and topology");
   failMermaid=true;
   assert.equal((await post(regen)).status,502);
   failMermaid=false;

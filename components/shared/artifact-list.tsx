@@ -18,7 +18,8 @@ export function ArtifactList({
   renderReadActions?: (artifact: Artifact) => ReactNode;
   readActionsLabel?: string;
 }) {
-  const { can, artifacts, openCreate, openEdit, openDelete } = useProjectPage();
+  const { can, artifacts, openCreate, openEdit, openDelete, openDetail } =
+    useProjectPage();
   const [query, setQuery] = useState(""),
     [status, setStatus] = useState("");
   const linkedText = (ids: string[]) =>
@@ -70,6 +71,8 @@ export function ArtifactList({
             <tr>
               <th>관리번호</th>
               <th>명칭</th>
+              <th>문서 목적 / 개요</th>
+              <th>작성 수준</th>
               <th>상태</th>
               <th>담당자</th>
               <th>연결 문서</th>
@@ -84,13 +87,40 @@ export function ArtifactList({
               <tr key={a.id}>
                 <td>{a.code}</td>
                 <td>
-                  <button className="text-button" onClick={() => openEdit(a)}>
+                  <button
+                    className="text-button"
+                    onClick={() => (openDetail ?? openEdit)(a)}
+                  >
                     {a.title}
                   </button>
                 </td>
+                <td>
+                  {a.fields.purpose ||
+                    a.fields.summary ||
+                    a.fields.definition ||
+                    "—"}
+                </td>
+                <td>
+                  {a.detailLevel === "skeleton" ? "초기 초안" : "상세 설계"}
+                </td>
                 <td>{a.status}</td>
                 <td>{a.fields.owner || "—"}</td>
-                <td>{linkedText(a.links)}</td>
+                <td>
+                  {openDetail
+                    ? a.links
+                        .map((id) => artifacts.find((x) => x.id === id))
+                        .filter((x): x is Artifact => !!x)
+                        .map((x) => (
+                          <button
+                            key={x.id}
+                            className="text-button"
+                            onClick={() => openDetail(x)}
+                          >
+                            {x.code}{" "}
+                          </button>
+                        ))
+                    : linkedText(a.links)}
+                </td>
                 <td>v{a.version}</td>
                 <td>
                   {new Date(a.updatedAt).toLocaleString("ko-KR", {

@@ -1,4 +1,6 @@
 "use client";
+import { WbsDeliverableLinks } from "@/components/pages/wbs/wbs-deliverable-links";
+import { SourceReferenceEditor } from "./source-reference-editor";
 import { WbsFormProvider } from "@/components/pages/wbs/wbs-form-state";
 import { validateWbsDates } from "@/lib/wbs-date-constraints";
 import { useEffect, useRef } from "react";
@@ -144,7 +146,12 @@ export function ArtifactDialogContent({
               );
             }}
             onSubmit={(event) => {
-              if (editorKind === "wbs") {
+              if (
+                editorKind === "wbs" &&
+                (event.nativeEvent as SubmitEvent).submitter?.getAttribute(
+                  "data-level",
+                ) !== "skeleton"
+              ) {
                 const form = new FormData(event.currentTarget);
                 const fields = Object.fromEntries(
                   definitions.wbs.fields.map((f) => [
@@ -214,6 +221,16 @@ export function ArtifactDialogContent({
                 {selected ? ` 현재 v${selected.version}` : ""}
               </p>
               <fieldset disabled={busy || !editable}>
+                <input
+                  type="hidden"
+                  name="detailLevel"
+                  value={defaults?.detailLevel ?? "detail"}
+                />
+                <SourceReferenceEditor
+                  projectId={projectId}
+                  initial={defaults?.sources ?? []}
+                  onModified={markDirty}
+                />
                 <label>
                   명칭 *
                   <input
@@ -259,6 +276,10 @@ export function ArtifactDialogContent({
                       artifact={defaults}
                       artifacts={artifacts}
                     />
+                    <WbsDeliverableLinks
+                      targets={targets}
+                      artifact={defaults}
+                    />
                   </WbsFormProvider>
                 ) : (
                   <>
@@ -282,31 +303,29 @@ export function ArtifactDialogContent({
                     />
                   </>
                 )}
-                {allowedLinks[editorKind].length > 0 && (
-                  <fieldset className="matrix-links">
-                    <legend>
-                      {editorKind === "wbs"
-                        ? "일정에 배정할 문서 / 개발 프로그램"
-                        : "연결할 기준 문서 / 설계 항목"}
-                    </legend>
-                    {!targets.length && (
-                      <p>
-                        연결할 항목이 없습니다. 상위 항목을 먼저 등록해 주세요.
-                      </p>
-                    )}
-                    {targets.map((a) => (
-                      <label key={a.id}>
-                        <input
-                          type="checkbox"
-                          name="links"
-                          value={a.id}
-                          defaultChecked={defaults?.links.includes(a.id)}
-                        />{" "}
-                        {a.code} · {a.title}
-                      </label>
-                    ))}
-                  </fieldset>
-                )}
+                {editorKind !== "wbs" &&
+                  allowedLinks[editorKind].length > 0 && (
+                    <fieldset className="matrix-links">
+                      <legend>연결할 기준 문서 / 설계 항목</legend>
+                      {!targets.length && (
+                        <p>
+                          연결할 항목이 없습니다. 상위 항목을 먼저 등록해
+                          주세요.
+                        </p>
+                      )}
+                      {targets.map((a) => (
+                        <label key={a.id}>
+                          <input
+                            type="checkbox"
+                            name="links"
+                            value={a.id}
+                            defaultChecked={defaults?.links.includes(a.id)}
+                          />{" "}
+                          {a.code} · {a.title}
+                        </label>
+                      ))}
+                    </fieldset>
+                  )}
               </fieldset>
               {incoming.length > 0 && (
                 <p>
@@ -327,8 +346,21 @@ export function ArtifactDialogContent({
               )}
             </div>
             <div className="matrix-toolbar project-registration-footer">
+              {editable &&
+                (!selected || selected.detailLevel === "skeleton") && (
+                  <button
+                    className="button"
+                    type="submit"
+                    formNoValidate
+                    data-level="skeleton"
+                    disabled={busy}
+                  >
+                    초기 초안 저장
+                  </button>
+                )}
               {editable && (
                 <button
+                  data-level="detail"
                   className="button primary"
                   disabled={busy}
                   type="submit"

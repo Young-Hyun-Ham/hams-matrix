@@ -10,10 +10,7 @@ export async function GET(request: Request, context: Context) {
     const { productId } = await context.params;
     if (productId === "workspace")
       throw new HttpError(404, "관리 항목을 찾을 수 없습니다.");
-    await productAdminScope(
-      user,
-      productId === "me" ? undefined : productId,
-    );
+    await productAdminScope(user, productId === "me" ? undefined : productId);
     const email =
       new URL(request.url).searchParams.get("email")?.trim().toLowerCase() ??
       "";

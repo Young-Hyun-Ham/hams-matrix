@@ -23,6 +23,7 @@ export const projectTabLabels: Record<ProjectTab, string> = {
   requirement: "요구사항",
   screen: "화면 설계",
   database: "DB 설계 / ERD",
+  function: "기능명세서",
   program: "프로그램 정의",
   test: "검증 / 검수",
   trace: "요구사항 추적표",

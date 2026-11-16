@@ -65,8 +65,9 @@ export async function POST(request: Request) {
     }
     const conversation = {
       convId:
-        ((await workspacePlan(user.id, user.workspaceId)).historyEnabled ? "" : "temporary-") +
-        randomUUID(),
+        ((await workspacePlan(user.id, user.workspaceId)).historyEnabled
+          ? ""
+          : "temporary-") + randomUUID(),
       projectId,
       title: "새 채팅",
       isPinned: false,

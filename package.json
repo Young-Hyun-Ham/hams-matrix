@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/run-with-deliverable-worker.mjs dev",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/run-with-deliverable-worker.mjs start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:dashboard": "node scripts/test-dashboard.mjs",
@@ -50,7 +50,11 @@
     "test:planning-board-browser": "node scripts/test-planning-board-browser.mjs",
     "test:system-settings": "node scripts/test-system-settings.mjs",
     "test:system-settings-api": "node scripts/test-system-settings-api.mjs",
-    "test:query-audit": "node scripts/audit-query-fetch.mjs"
+    "test:query-audit": "node scripts/audit-query-fetch.mjs",
+    "test:deliverable-generation": "node scripts/test-deliverable-generation.mjs",
+    "test:artifact-detail-browser": "node scripts/test-artifact-detail-navigation-browser.mjs",
+    "worker:deliverables": "node scripts/deliverable-worker.mjs",
+    "test:deliverable-background": "node scripts/test-deliverable-background.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",
@@ -96,5 +100,8 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "packageManager": "pnpm@10.27.0"
+  "packageManager": "pnpm@10.27.0",
+  "engines": {
+    "node": ">=24"
+  }
 }

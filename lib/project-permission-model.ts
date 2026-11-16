@@ -24,6 +24,7 @@ const editable = new Set<ProjectTab>([
   "requirement",
   "screen",
   "database",
+  "function",
   "program",
   "test",
   "documents",

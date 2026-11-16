@@ -15,7 +15,11 @@ async function Content({ params }: Props) {
   if (!user) redirect("/login");
   if (!user.onboardingComplete) redirect("/onboarding");
   const { projectId, fileId } = await params;
-  return <WorkspacePlanGuard user={user}><OnlyofficeEditor projectId={projectId} fileId={fileId} /></WorkspacePlanGuard>;
+  return (
+    <WorkspacePlanGuard user={user}>
+      <OnlyofficeEditor projectId={projectId} fileId={fileId} />
+    </WorkspacePlanGuard>
+  );
 }
 
 export default function Page(props: Props) {

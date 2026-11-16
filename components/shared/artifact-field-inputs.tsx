@@ -15,7 +15,10 @@ export function initialArtifactFields(
   return Object.fromEntries(
     definitions[kind].fields.map((f) => [
       f.key,
-      artifact?.fields[f.key] || f.defaultValue || f.options?.[0] || "",
+      artifact?.fields[f.key] ??
+        (artifact?.detailLevel === "skeleton"
+          ? ""
+          : (f.defaultValue ?? f.options?.[0] ?? "")),
     ]),
   );
 }
@@ -56,6 +59,7 @@ export function ArtifactFieldInputs({
                 value={fields[f.key]}
                 onChange={(e) => change(f.key, e.target.value)}
               >
+                <option value="">미정 / 미작성</option>
                 {f.options.map((option) => (
                   <option key={option} value={option}>
                     {f.key === "category"

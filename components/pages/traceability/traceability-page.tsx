@@ -2,7 +2,7 @@
 import { useProjectPage } from "@/components/shared/project-page-context";
 import { traceRows } from "@/lib/traceability";
 export function TraceabilityPage() {
-  const { artifacts } = useProjectPage();
+  const { artifacts, openDetail, openEdit } = useProjectPage();
   return (
     <section className="panel matrix-section">
       <h2>요구사항 추적표</h2>
@@ -18,6 +18,7 @@ export function TraceabilityPage() {
               <th>요구사항명</th>
               <th>화면 ID</th>
               <th>DB ID</th>
+              <th>기능 ID</th>
               <th>프로그램 ID</th>
               <th>연결 현황</th>
             </tr>
@@ -29,7 +30,30 @@ export function TraceabilityPage() {
                 <td>{row.requirement?.title ?? "—"}</td>
                 <td>{row.screen?.code ?? "—"}</td>
                 <td>{row.database?.code ?? "—"}</td>
-                <td>{row.program?.code ?? "—"}</td>
+                <td>
+                  {row.function ? (
+                    <button
+                      className="text-button"
+                      onClick={() => (openDetail ?? openEdit)(row.function!)}
+                    >
+                      {row.function.code}
+                    </button>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td>
+                  {row.program ? (
+                    <button
+                      className="text-button"
+                      onClick={() => (openDetail ?? openEdit)(row.program!)}
+                    >
+                      {row.program.code}
+                    </button>
+                  ) : (
+                    "—"
+                  )}
+                </td>
                 <td>{row.relation}</td>
               </tr>
             ))}

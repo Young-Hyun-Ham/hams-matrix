@@ -6,14 +6,14 @@ import { pathToFileURL } from "node:url";
 import { createHash } from "node:crypto";
 import { createClient } from "@libsql/client";
 
-export async function dashboardFixture(now = new Date()) {
+export async function dashboardFixture(now = new Date(), ceiling = "999") {
   const folder = await mkdtemp(join(tmpdir(), "matrix-dashboard-"));
   const url = pathToFileURL(join(folder, "test.db")).href;
   const db = createClient({ url, timeout: 5000 });
   await db.execute("PRAGMA foreign_keys=ON");
   await db.execute("PRAGMA journal_mode=WAL");
   for (const name of (await readdir("db/migrations"))
-    .filter((n) => n.endsWith(".sql"))
+    .filter((n) => n.endsWith(".sql") && n <= ceiling)
     .sort())
     await db.executeMultiple(
       (await readFile(join("db/migrations", name), "utf8")).replace(

@@ -73,12 +73,24 @@ export function validateMermaidOrder(
 }
 
 function label(text: string) {
-  return text
-    .replace(/[\r\n\t]+/g, " ")
-    .replace(
-      /[^\p{L}\p{N} .,_:/+\-]/gu,
-      (character) => `#${character.codePointAt(0)};`,
-    );
+  return (
+    text
+      // Normalize legacy numeric entities without emitting Mermaid entity syntax.
+      .replace(/&?#(x[0-9a-f]+|[0-9]+);/gi, (_, value: string) => {
+        const point =
+          value[0].toLowerCase() === "x"
+            ? parseInt(value.slice(1), 16)
+            : Number(value);
+        return point > 0 &&
+          point <= 0x10ffff &&
+          !(point >= 0xd800 && point <= 0xdfff)
+          ? String.fromCodePoint(point)
+          : " ";
+      })
+      .replace(/[^\p{L}\p{N} .,_:/+\-()·]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+  );
 }
 export function serializeMermaid(
   topology: ArchitectureTopology,
@@ -122,7 +134,7 @@ export function isSafeArchitectureMermaid(code: string) {
   if (code.length > 150000) return false;
   const lines = code.split("\n");
   if (!/^flowchart (?:TD|LR|RL|BT)$/.test(lines.shift() ?? "")) return false;
-  const text = "[\\p{L}\\p{N} .,_:/+\\-#;]*";
+  const text = "[\\p{L}\\p{N} .,_:/+\\-()·]*";
   const allowed = new RegExp(
     `^(?:  subgraph l(?:client|gateway|frontend|backend|data|external)\\["${text}"\\]|    n\\d+(?:\\["${text}"\\]|\\[\\("${text}"\\)\\])|  end|  n\\d+ -->(?:\\|"${text}"\\|)? n\\d+)$`,
     "u",

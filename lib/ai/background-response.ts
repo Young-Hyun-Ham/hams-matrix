@@ -9,21 +9,32 @@ import type { AiCallEvent } from "./token-types";
 export const activeResponse = (status: unknown) =>
   status === "queued" || status === "in_progress";
 export async function retrieveResponse(id: string, cancel = false) {
-  const response = await fetch(
-    `https://api.openai.com/v1/responses/${encodeURIComponent(id)}${cancel ? "/cancel" : ""}`,
-    {
-      method: cancel ? "POST" : "GET",
-      headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
-      signal: AbortSignal.timeout(10000),
-      cache: "no-store",
-    },
-  );
+  let response: Response;
+  try {
+    response = await fetch(
+      `https://api.openai.com/v1/responses/${encodeURIComponent(id)}${cancel ? "/cancel" : ""}`,
+      {
+        method: cancel ? "POST" : "GET",
+        headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
+        signal: AbortSignal.timeout(10000),
+        cache: "no-store",
+      },
+    );
+  } catch {
+    throw new HttpError(502, "AI 진행 상태 연결을 확인할 수 없습니다.", {
+      retryable: true,
+    });
+  }
   if (!response.ok)
     throw new HttpError(
       502,
       cancel
         ? "AI 서버의 중지 확인에 실패했습니다. 다시 중지해 주세요."
         : "AI 진행 상태를 조회하지 못했습니다.",
+      {
+        retryable: response.status === 429 || response.status >= 500,
+        providerStatus: response.status,
+      },
     );
   return (await response.json()) as Record<string, unknown>;
 }
@@ -56,7 +67,19 @@ export async function finishBackgroundResponse(
         throw new HttpError(504, "AI 생성 시간이 초과되었습니다.");
       await new Promise((resolve) => setTimeout(resolve, 500));
       await checkpoint?.();
-      current = await retrieveResponse(id);
+      try {
+        current = await retrieveResponse(id);
+      } catch (error) {
+        if (
+          !Number.isFinite(deadline) &&
+          error instanceof HttpError &&
+          error.details?.retryable
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          continue;
+        }
+        throw error;
+      }
       await snapshot();
     }
     await checkpoint?.();

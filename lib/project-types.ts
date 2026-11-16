@@ -16,6 +16,7 @@ export type Project = {
     requirements: number;
     screens: number;
     programs: number;
+    functions?: number;
     completed: number;
     wbs?: number;
     architectures?: number;

@@ -119,6 +119,8 @@ export function exportSheets(data: ProjectData): Sheet[] {
           : definitions[kind].fields
         ).map((f) => f.label),
         ...kinds.map((k) => `관련 ${definitions[k].label} ID`),
+        "작성 수준",
+        "출처·근거",
         "버전",
         "최종 수정 (UTC)",
       ],
@@ -134,6 +136,10 @@ export function exportSheets(data: ProjectData): Sheet[] {
             : definitions[kind].fields
           ).map((f) => a.fields[f.key] ?? ""),
           ...kinds.map((k) => relatedCodes(artifacts, a, k, traces)),
+          a.detailLevel === "skeleton" ? "초기 초안" : "상세 설계",
+          (a.sources ?? [])
+            .map((s) => s.locator + " · " + s.rationale)
+            .join("; "),
           String(a.version),
           a.updatedAt,
         ]),
@@ -170,7 +176,7 @@ export function exportSheets(data: ProjectData): Sheet[] {
       ],
     },
   ];
-  for (const kind of ["requirement", "screen", "program"] as const)
+  for (const kind of ["requirement", "screen", "function", "program"] as const)
     sheets.push(docSheet(kind));
   sheets.push({
     name: "요구사항추적표",
@@ -180,6 +186,8 @@ export function exportSheets(data: ProjectData): Sheet[] {
         "요구사항명",
         "화면 ID",
         "화면명",
+        "기능 ID",
+        "기능명",
         "프로그램 ID",
         "프로그램명",
         "연결 구분",
@@ -194,6 +202,8 @@ export function exportSheets(data: ProjectData): Sheet[] {
         row.requirement?.title ?? "",
         row.screen?.code ?? "",
         row.screen?.title ?? "",
+        row.function?.code ?? "",
+        row.function?.title ?? "",
         row.program?.code ?? "",
         row.program?.title ?? "",
         row.relation,

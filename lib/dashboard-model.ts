@@ -34,6 +34,7 @@ export function dashboardProjectStats(
     requirements: count("requirement"),
     screens: count("screen"),
     programs: count("program"),
+    functions: count("function"),
     completed: artifacts.filter(
       (a) => a.kind === "requirement" && a.status === "완료",
     ).length,

@@ -73,11 +73,14 @@ try {
       links: [], structure: { parentId, dependencies: [] } };
   }
   const data = { requestId: "create-request-00001", changes: [task("temp-parent", "요약"), task("temp-a", "작업", "temp-parent", "100", "3"), task("temp-b", "작업", "temp-parent", "0", "1")], deletes: [] };
+  data.changes[0].fields.phase = "";
+  assert.ok(!definitions.wbs.fields.find((field) => field.key === "phase").required);
   let response = await post(data);
   assert.equal(response.status, 200, await response.clone().text());
   let saved = await response.json();
   const parentId = saved.idMap["temp-parent"], aId = saved.idMap["temp-a"];
   const parent = () => saved.data.artifacts.find((artifact) => artifact.id === parentId);
+  assert.equal(parent().fields.phase, "", "summary saves without a phase");
   assert.equal(parent().fields.progress, "75");
   assert.equal(parent().fields.plannedEffort, "4");
   assert.equal(saved.data.artifacts.find((artifact) => artifact.id === aId).structure.parentId, parentId);

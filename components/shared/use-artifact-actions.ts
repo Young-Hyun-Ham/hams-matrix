@@ -116,6 +116,18 @@ export function useArtifactActions(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             kind: editor.kind,
+            detailLevel:
+              (event.nativeEvent as SubmitEvent).submitter?.getAttribute(
+                "data-level",
+              ) ??
+              form.get("detailLevel") ??
+              defaults?.detailLevel ??
+              "detail",
+            sources: JSON.parse(
+              String(
+                form.get("sources") ?? JSON.stringify(defaults?.sources ?? []),
+              ),
+            ),
             title: form.get("title"),
             status: form.get("status"),
             fields,

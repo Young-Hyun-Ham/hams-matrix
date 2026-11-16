@@ -2,6 +2,7 @@ import {
   projectPermissionAccess,
   requireProjectPermission,
 } from "./project-permissions";
+import { artifactSources, saveArtifactSources } from "./source-references";
 import { randomUUID } from "node:crypto";
 import type { Client, Row, Transaction } from "@libsql/client";
 import { HttpError, requireWriter } from "./auth";
@@ -84,6 +85,10 @@ export async function prepareArtifactMermaid(
     checkpoint,
     imageDataUrl,
     deadline,
+    (topology) => {
+      artifact.structure = { ...artifact.structure, topology };
+      input.structure = { ...artifact.structure };
+    },
   );
   preparedMermaids.set(input, {
     source: JSON.stringify(mermaidSource(artifact)),
@@ -120,6 +125,7 @@ export function toArtifact(row: Row, links: string[] = []): Artifact {
     id: String(row.id),
     projectId: String(row.project_id),
     kind: String(row.kind) as ArtifactKind,
+    detailLevel: row.detail_level === "skeleton" ? "skeleton" : "detail",
     code: String(row.code),
     title: String(row.title),
     status: String(row.status),
@@ -144,6 +150,10 @@ export async function projectData(
   });
   const edges = await executor.execute({
     sql: "SELECT source_id,target_id FROM artifact_links WHERE project_id=? AND workspace_id=? AND relation='reference'",
+    args: [projectId, user.workspaceId],
+  });
+  const sourceRows = await executor.execute({
+    sql: "SELECT * FROM artifact_source_references WHERE project_id=? AND workspace_id=?",
     args: [projectId, user.workspaceId],
   });
   const planningBoards = result.rows.some((row) => row.kind === "screen")
@@ -176,6 +186,16 @@ export async function projectData(
           .filter((e) => e.source_id === row.id)
           .map((e) => String(e.target_id)),
       ),
+      sources: sourceRows.rows
+        .filter((s) => s.artifact_id === row.id)
+        .map((s) => ({
+          snapshotId: String(s.snapshot_id),
+          locator: String(s.locator),
+          excerpt: String(s.excerpt),
+          rationale: String(s.rationale),
+          origin:
+            s.origin as import("./artifact-types").SourceReference["origin"],
+        })),
       ...(row.kind === "screen" && planningStatuses.has(String(row.id))
         ? { planningBoardStatus: planningStatuses.get(String(row.id)) }
         : {}),
@@ -214,6 +234,14 @@ export function validateArtifactInput(
     Array.isArray(input.fields)
   )
     throw new HttpError(400, "입력 항목을 확인해 주세요.");
+  const detailLevel = input.detailLevel ?? before?.detailLevel ?? "detail";
+  if (
+    !["skeleton", "detail"].includes(String(detailLevel)) ||
+    (before?.detailLevel !== "skeleton" && before && detailLevel === "skeleton")
+  )
+    throw new HttpError(400, "작성 수준을 확인해 주세요.");
+  if (detailLevel === "skeleton" && input.status !== "초안")
+    throw new HttpError(400, "초기 초안은 초안 상태만 저장할 수 있습니다.");
   const raw = input.fields as Record<string, unknown>,
     fields: Record<string, string> = {};
   for (const field of definitions[kind].fields) {
@@ -221,7 +249,9 @@ export function validateArtifactInput(
     if (
       typeof value !== "string" ||
       value.length > 3000 ||
-      (field.required && !value.trim()) ||
+      (field.required &&
+        (detailLevel !== "skeleton" || field.key === "category") &&
+        !value.trim()) ||
       (field.options && value !== "" && !field.options.includes(value))
     )
       throw new HttpError(
@@ -249,6 +279,8 @@ export function validateArtifactInput(
       );
     fields[field.key] = value.trim();
   }
+  if (detailLevel === "skeleton" && (!fields.purpose || !fields.summary))
+    throw new HttpError(400, "초기 초안의 문서 목적과 설명을 입력해 주세요.");
   if (kind === "architecture") {
     for (const key of architectureLegacyKeys) {
       if (typeof before?.fields[key] === "string")
@@ -263,6 +295,7 @@ export function validateArtifactInput(
     throw new HttpError(400, "연결 항목을 확인해 주세요.");
   return {
     title,
+    detailLevel: detailLevel as "skeleton" | "detail",
     status: input.status as string,
     fields,
     links: [...new Set(input.links as string[])],
@@ -334,6 +367,7 @@ export async function mutateArtifact(
         found.rows[0],
         edges.rows.map((e) => String(e.target_id)),
       );
+      before.sources = await artifactSources(tx, user, projectId, before.id);
       if (!Number.isInteger(input.version) || input.version !== before.version)
         throw new HttpError(
           409,
@@ -485,6 +519,13 @@ export async function mutateArtifact(
     }
     await persistArtifactRow(tx, user, after, before, action);
     if (action !== "DELETE") await syncArtifactLinks(tx, user, after);
+    after.sources = await saveArtifactSources(
+      tx,
+      user,
+      after,
+      input.sources ?? before?.sources ?? [],
+      action,
+    );
     await recordArtifactChange(tx, request, user, after, before, action);
     await beforeCommit?.(tx);
     if (!transaction) await tx.commit();
@@ -524,12 +565,13 @@ export async function persistArtifactRow(
   } else {
     if (before)
       await tx.execute({
-        sql: "UPDATE project_artifacts SET title=?,status=?,fields_json=?,structure_json=?,version=?,updated_by=?,updated_at=? WHERE id=? AND project_id=? AND workspace_id=?",
+        sql: "UPDATE project_artifacts SET title=?,status=?,fields_json=?,structure_json=?,detail_level=?,version=?,updated_by=?,updated_at=? WHERE id=? AND project_id=? AND workspace_id=?",
         args: [
           after.title,
           after.status,
           JSON.stringify(after.fields),
           JSON.stringify(after.structure),
+          after.detailLevel ?? "detail",
           after.version,
           user.id,
           now,
@@ -540,7 +582,7 @@ export async function persistArtifactRow(
       });
     else
       await tx.execute({
-        sql: "INSERT INTO project_artifacts(id,workspace_id,project_id,kind,code,title,status,fields_json,structure_json,version,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        sql: "INSERT INTO project_artifacts(id,workspace_id,project_id,kind,code,title,status,fields_json,structure_json,detail_level,version,created_by,updated_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         args: [
           after.id,
           user.workspaceId,
@@ -551,6 +593,7 @@ export async function persistArtifactRow(
           after.status,
           JSON.stringify(after.fields),
           JSON.stringify(after.structure),
+          after.detailLevel ?? "detail",
           1,
           user.id,
           user.id,
@@ -619,6 +662,8 @@ export async function recordArtifactChange(
             fields: before.fields,
             links: before.links,
             structure: before.structure,
+            detailLevel: before.detailLevel,
+            sources: before.sources,
           }
         : undefined,
       after:
@@ -632,6 +677,8 @@ export async function recordArtifactChange(
               fields: after.fields,
               links: after.links,
               structure: after.structure,
+              detailLevel: after.detailLevel,
+              sources: after.sources,
             },
       metadata: { projectId },
     },

@@ -58,7 +58,8 @@ export async function GET(request: Request) {
       {
         conversation,
         ...(await conversationChats(user, projectId, convId, before)),
-        historyEnabled: (await workspacePlan(user.id, user.workspaceId)).historyEnabled,
+        historyEnabled: (await workspacePlan(user.id, user.workspaceId))
+          .historyEnabled,
       },
       { headers: { "Cache-Control": "no-store" } },
     );

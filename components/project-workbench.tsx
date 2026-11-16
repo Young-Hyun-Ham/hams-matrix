@@ -22,6 +22,10 @@ import { ArchitecturePage } from "./pages/architecture/architecture-page";
 import { RequirementsPage } from "./pages/requirements/requirements-page";
 import { ScreensPage } from "./pages/screens/screens-page";
 import { DatabasePage } from "./pages/database/database-page";
+import { DeliverableGenerationDialog } from "./shared/deliverable-generation-dialog";
+import { useDocumentNavigation } from "./shared/use-document-navigation";
+import { ArtifactDetailDialog } from "./shared/artifact-detail-dialog";
+import { FunctionsPage } from "./pages/functions/functions-page";
 import { SpecificationsPage } from "./pages/specifications/specifications-page";
 import { VerificationPage } from "./pages/verification/verification-page";
 import { TraceabilityPage } from "./pages/traceability/traceability-page";
@@ -38,6 +42,7 @@ const pages: Record<ProjectTab, ComponentType> = {
   requirement: RequirementsPage,
   screen: ScreensPage,
   database: DatabasePage,
+  function: FunctionsPage,
   program: SpecificationsPage,
   test: VerificationPage,
   trace: TraceabilityPage,
@@ -65,6 +70,9 @@ function ProjectContent({
   updateData: (data: ProjectData) => void;
   onDirtyChange: (dirty: boolean) => void;
 }) {
+  const navigation = useDocumentNavigation(
+    `${user.workspaceId}:${data.project.id}`,
+  );
   const access = useProjectAccess(user, data.project.id, tab);
   const actions = useArtifactActions(
       data.project.id,
@@ -95,6 +103,8 @@ function ProjectContent({
           if (can(kind, "CREATE")) actions.openCreate(kind, draft);
         },
         openEdit: actions.openEdit,
+        openDetail: (artifact) =>
+          navigation.open({ type: "artifact", id: artifact.id }),
         openDelete: (artifact) => {
           if (can(artifact.kind, "DELETE")) actions.openDelete(artifact);
         },
@@ -115,7 +125,12 @@ function ProjectContent({
             {access.error}
           </p>
         )}
+        {["rfp", "documents"].includes(tab) && <DeliverableGenerationDialog />}
         <Page />
+        <ArtifactDetailDialog
+          navigation={navigation}
+          hidden={!!actions.editor}
+        />
         <ArtifactDialogs actions={actions} onReload={onReload} />
       </div>
     </ProjectPageProvider.Provider>

@@ -38,7 +38,10 @@ export function WbsStructureEditor({
             ))}
         </select>
       </label>
-      <fieldset className="matrix-links">
+      <fieldset
+        className="matrix-links"
+        disabled={shared?.fields.taskType === "요약"}
+      >
         <legend>선행 작업 (완료 후 시작)</legend>
         {tasks
           .filter((a) => a.fields.taskType !== "요약")

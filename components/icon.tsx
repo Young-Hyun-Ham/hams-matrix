@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 
 const paths: Record<string, string> = {
-  "$": "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
+  $: "M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6",
   "book-open":
     "M12 5v16 M20.001 19A2 2 0 0022 17V5a2 2 0 00-1.999-2L16 3.002A5 5 0 0012 5a5 5 0 00-4-2H4a2 2 0 00-2 2v12a2 2 0 001.999 2H8a5 5 0 014 2 5 5 0 014-2z",
   pin: "m16 3 5 5-4 1-4 4v4l-2 2-6-6 2-2h4l4-4zM8 16l-5 5",

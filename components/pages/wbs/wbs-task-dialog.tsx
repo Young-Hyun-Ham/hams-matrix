@@ -2,6 +2,8 @@
 import { useEffect, useRef } from "react";
 import type { Artifact } from "@/lib/artifact-types";
 import { definitions, allowedLinks, statuses } from "@/lib/artifact-types";
+import { WbsFormProvider } from "./wbs-form-state";
+import { WbsDeliverableLinks } from "./wbs-deliverable-links";
 import { WbsFields } from "./wbs-fields";
 import { WbsStructureEditor } from "./wbs-structure-editor";
 import { useProjectPage } from "@/components/shared/project-page-context";
@@ -98,28 +100,24 @@ export function WbsTaskDialog({
                 ))}
               </select>
             </label>
-            <WbsFields
+            <WbsFormProvider
               artifact={artifact}
-              isExisting={!artifact.id.startsWith("temp-")}
-              calendarOnly
-            />
-            <WbsStructureEditor artifact={artifact} artifacts={artifacts} />
-            <fieldset className="matrix-links">
-              <legend>연결할 산출물</legend>
-              {artifacts
-                .filter((target) => allowedLinks.wbs.includes(target.kind))
-                .map((target) => (
-                  <label key={target.id}>
-                    <input
-                      type="checkbox"
-                      name="links"
-                      value={target.id}
-                      defaultChecked={artifact.links.includes(target.id)}
-                    />
-                    {target.code} · {target.title}
-                  </label>
-                ))}
-            </fieldset>
+              artifacts={artifacts}
+              onModified={() => {}}
+            >
+              <WbsFields
+                artifact={artifact}
+                isExisting={!artifact.id.startsWith("temp-")}
+                calendarOnly
+              />
+              <WbsStructureEditor artifact={artifact} artifacts={artifacts} />
+              <WbsDeliverableLinks
+                targets={artifacts.filter((target) =>
+                  allowedLinks.wbs.includes(target.kind),
+                )}
+                artifact={artifact}
+              />
+            </WbsFormProvider>
           </fieldset>
         </div>
         <div className="project-registration-footer">

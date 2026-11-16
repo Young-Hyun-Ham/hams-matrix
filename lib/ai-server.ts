@@ -1,7 +1,10 @@
 import "server-only";
 import { HttpError } from "./auth";
 import type { AiCallEvent } from "./ai/token-types";
-import { finishBackgroundResponse } from "./ai/background-response";
+import {
+  finishBackgroundResponse,
+  retrieveResponse,
+} from "./ai/background-response";
 import { MAX_GUARDRAIL_CHANGES } from "./ai/guardrail-types";
 import { MAX_TOOL_ROUNDS } from "./ai/guardrail-types";
 import { createHash } from "node:crypto";
@@ -54,7 +57,9 @@ export async function generateAi(
   checkpoint?: () => Promise<void>,
   options?: {
     responseFormat?: Record<string, unknown>;
-    deadline?: number;
+    deadline?: number | null;
+    resumeResponseId?: string;
+    onResponse?: (id: string) => Promise<void>;
     maxOutputTokens?: number;
     maxToolRounds?: number;
     requestId?: string;
@@ -80,7 +85,16 @@ export async function generateAi(
         : input,
     },
   ];
-  const deadline = Math.min(Date.now() + 120000, options?.deadline ?? Infinity);
+  // Only a dedicated worker opts out of the foreground 120-second budget.
+  const deadline =
+    options?.deadline === null
+      ? Infinity
+      : Math.min(Date.now() + 120000, options?.deadline ?? Infinity);
+  if (options?.deadline === null && agent)
+    throw new HttpError(
+      400,
+      "무제한 대기는 독립 백그라운드 생성에서만 사용할 수 있습니다.",
+    );
   const maxRounds = options?.maxToolRounds ?? 12;
   if (
     !Number.isInteger(maxRounds) ||
@@ -129,55 +143,62 @@ export async function generateAi(
     const imageCount = (
       JSON.stringify(messages).match(/"type":"input_image"/g) ?? []
     ).length;
-    await track?.({
-      turn,
-      status: "started",
-      reservedTokens:
-        Buffer.byteLength(budgetText, "utf8") +
-        maxOutputTokens +
-        4096 +
-        imageCount * 65536,
-    });
-    let response: Response;
-    try {
-      response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          instructions: roundInstructions,
-          input: agent || images.length || history.length ? messages : input,
-          store: false,
-          background: true,
-          max_output_tokens: maxOutputTokens,
-          ...(options?.responseFormat
-            ? { text: { format: options.responseFormat } }
-            : {}),
-          ...(agent
-            ? {
-                tools: agent.tools,
-                parallel_tool_calls: false,
-                ...(finalRound ? { tool_choice: "none" } : {}),
-                include: ["reasoning.encrypted_content"],
-              }
-            : {}),
-        }),
-        signal: AbortSignal.timeout(Math.max(1, deadline - Date.now())),
-      });
-    } catch {
+    const resumeId = turn === 0 ? options?.resumeResponseId : undefined;
+    if (!resumeId)
       await track?.({
         turn,
-        status: "failed",
-        durationMs: Date.now() - started,
+        status: "started",
+        reservedTokens:
+          Buffer.byteLength(budgetText, "utf8") +
+          maxOutputTokens +
+          4096 +
+          imageCount * 65536,
       });
-      throw new HttpError(
-        504,
-        "AI 응답을 기다리지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      );
-    }
+    let response: Response;
+    if (resumeId) {
+      response = Response.json(await retrieveResponse(resumeId));
+    } else
+      try {
+        response = await fetch("https://api.openai.com/v1/responses", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            instructions: roundInstructions,
+            input: agent || images.length || history.length ? messages : input,
+            store: false,
+            background: true,
+            max_output_tokens: maxOutputTokens,
+            ...(options?.responseFormat
+              ? { text: { format: options.responseFormat } }
+              : {}),
+            ...(agent
+              ? {
+                  tools: agent.tools,
+                  parallel_tool_calls: false,
+                  ...(finalRound ? { tool_choice: "none" } : {}),
+                  include: ["reasoning.encrypted_content"],
+                }
+              : {}),
+          }),
+          signal: AbortSignal.timeout(
+            Math.min(30000, Math.max(1, deadline - Date.now())),
+          ),
+        });
+      } catch {
+        await track?.({
+          turn,
+          status: "failed",
+          durationMs: Date.now() - started,
+        });
+        throw new HttpError(
+          504,
+          "AI 응답을 기다리지 못했습니다. 잠시 후 다시 시도해 주세요.",
+        );
+      }
     let raw: unknown;
     try {
       raw = await response.json();
@@ -195,6 +216,16 @@ export async function generateAi(
     }
     let metadata =
       raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+    if (response.ok && typeof metadata.id === "string" && options?.onResponse) {
+      await track?.({
+        turn,
+        status: String(metadata.status ?? "unknown"),
+        responseId: metadata.id,
+        model,
+        httpStatus: 200,
+      });
+      await options.onResponse(metadata.id);
+    }
     if (response.ok)
       metadata = await finishBackgroundResponse(
         metadata,

@@ -7,6 +7,7 @@ export const kinds = [
   "requirement",
   "screen",
   "database",
+  "function",
   "program",
   "test",
 ] as const;
@@ -54,7 +55,6 @@ export const definitions: Record<
       {
         key: "phase",
         label: "단계",
-        required: true,
         options: ["착수", "분석", "설계", "개발", "테스트", "검수", "종료"],
       },
       {
@@ -172,6 +172,39 @@ export const definitions: Record<
       notes,
     ],
   },
+  function: {
+    label: "기능",
+    document: "기능명세서",
+    prefix: "FNC",
+    fields: [
+      { key: "definition", label: "기능 정의", required: true },
+      {
+        key: "functionType",
+        label: "기능 유형",
+        options: [
+          "조회",
+          "등록",
+          "수정",
+          "삭제",
+          "처리",
+          "연계",
+          "배치",
+          "공통",
+        ],
+      },
+      { key: "actor", label: "수행 주체" },
+      { key: "preconditions", label: "사전 조건" },
+      { key: "inputs", label: "입력" },
+      { key: "outputs", label: "출력" },
+      { key: "details", label: "주요 처리 흐름", required: true },
+      { key: "businessRules", label: "업무 규칙 / 유효성 검증" },
+      { key: "exceptions", label: "예외 / 오류 처리" },
+      { key: "permissions", label: "접근 권한 / 보안 조건" },
+      { key: "acceptance", label: "완료 / 검증 기준" },
+      owner,
+      notes,
+    ],
+  },
   program: {
     label: "프로그램",
     document: "프로그램정의서",
@@ -228,13 +261,35 @@ export const definitions: Record<
   },
 };
 export const allowedLinks: Record<ArtifactKind, readonly ArtifactKind[]> = {
-  wbs: ["architecture", "requirement", "screen", "database", "program", "test"],
+  wbs: [
+    "architecture",
+    "requirement",
+    "screen",
+    "database",
+    "function",
+    "program",
+    "test",
+  ],
   architecture: [],
   requirement: ["requirement", "architecture"],
   screen: ["requirement", "architecture", "database"],
   database: ["requirement", "architecture"],
-  program: ["requirement", "screen", "database", "architecture"],
-  test: ["requirement", "screen", "database", "program"],
+  function: ["requirement", "screen", "database", "architecture"],
+  program: ["requirement", "screen", "database", "function", "architecture"],
+  test: ["requirement", "screen", "database", "function", "program"],
+};
+export const commonArtifactFields: FieldDefinition[] = [
+  { key: "purpose", label: "문서 목적" },
+  { key: "summary", label: "설명 / 주요 구성" },
+];
+for (const kind of kinds)
+  definitions[kind].fields.push(...commonArtifactFields);
+export type SourceReference = {
+  snapshotId: string;
+  locator: string;
+  excerpt: string;
+  rationale: string;
+  origin: "원문 명시" | "설계 도출" | "사용자 지정";
 };
 export type TableColumn = {
   id: string;
@@ -325,6 +380,8 @@ export type ArtifactStructure = {
   baselines?: Baseline[];
 };
 export type Artifact = {
+  detailLevel?: "skeleton" | "detail";
+  sources?: SourceReference[];
   id: string;
   projectId: string;
   kind: ArtifactKind;

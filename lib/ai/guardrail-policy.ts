@@ -14,7 +14,8 @@ export function isGuardrailAdmin(user: User) {
   return (
     ["biz_admin", "team_admin"].includes(user.accountRole) &&
     user.onboardingComplete &&
-    Boolean(user.productId) && user.productId === user.workspaceProductId
+    Boolean(user.productId) &&
+    user.productId === user.workspaceProductId
   );
 }
 export function requireGuardrailAdmin(user: User) {

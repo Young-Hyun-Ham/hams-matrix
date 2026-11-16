@@ -61,7 +61,7 @@ export function taskMetrics(artifacts: Artifact[], task?: Artifact) {
     const children = wbs.filter((c) => c.structure?.parentId === a.id);
     if (a.fields.taskType === "요약") {
       children.forEach(walk);
-    } else selected.push(a);
+    } else if (a.detailLevel !== "skeleton") selected.push(a);
   };
   if (task) walk(task);
   else wbs.filter((a) => !a.structure?.parentId).forEach(walk);
@@ -111,11 +111,16 @@ export function acceptanceReport(
     if (!issues.some((i) => i.artifactId === a?.id && i.message === message))
       issues.push({ code: a?.code ?? "프로젝트", artifactId: a?.id, message });
   };
-  const approved = (a: Artifact) => ["승인", "완료"].includes(a.status);
+  const approved = (a: Artifact) =>
+    a.detailLevel !== "skeleton" && ["승인", "완료"].includes(a.status);
   if (!wbs.length) issue(undefined, "WBS가 없습니다.");
   if (!architectures.length) issue(undefined, "아키텍처 정의서가 없습니다.");
   if (!requirements.length) issue(undefined, "요구사항 정의서가 없습니다.");
   for (const a of artifacts) {
+    if (a.detailLevel === "skeleton") {
+      issue(a, "초기 초안의 상세 작성이 필요합니다.");
+      continue;
+    }
     if (a.kind === "wbs") {
       if (
         a.fields.taskType !== "요약" &&

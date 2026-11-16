@@ -5,6 +5,7 @@ export type TraceRow = {
   screen?: Artifact;
   database?: Artifact;
   program?: Artifact;
+  function?: Artifact;
   relation: string;
 };
 export function traceRows(artifacts: Artifact[]): TraceRow[] {
@@ -27,6 +28,7 @@ export function traceRows(artifacts: Artifact[]): TraceRow[] {
       row.screen?.id,
       row.database?.id,
       row.program?.id,
+      row.function?.id,
     ].join(":");
     if (!seen.has(key)) {
       seen.add(key);
@@ -95,15 +97,31 @@ export function traceRows(artifacts: Artifact[]): TraceRow[] {
           relation: "요구사항 직접 연결 / DB 처리",
         });
     }
+    for (const fn of artifacts.filter(
+      (a) =>
+        a.kind === "function" &&
+        upstreamArtifacts(artifacts, a).some((r) => r.id === requirement.id),
+    )) {
+      const linked = programs.filter((p) => p.links.includes(fn.id));
+      if (!linked.length)
+        push({ requirement, function: fn, relation: "기능 / 프로그램 미연결" });
+      for (const program of linked)
+        push({ requirement, function: fn, program, relation: "기능 경유" });
+    }
     if (!result.some((row) => row.requirement?.id === requirement.id))
       push({ requirement, relation: "설계 미연결" });
   }
   for (const a of artifacts.filter((a) =>
-    ["screen", "database", "program"].includes(a.kind),
+    ["screen", "database", "function", "program"].includes(a.kind),
   )) {
     if (
       result.some((row) =>
-        [row.screen?.id, row.database?.id, row.program?.id].includes(a.id),
+        [
+          row.screen?.id,
+          row.database?.id,
+          row.function?.id,
+          row.program?.id,
+        ].includes(a.id),
       )
     )
       continue;
@@ -112,6 +130,12 @@ export function traceRows(artifacts: Artifact[]): TraceRow[] {
       if (!linked.length) push({ screen: a, relation: "요구사항 미연결" });
       for (const program of linked)
         push({ screen: a, program, relation: "요구사항 미연결" });
+    }
+    if (a.kind === "function") {
+      const linked = programs.filter((p) => p.links.includes(a.id));
+      if (!linked.length) push({ function: a, relation: "요구사항 미연결" });
+      for (const program of linked)
+        push({ function: a, program, relation: "요구사항 미연결 / 기능 경유" });
     }
     if (a.kind === "database")
       push({ database: a, relation: "요구사항 미연결" });
@@ -136,9 +160,13 @@ export function relatedCodes(
   );
   for (const row of rows) {
     if (
-      [row.requirement, row.screen, row.database, row.program].some(
-        (a) => a?.id === item.id,
-      )
+      [
+        row.requirement,
+        row.screen,
+        row.database,
+        row.function,
+        row.program,
+      ].some((a) => a?.id === item.id)
     ) {
       const a =
         kind === "requirement"
@@ -147,9 +175,11 @@ export function relatedCodes(
             ? row.screen
             : kind === "database"
               ? row.database
-              : kind === "program"
-                ? row.program
-                : undefined;
+              : kind === "function"
+                ? row.function
+                : kind === "program"
+                  ? row.program
+                  : undefined;
       if (a && a.id !== item.id) ids.add(a.id);
     }
   }
