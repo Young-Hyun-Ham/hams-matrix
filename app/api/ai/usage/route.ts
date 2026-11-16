@@ -3,8 +3,11 @@ import { requireUser, errorResponse, HttpError } from "@/lib/auth";
 import { db } from "@/lib/db";
 import type { TokenTotals } from "@/lib/ai/token-types";
 
-const sums =
+const baseSums =
   "COALESCE(SUM(input_tokens),0) AS input,COALESCE(SUM(output_tokens),0) AS output,COALESCE(SUM(total_tokens),0) AS total,COALESCE(SUM(cached_tokens),0) AS cached,COALESCE(SUM(reasoning_tokens),0) AS reasoning,COUNT(*) AS calls,COUNT(DISTINCT request_id) AS requests,SUM(CASE WHEN usage_final=0 AND status<>'duplicate' THEN 1 ELSE 0 END) AS unknown,COALESCE(SUM(CASE WHEN purpose='guardrail' THEN total_tokens ELSE 0 END),0) AS guardrail";
+const sums =
+  baseSums +
+  ",COALESCE(SUM(CASE WHEN purpose='orchestration' THEN total_tokens ELSE 0 END),0) AS orchestration,COALESCE(SUM(CASE WHEN purpose IN ('embedding_query','embedding_index') THEN total_tokens ELSE 0 END),0) AS embedding";
 function totals(row?: Row): TokenTotals {
   return Object.fromEntries(
     [
@@ -17,6 +20,8 @@ function totals(row?: Row): TokenTotals {
       "requests",
       "unknown",
       "guardrail",
+      "orchestration",
+      "embedding",
     ].map((key) => [key, Number(row?.[key] ?? 0)]),
   ) as TokenTotals;
 }

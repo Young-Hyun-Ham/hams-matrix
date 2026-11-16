@@ -119,6 +119,15 @@ function stop(child) {
   else child.kill("SIGTERM");
 }
 try {
+  await fixture.db.executeMultiple(`
+    INSERT INTO project_ai_credentials(id,workspace_id,project_id,ciphertext,iv,auth_tag,key_id,key_fingerprint,created_by,created_at) VALUES ('browser-credential','dash-ws','dash-p1','synthetic','synthetic','synthetic','synthetic','synthetic','dash-owner','2026-11-16T00:00:00.000Z');
+    INSERT INTO project_rag_generations(id,workspace_id,project_id,status,config_version,model,dimensions,credential_id,credential_version,started_at,published_at,coverage_json) VALUES ('browser-generation','dash-ws','dash-p1','ready',1,'text-embedding-test',3,'browser-credential',1,'2026-11-16T00:00:00.000Z','2026-11-16T00:02:03.000Z','{"sources":10,"chunks":12,"unsupported":1}');
+    INSERT INTO project_rag_configs(workspace_id,project_id,model,credential_id,version,active_generation_id,updated_by,updated_at) VALUES ('dash-ws','dash-p1','text-embedding-test','browser-credential',1,'browser-generation','dash-owner','2026-11-16T00:02:03.000Z');
+    INSERT INTO project_ai_credentials(id,workspace_id,project_id,ciphertext,iv,auth_tag,key_id,key_fingerprint,created_by,created_at) VALUES ('browser-failed-key','dash-ws','dash-p2','synthetic','synthetic','synthetic','synthetic','synthetic','dash-owner','2026-11-16T00:00:00.000Z');
+    INSERT INTO project_rag_generations(id,workspace_id,project_id,status,config_version,model,dimensions,credential_id,credential_version,started_at) VALUES ('browser-failed-generation','dash-ws','dash-p2','failed',1,'text-embedding-test',3,'browser-failed-key',1,'2026-11-16T00:00:00.000Z');
+    INSERT INTO project_rag_jobs(id,workspace_id,project_id,generation_id,requested_by,idempotency_key,input_hash,config_version,credential_id,credential_version,status,total_sources,processed_sources,total_chunks,completed_chunks,created_at,finished_at,error_code) VALUES ('browser-failed-job','dash-ws','dash-p2','browser-failed-generation','dash-owner','browser-failed-request','synthetic',1,'browser-failed-key',1,'failed',10,3,30,12,'2026-11-16T00:00:00.000Z','2026-11-16T00:01:00.000Z','RAG_400');
+    INSERT INTO project_rag_configs(workspace_id,project_id,model,credential_id,version,last_attempt_job_id,updated_by,updated_at) VALUES ('dash-ws','dash-p2','text-embedding-test','browser-failed-key',1,'browser-failed-job','dash-owner','2026-11-16T00:01:00.000Z');
+  `);
   server = spawn(
     process.execPath,
     [resolve("node_modules/next/dist/bin/next"), "start", "--port", "3286"],
@@ -208,6 +217,81 @@ try {
     await evaluate('document.querySelectorAll(".dashboard-stat").length'),
     4,
   );
+  assert.equal(
+    await evaluate(
+      'document.querySelectorAll(".dashboard-project .project-rag-control").length',
+    ),
+    2,
+  );
+  assert.ok(
+    await evaluate(
+      'document.querySelector(".matrix-dashboard").textContent.includes("text-embedding-test · 2026-11-16 09:02:03 (KST)")',
+    ),
+  );
+  await click(".dashboard-project .project-rag-control button");
+  await waitFor(
+    () => evaluate('!!document.querySelector(".project-rag-dialog[open]")'),
+    "RAG modal",
+  );
+  assert.ok(
+    await evaluate(
+      'document.querySelector(".project-rag-dialog").textContent.includes("암호화 저장")',
+    ),
+  );
+  assert.equal(
+    await evaluate('document.querySelector(".project-rag-dialog input").type'),
+    "password",
+  );
+  assert.equal(
+    await evaluate('document.querySelector(".project-rag-dialog input").value'),
+    "",
+  );
+  await click(".project-rag-dialog header button");
+  await waitFor(
+    () => evaluate('!document.querySelector(".project-rag-dialog")'),
+    "RAG modal closes",
+  );
+  await evaluate(
+    '[...document.querySelectorAll(".dashboard-project")].find(e=>e.textContent.includes("실패")).querySelector(".project-rag-control button").click()',
+  );
+  await waitFor(
+    () => evaluate('!!document.querySelector(".project-rag-dialog fieldset")'),
+    "restart choices",
+  );
+  assert.equal(
+    await evaluate(
+      'document.querySelector("input[name=rag-restart-mode]:checked").value',
+    ),
+    "resume",
+  );
+  assert.ok(
+    await evaluate(
+      'document.querySelector(".project-rag-dialog fieldset").textContent.includes("12개")',
+    ),
+  );
+  assert.equal(
+    await evaluate(
+      '[...document.querySelectorAll(".project-rag-dialog button")].find(b=>b.textContent==="실패 지점부터 이어서 시작").disabled',
+    ),
+    false,
+  );
+  await click("input[name=rag-restart-mode][value=new]");
+  await waitFor(
+    () =>
+      evaluate(
+        'document.querySelector("input[name=rag-restart-mode]:checked").value==="new"',
+      ),
+    "new indexing selected",
+  );
+  assert.equal(
+    await evaluate(
+      '[...document.querySelectorAll(".project-rag-dialog button")].find(b=>b.textContent==="새로 벡터화 시작").disabled',
+    ),
+    true,
+    "new indexing requires explicit model selection",
+  );
+  await click("input[name=rag-restart-mode][value=resume]");
+  await click(".project-rag-dialog header button");
   assert.equal(
     await evaluate(
       'document.querySelectorAll(".dashboard-steps button").length',
@@ -474,6 +558,35 @@ try {
     ),
     1,
   );
+  await call("Network.setCookie", {
+    name: "hams_session",
+    value: "dash-owner-session",
+    url: origin,
+    httpOnly: true,
+  });
+  await call("Page.navigate", {
+    url: origin + "/projects/dash-p1?tab=overview",
+  });
+  await waitFor(
+    () =>
+      evaluate(
+        '!!document.querySelector(".project-rag-picker-row .project-rag-control")',
+      ),
+    "project RAG control",
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        'document.querySelector(".project-rag-picker-row").textContent.includes("text-embedding-test")',
+      ),
+    "project RAG model",
+  );
+  await click(".project-rag-picker-row .project-rag-control button");
+  await waitFor(
+    () => evaluate('!!document.querySelector(".project-rag-dialog[open]")'),
+    "project RAG modal",
+  );
+  await click(".project-rag-dialog header button");
   const cookie = { cookie: "hams_session=dash-owner-session" };
   const endpoint = origin + "/api/dashboard";
   assert.equal(
@@ -491,7 +604,7 @@ try {
   );
   assert.deepEqual(errors, []);
   console.log(
-    `PASS: real Next SSR/filter/back/reload, RFP chooser/Escape/focus, valid tab links, 4 viewports/light-dark screenshots, errors/invalid IDs, viewer/empty/create-to-RFP, 405/HEAD/OPTIONS. Evidence: ${evidence}`,
+    `PASS: dashboard/project RAG controls, KST model timestamp, private-key modal, real Next SSR/filter/back/reload, RFP chooser/Escape/focus, valid tab links, 4 viewports/light-dark screenshots, errors/invalid IDs, viewer/empty/create-to-RFP, 405/HEAD/OPTIONS. Evidence: ${evidence}`,
   );
 } catch (failure) {
   if (socket?.readyState === WebSocket.OPEN && sessionId) {

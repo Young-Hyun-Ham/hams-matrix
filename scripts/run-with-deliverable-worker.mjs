@@ -9,6 +9,16 @@ const nextRequire = createRequire(require.resolve("next/package.json"));
 nextRequire("@next/env").loadEnvConfig(process.cwd(), mode === "dev");
 let ending = false,
   worker;
+let ragWorker;
+const launchRagWorker = () => {
+  ragWorker = spawn(process.execPath, ["scripts/rag-worker.mjs"], {
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  ragWorker.on("exit", () => {
+    if (!ending) setTimeout(launchRagWorker, 2000);
+  });
+};
 const launchWorker = () => {
   worker = spawn(process.execPath, ["scripts/deliverable-worker.mjs"], {
     stdio: "inherit",
@@ -19,6 +29,7 @@ const launchWorker = () => {
   });
 };
 launchWorker();
+launchRagWorker();
 const web = spawn(
   process.execPath,
   [require.resolve("next/dist/bin/next"), mode, ...process.argv.slice(3)],
@@ -29,8 +40,10 @@ const stop = () => {
   ending = true;
   web.kill();
   worker?.kill();
+  ragWorker?.kill();
   // Persisted AI response IDs allow a replacement worker to recover after lease expiry.
   setTimeout(() => worker?.kill("SIGKILL"), 5000).unref();
+  setTimeout(() => ragWorker?.kill("SIGKILL"), 5000).unref();
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

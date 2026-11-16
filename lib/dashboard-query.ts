@@ -1,4 +1,5 @@
 import "server-only";
+import { ragSummaries } from "./ai/project-rag";
 import type { Client } from "@libsql/client";
 import { db } from "./db";
 import { HttpError } from "./auth";
@@ -48,6 +49,11 @@ export async function dashboardData(
     const options: DashboardData["projectOptions"] = [];
     const projects: DashboardProject[] = [];
     const historyProjects: DashboardProject[] = [];
+    const ragStates = await ragSummaries(
+      rows.map((r) => String(r.id)),
+      user.workspaceId,
+      tx,
+    );
     for (const row of rows) {
       const id = String(row.id);
       const access = await projectPermissionAccess(tx, user, id);
@@ -69,6 +75,10 @@ export async function dashboardData(
         memberCount: Number(row.member_count),
         readableTabs,
         completeScope: kinds.every((kind) => readableTabs.includes(kind)),
+        rag: {
+          ...ragStates.get(id)!,
+          canManage: ["owner", "admin"].includes(access.projectRole),
+        },
       };
       projects.push(project);
       if (

@@ -1,5 +1,6 @@
 "use client";
 import { usePathname, useSearchParams } from "next/navigation";
+import { ProjectRagControl } from "./ai/project-rag-control";
 import { useWorkspace } from "@/stores/workspace";
 import { useEffect, useState, type ComponentType } from "react";
 import { ConfirmationDialog } from "./shared/confirmation-dialog";
@@ -185,26 +186,34 @@ export function ProjectWorkbench({
   }, [pathname, tab, aiProjectId, aiProjectName, setAiContext]);
   return (
     <div className="matrix-workbench">
-      <label className="matrix-project-picker">
-        프로젝트 선택{" "}
-        <select
-          value={model.projectId}
-          onChange={(e) => {
-            const projectId = e.target.value;
-            navigate(() => {
-              model.setProjectId(projectId);
-              model.setNotice("");
-            });
-          }}
-        >
-          <option value="">프로젝트 선택</option>
-          {model.projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="project-rag-picker-row">
+        <label className="matrix-project-picker">
+          프로젝트 선택{" "}
+          <select
+            value={model.projectId}
+            onChange={(e) => {
+              const projectId = e.target.value;
+              navigate(() => {
+                model.setProjectId(projectId);
+                model.setNotice("");
+              });
+            }}
+          >
+            <option value="">프로젝트 선택</option>
+            {model.projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <ProjectRagControl
+          projectId={model.projectId}
+          projectName={
+            model.projects.find((p) => p.id === model.projectId)?.name ?? ""
+          }
+        />
+      </div>
       <nav className="matrix-tabs" aria-label="프로젝트 메뉴">
         {(Object.keys(projectTabLabels) as ProjectTab[]).map((t) => (
           <button

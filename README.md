@@ -202,3 +202,18 @@ pnpm test:auth:no-logs
 검증 명령: `pnpm test:ai-settings-reviews`, `pnpm test:ai-targets`, 빌드 후 `pnpm test:ai-targets-browser`. DB 적용 상태·제한·실제 검증은 [작업 기록](docs/work/2026-11-16/AI챗봇-프로젝트분석-AI설정-사용자승인-구현.md)을 확인하세요.
 
 2026-11-16 헤더 알림: 팀 가입 신청·AI 토큰 초과 알림을 그림자가 있는 카드로 표시하고, 클릭 시 사용자/workspace별 확인 상태를 DB에 저장합니다. 확인한 카드는 유지되며 배지에서 한 번 제외됩니다. 팀 신청은 승인·거절 시, AI 카드는 누적 사용량이 한도 이하가 되면 사라집니다. 누적 사용량에는 월별 자동 초기화가 없습니다. 한도를 변경하면 새 기준의 초과 여부를 다시 알립니다. [작업 기록](docs/work/2026-11-16/헤더알림-카드분리-확인처리.md).
+
+## AI 2계층 오케스트레이션·프로젝트 벡터화 (2026-11-16)
+
+참여 프로젝트 카드와 프로젝트 선택 옆의 **의도분류** 버튼으로 프로젝트 자료를 벡터화합니다. owner/admin이 OpenAI API 키를 입력하고 `text-embedding` 계열 모델을 조회·선택합니다. 키는 프로젝트 공용 검색 자격증명으로 암호화 저장되며 참여자의 질문 검색에도 사용됩니다. 마지막 성공 모델과 발행 완료 시각은 한국시간 초 단위로 표시합니다. 파일 미지원·실패·자료 변경 상태를 별도로 표시하며 새 구축 실패 시 기존 검색본을 보존합니다.
+
+채팅은 1-layer에서 RAG·최신 업무 조회·실행을 분류하고, 2-layer에서 기존 LLM과 허용된 도구를 사용합니다. 검색 자료는 현재 원본·권한·버전을 재확인하며, 실행에는 기존 탭 권한·명시 요청·HITL·원자 저장이 적용됩니다. RAG 미구축/장애 시 확인 가능한 원본을 직접 조회합니다. 이 경우 기존의 명시적 실행 요청은 최신 원본 검증과 승인 경계를 유지합니다. 음성 Realtime API나 범용 외부 API 연결은 포함하지 않습니다.
+
+신규 DB는 `048_project_rag_orchestration.sql`이며 047 이후 적용합니다. 이번 구성 DB에는 048만 단독 적용했습니다. 다른 환경에서는 `pnpm db:migrate --only 048_project_rag_orchestration.sql`을 실행합니다. 프로젝트 API 키 보관용 서버 암호화키는 `node scripts/setup-ai-credential-key.mjs`로 생성하며 기존 값을 보존합니다. `AI_CREDENTIAL_ENCRYPTION_KEY`는 배포 시 웹·워커 모두에 같은 값을 제공하고 백업해야 합니다. 값은 로그·문서에 출력하지 않습니다.
+
+`pnpm dev`/`pnpm start`는 산출물 워커와 RAG 워커를 함께 관리합니다. 서버리스 배포에서는 `pnpm worker:rag`를 별도 Node 24+ 상시 프로세스로 실행해야 합니다. 실제 임베딩 키는 웹 화면에서 입력하며 챗봇용 서버 키와 자동 혼용하지 않습니다. 지원 파일은 PDF·DOCX·UTF-8 TXT/MD이고 기존 추출 한도가 적용됩니다.
+
+검증: `pnpm test:project-rag`, `pnpm test:ai-settings-reviews`, `pnpm test:ai-tool-execution`, `pnpm test:dashboard`, `pnpm test:query-audit`, 빌드 후 `pnpm test:dashboard-browser`. 구현 정책·실제 결과·제한은 [작업 기록](docs/work/2026-11-16/AI챗봇-2계층오케스트레이션-프로젝트벡터화-구현.md)을 확인하세요.
+
+
+2026-11-16: 프로젝트 벡터화 실패 시 **새로 시작 / 실패 지점부터 이어서 시작**을 선택합니다. 재개는 기존 모델·세대와 저장된 청크를 유지하고 새 작업 ID로 실패 이력을 보존합니다. 원본이나 분할 방식이 바뀌면 새로 시작해야 합니다. 미저장 배치는 재호출될 수 있습니다. DB는 048 이후 `049_project_rag_resume.sql`만 선택 적용합니다(`pnpm db:migrate --only 049_project_rag_resume.sql`). 구성 DB에 049 적용 및 외래키 검사를 완료했습니다. [작업 기록](docs/work/2026-11-16/프로젝트벡터화-실패후-재시작선택-구현.md).

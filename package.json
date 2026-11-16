@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "worker:rag": "node scripts/rag-worker.mjs",
+    "test:project-rag": "node scripts/test-project-rag.mjs",
     "dev": "node scripts/run-with-deliverable-worker.mjs dev",
     "build": "next build",
     "start": "node scripts/run-with-deliverable-worker.mjs start",

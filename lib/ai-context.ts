@@ -1,4 +1,5 @@
 import type { AiChangeReview } from "./ai-review-types";
+import type { RagReference } from "./ai/rag-types";
 import type { AiImageInfo } from "./ai-image-types";
 import type { AiTargetPage } from "./ai-target-pages";
 import { projectTabLabels, type ProjectTab } from "./project-tabs";
@@ -11,6 +12,7 @@ export type AiContext = {
   projectName: string;
 };
 export type AiChat = {
+  references?: RagReference[];
   review?: AiChangeReview;
   id: string;
   convId: string;

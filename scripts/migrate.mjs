@@ -34,6 +34,22 @@ try {
     if (!prerequisite.rows.length)
       throw new Error("Migration 046 requires applied migration 045");
   }
+  if (selected === "048_project_rag_orchestration.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["047_notification_acknowledgements.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 048 requires applied migration 047");
+  }
+  if (selected === "049_project_rag_resume.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["048_project_rag_orchestration.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 049 requires applied migration 048");
+  }
   for (const name of migrations) {
     if (selected && name !== selected) continue;
     const applied = await db.execute({

@@ -107,3 +107,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - 팀 알림 키는 신청 ID+requested_at이다. 확인은 가입 승인/거절과 다르며 처리된 신청만 목록에서 제외한다. AI 초과 알림은 확인 후에도 한도 초과 중 표시하고, 한도 변경 때만 해당 확인을 초기화한다. HITL만 변경하거나 같은 한도를 저장하면 확인을 유지한다.
 - 카운터는 15초, 상세는 패널 열 때 조회한다. 카운터에 목록/이름을 전송하지 않는다. 계약 알림은 기존 read_at과 승인/거절 제외 조건을 유지한다. 카드 버튼은 키보드로도 확인 가능하다.
 - 검증은 임시 SQLite와 모의 AI, 브라우저로 수행한다. [작업 기록](docs/work/2026-11-16/헤더알림-카드분리-확인처리.md)을 확인한다.
+
+## AI 2계층 오케스트레이션·프로젝트 RAG (2026-11-16)
+
+- 1-layer의 rag/realtime/execution 분류는 실행 권한이 아니다. 실제 execute 허용 목록·기존 탭 권한·명시 요청·HITL·원본 버전/도메인 검증·원자 저장을 유지한다. RFP 탭의 기존 작성 요청은 별도 의도로 보존한다. 프로젝트 전체 분석은 읽기 전용이다.
+- 현재 프로젝트 본문·연결·지원 문서·보드·도메인·연결 출처를 모두 수집한다. 기존 readProjectAnalysis의 축약 결과를 색인 입력으로 사용하지 않는다. 개인 채팅·키·미승인 변경안·과거 전체 revision은 공용 지식으로 자동 색인하지 않는다.
+- 웹과 RAG 워커는 별도 AI_CREDENTIAL_ENCRYPTION_KEY를 공유한다. 입력 키·암호문을 DTO·query key·로그·문서·hydration에 넣지 않는다. 키 설정 스크립트는 기존 값을 보존하며 값을 출력하지 않는다.
+- migration 048만 선택 적용한다. 기존 047이 필요하며 관련 없는 pending migration을 적용하지 않는다. 새 세대는 완전성·manifest·권한·lease 검증 후 포인터를 원자 교체하고 실패 시 이전 검색본을 보존한다.
+- 검색은 libSQL native cosine 지원을 확인한 뒤 사용하며 미지원 환경은 전체 유효 청크를 페이지 순회한다. 예산 초과 시 부분 검색을 전체 검색처럼 제공하지 않는다. 현재 READ·존재·hash/version을 답변 저장 직전까지 재확인한다.
+- RAG 진행 조회는 활성 작업에 한한다. project access 주기 조회를 재도입하지 않는다. 현재 Query scope·쓰기 자동 재시도 금지·대시보드 최소 DTO를 유지한다.
+- 회귀는 `pnpm test:project-rag`, `pnpm test:ai-settings-reviews`, `pnpm test:ai-tool-execution`, `pnpm test:dashboard`와 Query/브라우저 검증을 격리 환경에서 수행한다. DB 적용·검증·운영 제한은 [작업 기록](docs/work/2026-11-16/AI챗봇-2계층오케스트레이션-프로젝트벡터화-구현.md)을 확인한다.
+
+
+2026-11-16: 프로젝트 벡터화 실패 시 새로 시작/이어서 시작을 선택한다. 재개는 같은 세대·모델과 저장 청크를 유지하고 새 job에 resume_from_job_id를 기록한다. 원본 변경은 거절하며 실패 이력과 사용량 경계를 보존한다. DB는 048 이후 049_project_rag_resume.sql만 선택 적용한다. 구성 DB 적용과 외래키 검사를 완료했다. [작업 기록](docs/work/2026-11-16/프로젝트벡터화-실패후-재시작선택-구현.md).

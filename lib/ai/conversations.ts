@@ -72,7 +72,7 @@ export async function conversationChats(
     return { chats: [], nextCursor: null };
   // Stable rowid cursor also handles requests committed in the same millisecond.
   const result = await db().execute({
-    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result,target_page AS targetPage,target_version AS targetVersion FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 11`,
+    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result,rag_references_json,target_page AS targetPage,target_version AS targetVersion FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 11`,
     args: [
       user.workspaceId,
       user.id,
@@ -110,6 +110,7 @@ export async function conversationChats(
       screenTitle: String(row.screenTitle),
       createdAt: String(row.createdAt),
       result: String(row.result),
+      references: JSON.parse(String(row.rag_references_json ?? "[]")),
       targetPage: isAiTargetPage(row.targetPage) ? row.targetPage : null,
       targetVersion:
         row.targetVersion === null ? null : Number(row.targetVersion),

@@ -193,6 +193,19 @@ export function AiConversationMessages({
                   {chat.screenTitle} · {chat.model}
                 </small>
                 <pre>{chat.result}</pre>
+                {!!chat.references?.length && (
+                  <details className="matrix-ai-evidence">
+                    <summary>프로젝트 근거 {chat.references.length}건</summary>
+                    <ul>
+                      {chat.references.map((ref) => (
+                        <li key={ref.chunkId}>
+                          <a href={ref.href}>{ref.title}</a> · 버전{" "}
+                          {ref.version} · {ref.section}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
                 {chat.review && (
                   <AiChangeReview
                     initial={chat.review}

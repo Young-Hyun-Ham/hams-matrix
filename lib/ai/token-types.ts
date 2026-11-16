@@ -7,7 +7,13 @@ export type AiCallEvent = {
   usage?: unknown;
   reservedTokens?: number;
   durationMs?: number;
-  purpose?: "generation" | "guardrail" | "title";
+  purpose?:
+    | "generation"
+    | "guardrail"
+    | "title"
+    | "orchestration"
+    | "embedding_query"
+    | "embedding_index";
 };
 export type TokenTotals = {
   input: number;
@@ -19,6 +25,8 @@ export type TokenTotals = {
   requests: number;
   unknown: number;
   guardrail: number;
+  orchestration: number;
+  embedding: number;
 };
 export type TokenBucket = TokenTotals & { key: string; label: string };
 export type TokenStatistics = {

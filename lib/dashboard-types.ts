@@ -1,4 +1,5 @@
 import type { ArtifactKind } from "./artifact-types";
+import type { RagSummary } from "./ai/rag-types";
 import type { Project } from "./project-types";
 import type { ProjectTab } from "./project-tabs";
 
@@ -9,6 +10,7 @@ export type DashboardProject = Pick<
   memberCount: number;
   readableTabs: ProjectTab[];
   completeScope: boolean;
+  rag?: RagSummary;
 };
 export type DashboardArtifact = {
   id: string;

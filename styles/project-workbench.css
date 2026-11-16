@@ -1,4 +1,10 @@
 @import "./project-tabs.css";
+.project-rag-picker-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
 .matrix-workbench {
   display: grid;

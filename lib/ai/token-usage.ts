@@ -53,6 +53,12 @@ export function createTokenTracker(scope: {
   prompt: string;
 }) {
   return async function track(event: AiCallEvent) {
+    // Existing generation/guardrail/title indexes retain their identity. New stages
+    // occupy disjoint ranges; indexing jobs use their own request ID and counter.
+    if (event.purpose === "orchestration")
+      event = { ...event, turn: 2000 + event.turn };
+    if (event.purpose === "embedding_query")
+      event = { ...event, turn: 3000 + event.turn };
     const quotaId = `${scope.requestId}:${event.turn}`;
     if (event.status === "started") {
       await reserveQuota(

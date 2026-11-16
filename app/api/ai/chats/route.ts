@@ -1,4 +1,6 @@
 import { aiUserSettings } from "@/lib/ai/user-settings";
+import { orchestrateChat, restrictAgent } from "@/lib/ai/orchestration";
+import { validateRagEvidence } from "@/lib/ai/rag-retrieval";
 import {
   assertNoPendingReview,
   projectVersions,
@@ -257,7 +259,6 @@ export async function POST(request: Request) {
     const history = plan.historyEnabled
       ? await conversationHistory(user, projectId, convId)
       : temporaryHistory(input.history);
-    const pageContext = await readAiPage(user, context, page);
     const historyImages: { dataUrl: string }[] = [];
     const historyText = history.map((message) => ({
       ...message,
@@ -273,9 +274,40 @@ export async function POST(request: Request) {
           })
         : message.content,
     }));
+    await guard.inspect("context", { history: historyText }, historyImages);
+    const orchestration = await orchestrateChat({
+      user,
+      projectId,
+      prompt,
+      model,
+      history: historyText,
+      checkpoint,
+      track,
+      deadline: requestDeadline,
+      requestId,
+      signal: request.signal,
+      targetPage: executionTarget,
+    });
+    canWrite =
+      canWrite &&
+      orchestration.plan.needsExecution &&
+      !orchestration.plan.needsClarification;
+    const directContext =
+      orchestration.rag.context && !orchestration.plan.needsRealtime
+        ? null
+        : await readAiPage(user, context, page);
+    const pageContext = directContext ?? {
+      project: { id: projectId, name: projectName },
+      rag: orchestration.rag.context,
+    };
     await guard.inspect(
       "context",
-      { projectName, history: historyText, pageContext },
+      {
+        projectName,
+        history: historyText,
+        pageContext,
+        ragContext: orchestration.rag.context,
+      },
       historyImages,
     );
     if (
@@ -283,7 +315,7 @@ export async function POST(request: Request) {
       guardrail.policy.imageMode === "read-only"
     )
       canWrite = false;
-    const agent = createPageAgent(
+    const baseAgent = createPageAgent(
       request,
       user,
       context,
@@ -292,18 +324,24 @@ export async function POST(request: Request) {
       prompt,
       checkpoint,
       { policy: guardrail.policy, inspect: guard.inspect },
-      "domainMeta" in pageContext
-        ? pageContext.domainMeta?.catalogRevision
+      directContext && "domainMeta" in directContext
+        ? directContext.domainMeta?.catalogRevision
         : undefined,
     );
+    const agent = restrictAgent(baseAgent, canWrite);
     actions = agent.actions;
     let result: string;
     try {
       result = await generateAi(
         model,
         pageInstructions(context, page, canWrite) +
+          orchestration.instructions +
           "\n이력 미저장 대화는 조회·초안 전용입니다. 변경안은 사람의 승인 대기가 될 수 있으며 아직 저장 완료라고 말하지 마세요.",
-        JSON.stringify({ pageContext, request: prompt }),
+        JSON.stringify({
+          pageContext,
+          ragContext: directContext ? orchestration.rag.context : undefined,
+          request: prompt,
+        }),
         agent,
         images,
         history,
@@ -327,6 +365,12 @@ export async function POST(request: Request) {
       // Tool mutations are only previews until the final output has passed validation.
       throw error;
     }
+    for (const match of result.matchAll(/\[근거:([^\]]+)\]/g))
+      if (!orchestration.rag.references.some((ref) => ref.chunkId === match[1]))
+        throw new HttpError(
+          502,
+          "AI가 유효하지 않은 프로젝트 근거를 반환했습니다.",
+        );
     await guard.inspect("output", result);
     await checkpoint();
     const titleCandidate =
@@ -368,6 +412,8 @@ export async function POST(request: Request) {
     let committed: AiAction[] = [];
     let review: AiChangeReview | undefined;
     try {
+      if (projectId)
+        await validateRagEvidence(user, projectId, orchestration.rag, saveTx);
       const finalSettings = await aiUserSettings(user, saveTx);
       const needsReview =
         (settingsAtStart.hitlEnabled || finalSettings.hitlEnabled) &&
@@ -399,7 +445,7 @@ export async function POST(request: Request) {
       const statements = plan.historyEnabled
         ? [
             {
-              sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id,target_page,target_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id,target_page,target_version,rag_references_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
               args: [
                 id,
                 user.workspaceId,
@@ -415,6 +461,7 @@ export async function POST(request: Request) {
                 convId,
                 executionTarget,
                 executionVersion,
+                JSON.stringify(orchestration.rag.references),
               ],
             },
             ...encrypted.statements,
@@ -477,6 +524,7 @@ export async function POST(request: Request) {
           model,
           result,
           images: encrypted.images,
+          references: orchestration.rag.references,
           review,
           targetPage: executionTarget,
           targetVersion: executionVersion,

@@ -152,6 +152,8 @@ try {
   for (const migration of [
     "046_ai_project_analysis_reviews.sql",
     "047_notification_acknowledgements.sql",
+    "048_project_rag_orchestration.sql",
+    "049_project_rag_resume.sql",
   ])
     for (let pass = 0; pass < 2; pass++) {
       const migrated = spawnSync(
@@ -179,7 +181,12 @@ try {
     "unrelated pending migration is not applied",
   );
   assert.deepEqual(
-    (await client.execute("SELECT rowid,* FROM ai_prompt_chats")).rows,
+    (await client.execute("SELECT rowid,* FROM ai_prompt_chats")).rows.map(
+      ({ rag_references_json, ...oldColumns }) => {
+        assert.equal(rag_references_json, "[]");
+        return oldColumns;
+      },
+    ),
     before,
   );
   assert.equal(

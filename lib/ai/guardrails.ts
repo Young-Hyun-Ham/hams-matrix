@@ -73,6 +73,7 @@ export function inspectGuardrailRules(
     "TURSO_AUTH_TOKEN",
     "R2_SECRET_ACCESS_KEY",
     "AI_IMAGE_ENCRYPTION_KEY",
+    "AI_CREDENTIAL_ENCRYPTION_KEY",
     "ONLYOFFICE_JWT_SECRET",
   ]) {
     const secret = process.env[name];

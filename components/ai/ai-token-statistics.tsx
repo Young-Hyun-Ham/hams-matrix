@@ -224,6 +224,10 @@ export function AiTokenStatistics() {
               <span>추론 {number(data.totals.reasoning)}</span>
               <span>
                 전체 중 가드레일 검사 {number(data.totals.guardrail)} tokens
+                {" · 의도분류 "}
+                {number(data.totals.orchestration ?? 0)} tokens
+                {" · 임베딩 "}
+                {number(data.totals.embedding ?? 0)} tokens
               </span>
               <span>
                 최종 사용량 미확인/집계 중 {number(data.totals.unknown)}건

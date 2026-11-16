@@ -81,12 +81,18 @@ for (const path of paths) {
           "lib/ai-server.ts",
           "lib/ai/image-generation.ts",
           "lib/ai/background-response.ts",
+          "lib/ai/embeddings.ts",
           "lib/oauth.ts",
           "lib/onlyoffice.ts",
         ].includes(path)
       ) {
         category = "S";
         reason = "Server-only provider, OAuth or document transfer";
+      }
+      if (path === "components/ai/project-rag-control.tsx" && !category) {
+        category = "I";
+        reason =
+          "Explicit credential/model lookup, indexing start/stop or failure-detail command; no replay or secret cache";
       }
       if (
         path.startsWith("lib/query/") ||

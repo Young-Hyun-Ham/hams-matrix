@@ -1,5 +1,6 @@
 ﻿"use client";
 import Link from "next/link";
+import { ProjectRagControl } from "@/components/ai/project-rag-control";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -402,6 +403,11 @@ function DashboardContent({ user }: { user: User }) {
                         <p className="dashboard-project-description">
                           {p.description || "프로젝트 설명이 없습니다."}
                         </p>
+                        <ProjectRagControl
+                          projectId={p.id}
+                          projectName={p.name}
+                          initial={p.rag}
+                        />
                         <div className="dashboard-progress-label">
                           <span>요구사항 완료율</span>
                           <span>
