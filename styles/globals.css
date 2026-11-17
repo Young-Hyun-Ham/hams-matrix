@@ -40,8 +40,21 @@ button {
   cursor: pointer;
 }
 button:disabled {
-  cursor: wait;
   opacity: 0.55;
+}
+button:is(
+  :disabled,
+  [readonly],
+  [aria-disabled="true"],
+  [aria-readonly="true"]
+),
+[role="button"]:is(
+  [disabled],
+  [readonly],
+  [aria-disabled="true"],
+  [aria-readonly="true"]
+) {
+  cursor: not-allowed !important;
 }
 a {
   color: inherit;

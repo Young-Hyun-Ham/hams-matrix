@@ -4,7 +4,7 @@ import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-s
 import { RequestError } from "@/lib/query/error-messages";
 import { requestJson } from "@/lib/query/browser-fetch";
 
-import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createContext, useContext, useId, useLayoutEffect, useMemo, useRef, useState, type ComponentProps } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ChevronDown,
@@ -20,8 +20,9 @@ import {
   Search,
   X,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type ExtraProps } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import MermaidBlock from "./MermaidBlock";
 
 import styles from "@/styles/pages/viewer/md/MarkdownViewer.module.css";
 
@@ -156,10 +157,20 @@ const createSlugger = () => {
 
 const extractHeadings = (content: string): Heading[] => {
   const slug = createSlugger();
+  let fence: { marker: string; length: number } | null = null;
 
   return content
     .split("\n")
     .map((line, index) => {
+      const boundary = /^ {0,3}(`{3,}|~{3,})(.*)$/.exec(line);
+      if (fence) {
+        if (boundary && boundary[1][0] === fence.marker && boundary[1].length >= fence.length && !boundary[2].trim()) fence = null;
+        return null;
+      }
+      if (boundary && !(boundary[1][0] === "`" && boundary[2].includes("`"))) {
+        fence = { marker: boundary[1][0], length: boundary[1].length };
+        return null;
+      }
       const match = /^(#{1,3})\s+(.+?)\s*#*$/.exec(line.trim());
       if (!match) return null;
       const text = match[2].replace(/[`*_~]/g, "").trim();
@@ -211,6 +222,22 @@ const getRiskCellClass = (value: string) => {
 
   return undefined;
 };
+
+const DocumentPath = createContext("");
+
+// Keep this component type stable: inline renderer definitions would remount
+// Mermaid blocks and discard their independently selected tabs on each edit.
+function MarkdownPre({ node, children, ...props }: ComponentProps<"pre"> & ExtraProps) {
+  const path = useContext(DocumentPath);
+  const code = node?.children[0];
+  if (node?.children.length === 1 && code?.type === "element" && code.tagName === "code" &&
+      Array.isArray(code.properties.className) && code.properties.className.includes("language-mermaid")) {
+    const text = code.children.map((child) => child.type === "text" ? child.value : "").join("");
+    const line = node.position?.start.line ?? 0;
+    return <MermaidBlock key={`${path}:${line}:${text}`} code={text} line={line} />;
+  }
+  return <pre {...props}>{children}</pre>;
+}
 
 export default function MarkdownViewer({
   documents: initialDocuments,
@@ -283,6 +310,8 @@ export default function MarkdownViewer({
     () => new Set(getParentFolderPaths(initialPath)),
   );
   const mainRef = useRef<HTMLDivElement | null>(null);
+  const outlineRef = useRef<HTMLElement | null>(null);
+  const outlineLinksRef = useRef<HTMLDivElement | null>(null);
 
   const filteredDocuments = useMemo(() => {
     const keyword = query.trim().toLocaleLowerCase("ko");
@@ -309,6 +338,43 @@ export default function MarkdownViewer({
     () => extractHeadings(selectedDocument?.content ?? ""),
     [selectedDocument],
   );
+  useLayoutEffect(() => {
+    const reader = mainRef.current;
+    const outline = outlineRef.current;
+    const links = outlineLinksRef.current;
+    if (!reader || !outline || !links) return;
+    let active = true;
+    const measure = () => {
+      if (!active) return;
+      const readerStyle = getComputedStyle(reader);
+      reader.style.setProperty("--viewer-outline-height", `${Math.max(0, reader.clientHeight - parseFloat(readerStyle.paddingTop) - parseFloat(readerStyle.paddingBottom))}px`);
+      const availableWidth = reader.clientWidth - parseFloat(readerStyle.paddingLeft) -
+        parseFloat(readerStyle.paddingRight) - parseFloat(readerStyle.columnGap);
+      // Use the expanded-menu 30% as the outline's reference width. During
+      // sidebar transitions only the paper receives the newly available space.
+      // Measure the animated margin and the page's actual share (AI split).
+      const shell = reader.closest<HTMLElement>(".workspace");
+      const body = reader.closest<HTMLElement>(".workspace-body");
+      const page = reader.closest<HTMLElement>(".workspace-page-content");
+      const expandedMenuWidth = shell ? parseFloat(getComputedStyle(shell).getPropertyValue("--workspace-sidebar-expanded-width")) || 0 : 0;
+      const currentMenuWidth = body ? parseFloat(getComputedStyle(body).marginLeft) || 0 : 0;
+      const pageShare = page?.parentElement?.clientWidth ? page.clientWidth / page.parentElement.clientWidth : 1;
+      const menuGain = Math.max(0, expandedMenuWidth - currentMenuWidth) * pageShare;
+      const outlineWidth = Math.max(0, availableWidth - menuGain) * 0.3;
+      reader.style.setProperty("--viewer-outline-width", `${outlineWidth}px`);
+      reader.dataset.outlineFits = String(availableWidth - outlineWidth >= 500);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(reader);
+    measure();
+    const wheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY) || links.contains(event.target as Node)) return;
+      event.preventDefault();
+      links.scrollTop += event.deltaY * (event.deltaMode === 1 ? parseFloat(getComputedStyle(links).lineHeight) || 16 : event.deltaMode === 2 ? links.clientHeight : 1);
+    };
+    outline.addEventListener("wheel", wheel, { passive: false });
+    return () => { active = false; observer.disconnect(); outline.removeEventListener("wheel", wheel); };
+  }, [headings, viewMode]);
   const copyDocument = async () => {
     if (!selectedDocument) return;
     await navigator.clipboard.writeText(selectedDocument.content);
@@ -752,6 +818,7 @@ export default function MarkdownViewer({
                 className={styles.readingArea}
                 ref={mainRef}
                 data-view-mode={viewMode}
+                data-has-outline={viewMode === "preview" && headings.length > 1}
                 role="tabpanel"
                 id={`${viewerId}-panel`}
                 aria-labelledby={`${viewerId}-${encodeURIComponent(selectedDocument.relativePath)}`}
@@ -787,9 +854,11 @@ export default function MarkdownViewer({
                     />
                   ) : (
                     <article className={styles.markdown}>
+                      <DocumentPath.Provider value={selectedDocument.relativePath}>
                       <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
+                          pre: MarkdownPre,
                           h1: headingComponent(1),
                           h2: headingComponent(2),
                           h3: headingComponent(3),
@@ -856,18 +925,20 @@ export default function MarkdownViewer({
                       >
                         {selectedDocument.content}
                       </ReactMarkdown>
+                      </DocumentPath.Provider>
                     </article>
                   )}
                 </div>
                 {viewMode === "preview" && headings.length > 1 && (
-                  <nav className={styles.outline} aria-label="이 문서의 목차">
+                  <nav ref={outlineRef} className={styles.outline} aria-label="이 문서의 목차">
                     <strong>이 문서의 목차</strong>
-                    <div className={styles.outlineLinks}>
+                    <div ref={outlineLinksRef} className={styles.outlineLinks} tabIndex={0} role="region" aria-label="목차 항목">
                       {headings.map((heading) => (
                         <button
                           type="button"
                           key={heading.id}
                           className={styles.outlineButton}
+                          title={heading.text}
                           style={{ paddingLeft: 8 + (heading.level - 1) * 12 }}
                           onClick={() => scrollToHeading(heading.id, "smooth")}
                         >

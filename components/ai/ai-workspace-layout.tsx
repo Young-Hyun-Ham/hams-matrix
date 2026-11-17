@@ -66,6 +66,12 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
   return (
     <div
       className={`workspace-content-layout ${aiOpen ? "ai-is-open" : ""} ${expanded ? "ai-is-expanded" : ""} ${split ? "ai-is-split" : ""} ${floating ? "ai-is-floating" : ""} ${dragging ? "ai-is-dragging" : ""}`}
+      style={
+        {
+          "--ai-window-growth": `${windowState.widthGrowth}px`,
+          "--ai-popup-base-width": `${windowState.popupBaseWidth}px`,
+        } as CSSProperties
+      }
     >
       <button
         type="button"
@@ -162,10 +168,10 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
                 aria-label={expanded ? "AI 채팅 축소" : "AI 채팅 확대"}
                 title={
                   floating
-                    ? `${expanded ? "축소 · 팝업 최대 460px" : "확대 · 팝업 최대 760px"} · 화면 너비 이내`
+                    ? `${expanded ? `축소 · 팝업 최대 ${split ? 560 : 460}px` : "확대 · 팝업 최대 860px"} · 화면 너비 이내`
                     : expanded
-                      ? "축소 · 패널 30%"
-                      : "확대 · 패널 50%"
+                      ? `축소 · 패널 30%${split ? " + 100px" : ""}`
+                      : "확대 · 패널 50% + 100px"
                 }
                 aria-pressed={expanded}
                 onClick={windowState.toggleExpanded}

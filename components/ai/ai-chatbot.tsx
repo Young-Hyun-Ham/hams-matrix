@@ -1,5 +1,9 @@
 "use client";
 import { AiProjectPicker } from "./ai-project-picker";
+import { SharedAnswerControls } from "./shared-answer-dialog";
+import { SharedAnswerCandidates } from "./shared-answer-candidates";
+import { AiEvidence } from "./ai-evidence";
+import type { SharedCandidate } from "@/lib/ai/shared-answer-types";
 
 import { useWorkspaceErrorState } from "@/components/query/use-workspace-error-state";
 
@@ -9,7 +13,6 @@ import { useWorkspace } from "@/stores/workspace";
 import {
   aiPresentation,
   emptyAiContext,
-  type AiChat,
   type AiConversation,
 } from "@/lib/ai-context";
 import { Icon } from "@/components/icon";
@@ -161,6 +164,11 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     calls: number;
   };
   const [usageRequest, setUsageRequest] = useState("");
+  const [sharedCandidates, setSharedCandidates] = useState<{
+    question: string;
+    targetVersion: number;
+    candidates: SharedCandidate[];
+  } | null>(null);
   const usageQuery = useQuery({
     queryKey: [
       ...matrixKeys.scope(queryScope),
@@ -187,8 +195,13 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     !conversationState.loading && !conversationState.error,
     aiOpen,
   );
-  const [result, setResult] = useState<AiChat | null>(null),
+  const [resultId, setResultId] = useState<string | null>(null),
     [copyError, setCopyError] = useWorkspaceErrorState("");
+  const result = conversationState.chats.find((chat) => chat.id === resultId);
+  const resultRevalidating = Boolean(
+    result?.sharedAnswer &&
+      (conversationState.revalidating || conversationState.error),
+  );
   const {
     images,
     imagesLoading,
@@ -220,9 +233,9 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   }, [scope]);
   useEffect(() => () => generation.current?.abort(), []);
   useEffect(() => {
-    if (result && aiOpen) dialog.current?.showModal();
+    if (resultId && aiOpen) dialog.current?.showModal();
     else dialog.current?.close();
-  }, [result, aiOpen]);
+  }, [resultId, aiOpen]);
   const ready =
     !conversationState.loading &&
     !conversationState.error &&
@@ -239,7 +252,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   function closeResult() {
     resultSession.current += 1;
     dialog.current?.close();
-    setResult(null);
+    setResultId(null);
     setPrompt("");
     clearImages();
     setError("");
@@ -291,7 +304,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       stopBusy.current = false;
     }
   }
-  async function generate() {
+  async function generate(sharedMode = "prefer_shared") {
     if (!ready || busyRef.current) return;
     busyRef.current = true;
     setGenerating(true);
@@ -335,6 +348,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           requestId,
+          sharedMode,
           convId: conversation.convId,
           ...(conversation.convId.startsWith("temporary-")
             ? {
@@ -408,7 +422,16 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
         );
         return;
       }
+      if (data.kind === "shared_candidates") {
+        setSharedCandidates({
+          question: prompt.trim(),
+          targetVersion: conversation.targetVersion ?? 0,
+          candidates: data.candidates,
+        });
+        return;
+      }
       if (activeScope.current === requestScope) {
+        setSharedCandidates(null);
         conversationState.append(data.chat);
         setPrompt("");
         clearImages();
@@ -448,31 +471,45 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   return (
     <div className="matrix-ai">
       <div className="matrix-ai-panel-content">
-        <AiConversationTitle conversation={conversation} />
-        <AiProjectPicker
-          createRoom
-          disabled={generating || stopping || !!stopRetry}
-        />
-        {conversation.convId.startsWith("temporary-") && (
-          <p>이력 미저장 · 조회/초안 전용</p>
-        )}
-        <AiConversationMessages
-          conversation={conversationState}
-          generating={generating}
-          showResult={(chat) => {
-            setCopyError("");
-            setResult(chat);
-          }}
-          reuse={(chat) => {
-            void (async () => {
-              if (generating || !(await restoreImages(chat.images ?? [])))
-                return;
-              setPrompt(chat.prompt);
-              if (models.includes(chat.model)) setModel(chat.model);
-              promptInput.current?.focus();
-            })();
-          }}
-        />
+        <div className="matrix-ai-panel-heading">
+          <AiConversationTitle conversation={conversation} />
+          <AiProjectPicker
+            createRoom
+            disabled={generating || stopping || !!stopRetry}
+          />
+          {conversation.convId.startsWith("temporary-") && (
+            <p>이력 미저장 · 조회/초안 전용</p>
+          )}
+        </div>
+        <div className="matrix-ai-conversation-pane">
+          <AiConversationMessages
+            projectId={conversation.projectId}
+            conversation={conversationState}
+            generating={generating}
+            showResult={(chat) => {
+              setCopyError("");
+              resultSession.current += 1;
+              setResultId(chat.id);
+            }}
+            reuse={(chat) => {
+              void (async () => {
+                if (generating || !(await restoreImages(chat.images ?? [])))
+                  return;
+                setPrompt(chat.prompt);
+                if (models.includes(chat.model)) setModel(chat.model);
+                promptInput.current?.focus();
+              })();
+            }}
+          />
+          {conversation.projectId && (
+            <div className="matrix-ai-conversation-footer">
+              <SharedAnswerControls
+                projectId={conversation.projectId}
+                disabled={generating || !aiOpen}
+              />
+            </div>
+          )}
+        </div>
         <section className="matrix-ai-card" aria-label="AI 생성 도우미">
           <header>
             <span className="matrix-ai-spark">
@@ -590,6 +627,22 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               </button>
             </p>
           )}
+          {aiOpen &&
+            sharedCandidates &&
+            sharedCandidates.question === prompt.trim() &&
+            sharedCandidates.targetVersion ===
+              (conversation.targetVersion ?? 0) &&
+            !images.length && (
+              <SharedAnswerCandidates
+                key={`${sharedCandidates.question}:${conversation.targetVersion}`}
+                projectId={conversation.projectId}
+                candidates={sharedCandidates.candidates}
+                disabled={generating || !ready}
+                generateFresh={() => {
+                  void generate("generate_fresh");
+                }}
+              />
+            )}
           <textarea
             ref={promptInput}
             aria-label="AI 요청 내용"
@@ -721,7 +774,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             닫기
           </button>
         </div>
-        {result && (
+        {result && !resultRevalidating ? (
           <>
             <div className="admin-detail-body matrix-ai-result-body">
               <p className="matrix-ai-result-context">
@@ -743,6 +796,22 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
                 </div>
               )}
               <pre>{result.result}</pre>
+              {result.sharedAnswer && (
+                <p>
+                  공유 답변 · 버전 {result.sharedAnswer.version}
+                  {result.sharedAnswer.unavailable
+                    ? " · 현재 열람 불가"
+                    : ` · 원래 답변 ${new Date(result.sharedAnswer.originallyAnsweredAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`}
+                  {result.sharedAnswer.stale && !result.sharedAnswer.unavailable
+                    ? " · 당시 답변, 현재 근거 변경"
+                    : ""}
+                </p>
+              )}
+              <AiEvidence
+                key={result.id}
+                references={result.references}
+                expanded
+              />
             </div>
             <div className="project-registration-footer matrix-ai-result-actions">
               {copyError && (
@@ -770,7 +839,14 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
               </button>
             </div>
           </>
-        )}
+        ) : resultId ? (
+          <p className="admin-detail-body" role="status">
+            {conversationState.error ||
+              (resultRevalidating
+                ? "공유 답변의 현재 열람 상태를 확인하는 중입니다."
+                : "현재 이 답변을 표시할 수 없습니다.")}
+          </p>
+        ) : null}
       </dialog>
     </div>
   );

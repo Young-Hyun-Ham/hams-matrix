@@ -20,11 +20,14 @@ export async function checkAiWindowBrowser({
       const rect=s=>document.querySelector(s).getBoundingClientRect();
       const panel=rect('.matrix-ai-drawer'),layout=rect('.workspace-content-layout');
       const messages=rect('.matrix-ai-messages'),card=rect('.matrix-ai-card');
+      const pane=rect('.matrix-ai-conversation-pane'),footer=rect('.matrix-ai-conversation-footer');
       const root=document.querySelector('.matrix-ai'),style=getComputedStyle(root);
-      return {width:panel.width,ratio:panel.width/layout.width,left:panel.left,right:panel.right,
+      return {width:panel.width,layoutWidth:layout.width,ratio:panel.width/layout.width,left:panel.left,right:panel.right,
+        messagesWidth:messages.width,cardWidth:card.width,
         split:card.left>messages.left+messages.width-1&&Math.abs(card.top-messages.top)<2,
         contentWidth:root.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),
-        sameHeight:Math.abs(card.height-messages.height)<2,
+        sameHeight:Math.abs(card.bottom-pane.bottom)<2&&Math.abs(card.top-pane.top)<2,
+        footerVisible:footer.top>=messages.bottom-1&&footer.bottom<=pane.bottom+1&&pane.bottom<=panel.bottom,
         overflow:document.documentElement.scrollWidth>innerWidth};
     })()`);
   }
@@ -33,6 +36,34 @@ export async function checkAiWindowBrowser({
       Math.abs(actual - expected) <= tolerance,
       `${label}: ${actual} vs ${expected}`,
     );
+  }
+  async function growthAllocation(expectedGrowth = 100) {
+    const before = await geometry();
+    await evaluate(
+      `(()=>{const layout=document.querySelector('.workspace-content-layout');window.aiSavedGrowth=layout.style.getPropertyValue('--ai-window-growth');layout.style.setProperty('--ai-window-growth','0px')})()`,
+    );
+    await pause(400);
+    const baseline = await geometry();
+    await evaluate(
+      `document.querySelector('.workspace-content-layout').style.setProperty('--ai-window-growth',window.aiSavedGrowth)`,
+    );
+    await pause(400);
+    const after = await geometry();
+    near(after.width - baseline.width, expectedGrowth, "actual outer growth");
+    near(after.width, before.width, "restored growth");
+    if (baseline.split && after.split) {
+      near(
+        after.messagesWidth,
+        baseline.messagesWidth,
+        "conversation width preserved",
+      );
+      near(
+        after.cardWidth - baseline.cardWidth,
+        expectedGrowth,
+        "all growth goes to input",
+      );
+    }
+    assert.ok(after.footerVisible, JSON.stringify(after));
   }
   async function preserved() {
     assert.deepEqual(
@@ -87,8 +118,12 @@ export async function checkAiWindowBrowser({
     });
     await pause(400);
     let g = await geometry();
-    near(g.ratio, 0.5, "split panel", 0.002);
-    assert.ok(g.split && g.sameHeight && !g.overflow, JSON.stringify(g));
+    near(g.width, g.layoutWidth * 0.5 + 100, "split panel");
+    assert.ok(
+      g.split && g.sameHeight && g.footerVisible && !g.overflow,
+      JSON.stringify(g),
+    );
+    await growthAllocation();
     assert.equal(
       await evaluate(
         `document.activeElement===document.querySelector(${JSON.stringify(stacked)})`,
@@ -98,19 +133,16 @@ export async function checkAiWindowBrowser({
     await preserved();
     await screenshot("chat-split-panel");
     await click(shrink);
-    assert.equal((await geometry()).split, false);
+    g = await geometry();
+    near(g.width, g.layoutWidth * 0.3 + 100, "split manual shrink");
     await click(stacked);
     near((await geometry()).ratio, 0.3, "restore original width", 0.002);
     await click(expand);
     await click(split);
     await click(shrink);
     await click(stacked);
-    near(
-      (await geometry()).ratio,
-      0.5,
-      "restore expanded stacked width",
-      0.002,
-    );
+    g = await geometry();
+    near(g.width, g.layoutWidth * 0.5 + 100, "restore expanded stacked width");
     await click(shrink);
     await click(popout);
     near((await geometry()).width, 460, "default popup");
@@ -126,7 +158,7 @@ export async function checkAiWindowBrowser({
       });
     await click(split);
     g = await geometry();
-    near(g.width, 760, "split popup");
+    near(g.width, 860, "split popup");
     assert.ok(
       g.left >= 12 && g.right <= 1440 - 12 && g.split,
       JSON.stringify(g),
@@ -136,8 +168,26 @@ export async function checkAiWindowBrowser({
         await evaluate(
           `document.querySelector(${JSON.stringify(shrink)}).title`,
         )
-      ).includes("460px"),
+      ).includes("560px"),
     );
+    await growthAllocation();
+    await click(shrink);
+    near((await geometry()).width, 560, "split popup manual shrink");
+    await click(expand);
+    // Exercise partial and zero growth at the viewport limit, not a fixed 100px deduction.
+    for (const [viewportWidth, growth] of [
+      [824, 40],
+      [760, 0],
+    ]) {
+      await resize(viewportWidth, 900);
+      near((await geometry()).width, viewportWidth - 24, "capped popup");
+      await growthAllocation(growth);
+      g = await geometry();
+      assert.ok(
+        g.left >= 12 && g.right <= viewportWidth - 12 + 1 && g.sameHeight,
+      );
+    }
+    await resize(1440);
     await preserved();
     // Exact container-query boundaries, independent of viewport or sidebar width.
     for (const width of [559, 560, 561]) {
@@ -154,7 +204,8 @@ export async function checkAiWindowBrowser({
     );
     await screenshot("chat-split-popup");
     await click(dock);
-    near((await geometry()).ratio, 0.5, "dock split popup", 0.002);
+    g = await geometry();
+    near(g.width, g.layoutWidth * 0.5 + 100, "dock split popup");
     await click(stacked);
     near(
       (await geometry()).ratio,
@@ -185,7 +236,7 @@ export async function checkAiWindowBrowser({
     await screenshot("chat-split-mobile-fallback");
     await resize(1440, 480);
     g = await geometry();
-    assert.ok(g.split && g.sameHeight);
+    assert.ok(g.split && g.sameHeight && g.footerVisible, JSON.stringify(g));
     // A short viewport makes the input card scroll; the send button stays reachable.
     assert.ok(
       await evaluate(
@@ -200,7 +251,7 @@ export async function checkAiWindowBrowser({
     await click(stacked);
     await preserved();
     console.log(
-      "PASS chat layout: keyboard/header order, 30/50% panel, 460/760px popup and bounds, per-mode width restoration, DOM/draft/model/target/image preservation without API requests, 559/560/561px containers, responsive controls, independent scroll and dark/low-height.",
+      "PASS chat layout: panel +100px, 460/560/860px popup, 100/40/0px input-only growth, footer alignment, bounds, mode restoration, DOM/draft/model/target/image preservation without API requests, 559/560/561px containers, responsive controls, independent scroll and dark/low-height.",
     );
   } finally {
     await evaluate(

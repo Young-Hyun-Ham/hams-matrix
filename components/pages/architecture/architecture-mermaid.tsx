@@ -29,6 +29,7 @@ import type { ProjectData } from "@/lib/artifact-types";
 import { ConfirmationDialog } from "@/components/shared/confirmation-dialog";
 import { architectureTheme } from "./architecture-theme";
 import { readableMermaidLabels, safeMermaidSvg } from "./mermaid-preview";
+import { renderMermaid } from "@/lib/mermaid-render";
 
 export function ArchitectureMermaid({
   artifact,
@@ -129,10 +130,9 @@ export function ArchitectureMermaid({
       try {
         const error = editableMermaidError(code);
         if (error) throw new Error(error);
-        const { default: mermaid } = await import("mermaid");
         if (!active) return;
         const palette = architectureTheme(theme, accentColor);
-        mermaid.initialize({
+        const rendered = await renderMermaid(`architecture${id}${requestId}`, code, {
           startOnLoad: false,
           securityLevel: "strict",
           theme: "base",
@@ -158,15 +158,8 @@ export function ArchitectureMermaid({
           maxTextSize: 150000,
           flowchart: { htmlLabels: false, useMaxWidth: false, padding: 20 },
           suppressErrorRendering: true,
-        });
-        await mermaid.parse(code);
-        if (!active) return;
-        const rendered = await mermaid.render(
-          `architecture${id}${requestId}`,
-          code,
-          container,
-        );
-        if (!active) return;
+        }, container, () => active);
+        if (!active || !rendered) return;
         container.innerHTML = safeMermaidSvg(rendered.svg);
         const svg = container.querySelector("svg")!;
         const bounds = svg.viewBox.baseVal;

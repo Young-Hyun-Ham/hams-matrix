@@ -1,4 +1,16 @@
 import { aiUserSettings } from "@/lib/ai/user-settings";
+import { inspectSharedOutput } from "@/lib/ai/shared-answer-output";
+import {
+  captureAnswerProvenance,
+  validateAnswerProvenance,
+} from "@/lib/ai/answer-provenance";
+import {
+  createSharedSelection,
+  findSharedAnswers,
+  validateSharedReturn,
+  validateSharedSelection,
+} from "@/lib/ai/shared-answers";
+import type { SharedAnswer } from "@/lib/ai/shared-answer-types";
 import { orchestrateChat, restrictAgent } from "@/lib/ai/orchestration";
 import { validateRagEvidence } from "@/lib/ai/rag-retrieval";
 import {
@@ -64,10 +76,24 @@ export async function GET(request: Request) {
     if (before && !/^\d{1,18}$/.test(before))
       throw new HttpError(400, "Invalid cursor");
     const conversation = await requireConversation(user, projectId, convId);
+    const page = await conversationChats(user, projectId, convId, before);
+    if (
+      page.chats.some(
+        (chat) => chat.sharedAnswer && !chat.sharedAnswer.unavailable,
+      )
+    )
+      await inspectSharedOutput(
+        user,
+        projectId,
+        page.chats
+          .filter((chat) => chat.sharedAnswer)
+          .map((chat) => chat.result),
+        request.signal,
+      );
     return Response.json(
       {
         conversation,
-        ...(await conversationChats(user, projectId, convId, before)),
+        ...page,
         historyEnabled: (await workspacePlan(user.id, user.workspaceId))
           .historyEnabled,
       },
@@ -275,6 +301,80 @@ export async function POST(request: Request) {
         : message.content,
     }));
     await guard.inspect("context", { history: historyText }, historyImages);
+    const sharedMode = input.sharedMode ?? "prefer_shared";
+    if (
+      !["prefer_shared", "generate_fresh", "use_shared"].includes(
+        String(sharedMode),
+      )
+    )
+      throw new HttpError(400, "공유 답변 처리 방식을 확인해 주세요.");
+    let sharedAnswer: SharedAnswer | null = null;
+    if (
+      projectId &&
+      !images.length &&
+      !historyImages.length &&
+      sharedMode !== "generate_fresh"
+    ) {
+      if (sharedMode === "use_shared")
+        sharedAnswer = await validateSharedSelection(
+          user,
+          projectId,
+          convId,
+          executionVersion,
+          prompt,
+          input,
+        );
+      else {
+        try {
+          const matches = await findSharedAnswers(user, projectId, prompt, {
+            model,
+            track,
+            checkpoint,
+            deadline: requestDeadline,
+            inspect: (value) => guard.inspect("context", value),
+          });
+          sharedAnswer = matches.exact;
+          if (!sharedAnswer && matches.candidates.length) {
+            await guard.inspect("output", matches.candidates);
+            await checkpoint();
+            const selection = await createSharedSelection(
+              user,
+              projectId,
+              convId,
+              executionVersion,
+              prompt,
+              matches.candidates,
+            );
+            outcome = "completed";
+            return Response.json(
+              {
+                kind: "shared_candidates",
+                candidates: matches.candidates,
+                ...selection,
+                conversation,
+                projectId,
+              },
+              { headers: { "Cache-Control": "private, no-store" } },
+            );
+          }
+        } catch (error) {
+          if (
+            (error instanceof HttpError && error.status < 500) ||
+            error instanceof GenerationCancelled ||
+            error instanceof GuardrailBlocked
+          )
+            throw error;
+          await checkpoint(); // Technical lookup failures fall back to the existing generation path.
+        }
+      }
+    }
+    const provenanceTracker = await captureAnswerProvenance(
+      user,
+      projectId,
+      executionTarget,
+      prompt,
+      history.length > 0 || images.length > 0,
+    );
     const orchestration = await orchestrateChat({
       user,
       projectId,
@@ -287,19 +387,27 @@ export async function POST(request: Request) {
       requestId,
       signal: request.signal,
       targetPage: executionTarget,
+      skipRetrieval: !!sharedAnswer,
     });
     canWrite =
+      !sharedAnswer &&
       canWrite &&
       orchestration.plan.needsExecution &&
       !orchestration.plan.needsClarification;
-    const directContext =
-      orchestration.rag.context && !orchestration.plan.needsRealtime
+    const directContext = sharedAnswer
+      ? null
+      : orchestration.rag.context && !orchestration.plan.needsRealtime
         ? null
         : await readAiPage(user, context, page);
     const pageContext = directContext ?? {
       project: { id: projectId, name: projectName },
       rag: orchestration.rag.context,
     };
+    if (!sharedAnswer) {
+      provenanceTracker.observe("page_context", {}, pageContext);
+      if (orchestration.rag.context)
+        provenanceTracker.observe("rag_context", {}, orchestration.rag.context);
+    }
     await guard.inspect(
       "context",
       {
@@ -315,44 +423,65 @@ export async function POST(request: Request) {
       guardrail.policy.imageMode === "read-only"
     )
       canWrite = false;
-    const baseAgent = createPageAgent(
-      request,
-      user,
-      context,
-      page,
-      canWrite,
-      prompt,
-      checkpoint,
-      { policy: guardrail.policy, inspect: guard.inspect },
-      directContext && "domainMeta" in directContext
-        ? directContext.domainMeta?.catalogRevision
-        : undefined,
-    );
-    const agent = restrictAgent(baseAgent, canWrite);
+    const baseAgent = sharedAnswer
+      ? {
+          tools: [] as Record<string, unknown>[],
+          actions: [] as AiAction[],
+          execute: async (): Promise<unknown> => {
+            throw new HttpError(403, "공유 답변은 업무를 실행하지 않습니다.");
+          },
+          pendingCount: () => 0,
+          commit: async () => [] as AiAction[],
+          exportChanges: () => [],
+        }
+      : createPageAgent(
+          request,
+          user,
+          context,
+          page,
+          canWrite,
+          prompt,
+          checkpoint,
+          { policy: guardrail.policy, inspect: guard.inspect },
+          directContext && "domainMeta" in directContext
+            ? directContext.domainMeta?.catalogRevision
+            : undefined,
+        );
+    const trackedAgent = {
+      ...baseAgent,
+      execute: async (name: string, toolInput: Record<string, unknown>) => {
+        const output = await baseAgent.execute(name, toolInput);
+        provenanceTracker.observe(name, toolInput, output);
+        return output;
+      },
+    };
+    const agent = restrictAgent(trackedAgent, canWrite);
     actions = agent.actions;
     let result: string;
     try {
-      result = await generateAi(
-        model,
-        pageInstructions(context, page, canWrite) +
-          orchestration.instructions +
-          "\n이력 미저장 대화는 조회·초안 전용입니다. 변경안은 사람의 승인 대기가 될 수 있으며 아직 저장 완료라고 말하지 마세요.",
-        JSON.stringify({
-          pageContext,
-          ragContext: directContext ? orchestration.rag.context : undefined,
-          request: prompt,
-        }),
-        agent,
-        images,
-        history,
-        track,
-        checkpoint,
-        {
-          deadline: requestDeadline,
-          maxToolRounds: guardrail.policy.maxToolRounds,
-          requestId,
-        },
-      );
+      result = sharedAnswer
+        ? sharedAnswer.result
+        : await generateAi(
+            model,
+            pageInstructions(context, page, canWrite) +
+              orchestration.instructions +
+              "\n이력 미저장 대화는 조회·초안 전용입니다. 변경안은 사람의 승인 대기가 될 수 있으며 아직 저장 완료라고 말하지 마세요.",
+            JSON.stringify({
+              pageContext,
+              ragContext: directContext ? orchestration.rag.context : undefined,
+              request: prompt,
+            }),
+            agent,
+            images,
+            history,
+            track,
+            checkpoint,
+            {
+              deadline: requestDeadline,
+              maxToolRounds: guardrail.policy.maxToolRounds,
+              requestId,
+            },
+          );
     } catch (error) {
       if (error instanceof GenerationStopFailed) throw error;
       if (error instanceof GenerationCancelled) {
@@ -365,7 +494,9 @@ export async function POST(request: Request) {
       // Tool mutations are only previews until the final output has passed validation.
       throw error;
     }
-    for (const match of result.matchAll(/\[근거:([^\]]+)\]/g))
+    for (const match of (sharedAnswer ? "" : result).matchAll(
+      /\[근거:([^\]]+)\]/g,
+    ))
       if (!orchestration.rag.references.some((ref) => ref.chunkId === match[1]))
         throw new HttpError(
           502,
@@ -411,7 +542,37 @@ export async function POST(request: Request) {
     const saveTx = await db().transaction("write");
     let committed: AiAction[] = [];
     let review: AiChangeReview | undefined;
+    const provenance = provenanceTracker.finish(
+      result,
+      orchestration.plan.needsExecution || agent.pendingCount() > 0,
+    );
     try {
+      if (sharedAnswer) {
+        if (
+          (await activeGuardrailPolicy(user.workspaceId, saveTx)).version !==
+          guardrail.version
+        )
+          throw new HttpError(
+            409,
+            "답변 검사 중 보안 정책이 변경되었습니다. 다시 질문해 주세요.",
+          );
+        await validateSharedReturn(
+          user,
+          projectId,
+          sharedAnswer,
+          saveTx,
+          requestId,
+        );
+      }
+      if (
+        !sharedAnswer &&
+        provenance.complete &&
+        !(await validateAnswerProvenance(user, projectId, provenance, saveTx))
+      ) {
+        provenance.complete = false;
+        provenance.reason =
+          "답변 생성 중 자료 또는 조회 범위가 변경되었습니다.";
+      }
       if (projectId)
         await validateRagEvidence(user, projectId, orchestration.rag, saveTx);
       const finalSettings = await aiUserSettings(user, saveTx);
@@ -445,7 +606,7 @@ export async function POST(request: Request) {
       const statements = plan.historyEnabled
         ? [
             {
-              sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id,target_page,target_version,rag_references_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+              sql: "INSERT INTO ai_prompt_chats(id,workspace_id,user_id,project_id,pathname,tab,screen_title,prompt,model,result,created_at,conv_id,target_page,target_version,rag_references_json,provenance_json,shared_answer_id,shared_answer_version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
               args: [
                 id,
                 user.workspaceId,
@@ -455,13 +616,16 @@ export async function POST(request: Request) {
                 sourceTab,
                 screenTitle,
                 prompt,
-                model,
+                sharedAnswer?.model ?? model,
                 result,
                 createdAt,
                 convId,
                 executionTarget,
                 executionVersion,
                 JSON.stringify(orchestration.rag.references),
+                JSON.stringify(sharedAnswer ? {} : provenance),
+                sharedAnswer?.id ?? null,
+                sharedAnswer?.answerVersion ?? null,
               ],
             },
             ...encrypted.statements,
@@ -515,13 +679,32 @@ export async function POST(request: Request) {
     outcome = "completed";
     return Response.json(
       {
+        kind: "answered",
         chat: {
           id,
           convId,
           createdAt,
           screenTitle,
           prompt,
-          model,
+          model: sharedAnswer?.model ?? model,
+          responseSource: sharedAnswer ? "shared_answer" : "generated",
+          sharedAnswer: sharedAnswer
+            ? {
+                id: sharedAnswer.id,
+                version: sharedAnswer.answerVersion,
+                originallyAnsweredAt: sharedAnswer.originallyAnsweredAt,
+                verifiedAt: createdAt,
+              }
+            : undefined,
+          shareEligibility: {
+            eligible:
+              !sharedAnswer,
+              // 공유를 위해 검증된 답변이 아니고, 현재 근거가 변경되지 않은 경우에만 공유 가능
+              // !sharedAnswer, && plan.historyEnabled && provenance.complete,
+            reason: sharedAnswer
+              ? "이미 등록된 공유 답변입니다."
+              : provenance.reason,
+          },
           result,
           images: encrypted.images,
           references: orchestration.rag.references,
@@ -533,7 +716,7 @@ export async function POST(request: Request) {
         actions: agent.actions,
         projectId,
       },
-      { headers: { "Cache-Control": "no-store" } },
+      { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
     if (error instanceof ConversationTargetConflict)

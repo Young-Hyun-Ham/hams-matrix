@@ -11,16 +11,25 @@ import { spawn } from "node:child_process";
 import ts from "typescript";
 const require = createRequire(import.meta.url);
 const folder = await mkdtemp(join(tmpdir(), "matrix-mermaid-editor-"));
-const helper = ts.transpileModule(readFileSync("components/pages/architecture/mermaid-preview.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } }).outputText;
+const helper = ts.transpileModule(readFileSync("lib/mermaid-preview.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } }).outputText;
 await writeFile(join(folder, "helper.mjs"), helper);
+await writeFile(join(folder, "render.mjs"), ts.transpileModule(readFileSync("lib/mermaid-render.ts", "utf8"), { compilerOptions: { module: ts.ModuleKind.ES2020, target: ts.ScriptTarget.ES2020 } }).outputText);
 const mermaidUrl = pathToFileURL(join(dirname(require.resolve("mermaid")), "mermaid.esm.min.mjs")).href;
 const code = 'graph TD\n %% node styles\n classDef client fill:#e1f5fe,stroke:#0288d1,color:#fff;\n classDef db fill:#fff3e0,stroke:#f57c00,color:#fff;\n subgraph ClientLayer ["1. Client Layer"]\n Browser["Web Browser (React/Next.js)"]:::client\n Mobile["Mobile Web App"]:::client\n end\n subgraph AppLayer ["2. Application and API Layer"]\n API["FastAPI Engine (Python)"]\n end\n Browser -->|HTTPS / JSON| API\n Mobile --> API\n API -->|ORM / SQL| DB[("PostgreSQL DB")]:::db';
 const css = readFileSync("styles/pages/projects/tabs/architecture/architecture-page.css", "utf8");
 await writeFile(join(folder, "test.html"), `<!doctype html><html><head><meta charset="utf-8"><style>:root{--canvas:#181821;--surface:#22222e;--ink:#e7e7f0;--muted:#a6a5bb;--line:#343344;--primary:#a48bfa;--primary-soft:#302744}body{margin:20px;background:var(--canvas);color:var(--ink);font:14px Arial}.matrix-architecture-mermaid-preview{height:700px}${css}</style></head><body><div class="matrix-workbench"><h2>Mermaid preview · dark theme with custom light nodes</h2><div class="matrix-architecture-mermaid-preview"><div class="architecture-preview-space"><div id="canvas" class="architecture-preview-canvas"></div></div></div></div><script type="module">
 import mermaid from ${JSON.stringify(mermaidUrl)};
 import {safeMermaidSvg,readableMermaidLabels} from './helper.mjs';
+import {documentMermaidError} from './render.mjs';
+const sentinel = document.createElement('span');sentinel.className='outside';sentinel.textContent='Outside SVG';document.body.append(sentinel);
+const beforeColor=getComputedStyle(sentinel).color;
+const attack=document.createElement('div');document.body.append(attack);
+attack.innerHTML=safeMermaidSvg('<svg xmlns="http://www.w3.org/2000/svg" id="isolatedSvg" onload="alert(1)"><style>body,.outside { color:red !important; } svg > rect { fill:rgb(12,34,56); }</style><foreignObject><div>unsafe</div></foreignObject><a href="https://example.invalid"><text>link</text></a><rect width="10" height="10"/></svg>');
+const isolation=getComputedStyle(sentinel).color===beforeColor&&!attack.querySelector('[onload],foreignObject,a,[href]')&&getComputedStyle(attack.querySelector('rect')).fill==='rgb(12, 34, 56)';
+const policy=[!documentMermaidError('sequenceDiagram\\n Alice->>Bob: Hello'),!!documentMermaidError('%%{init: {}}%%\\nflowchart TD\\n A-->B'),!!documentMermaidError('flowchart TD\\n click A "https://example.invalid"'),!!documentMermaidError('flowchart TD\\n A@{img: "/private-image"}'),!!documentMermaidError('flowchart TD\\n A["![image](/private-image)"]'),!!documentMermaidError('x'.repeat(150001)),!!documentMermaidError(''),!!documentMermaidError('---\\nconfig: {}\\n---\\nflowchart TD\\nA-->B')].every(Boolean);
+attack.remove();sentinel.remove();
 try { mermaid.initialize({startOnLoad:false,securityLevel:'strict',theme:'base',htmlLabels:false,themeVariables:{darkMode:true,primaryColor:'#302744',primaryTextColor:'#e7e7f0',textColor:'#e7e7f0',lineColor:'#aaa6c3',clusterBkg:'#181821',clusterBorder:'#69677e',edgeLabelBackground:'#22222e'},flowchart:{htmlLabels:false,useMaxWidth:false}});
-const code=${JSON.stringify(code)};await mermaid.parse(code);const result=await mermaid.render('actualPreview',code,document.getElementById('canvas'));document.getElementById('canvas').innerHTML=safeMermaidSvg(result.svg);const svg=document.querySelector('svg');readableMermaidLabels(svg,'#e7e7f0');window.testResult={nodes:svg.querySelectorAll('g.node').length,foreign:svg.querySelectorAll('foreignObject').length,labels:[...svg.querySelectorAll('g.node text')].map(text=>({text:text.textContent,fill:getComputedStyle(text).fill})),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height}; }catch(error){window.testResult={error:String(error)}}
+const code=${JSON.stringify(code)};await mermaid.parse(code);const result=await mermaid.render('actualPreview',code,document.getElementById('canvas'));document.getElementById('canvas').innerHTML=safeMermaidSvg(result.svg);const svg=document.querySelector('svg');readableMermaidLabels(svg,'#e7e7f0');window.testResult={isolation,policy,nodes:svg.querySelectorAll('g.node').length,foreign:svg.querySelectorAll('foreignObject').length,labels:[...svg.querySelectorAll('g.node text')].map(text=>({text:text.textContent,fill:getComputedStyle(text).fill})),width:svg.viewBox.baseVal.width,height:svg.viewBox.baseVal.height}; }catch(error){window.testResult={error:String(error)}}
 </script></body></html>`);
 const browser = process.env.MERMAID_TEST_BROWSER || "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe";
 const child = spawn(browser, ["--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--allow-file-access-from-files", `--user-data-dir=${join(folder, "profile")}`, "--remote-debugging-port=0", "about:blank"], { windowsHide: true, stdio: ["ignore", "ignore", "pipe"] });
@@ -50,6 +59,8 @@ try {
   }
   assert.ok(result && !result.error, JSON.stringify(result));
   assert.equal(result.nodes, 4);
+  assert.equal(result.isolation, true, 'SVG CSS and executable content stay isolated');
+  assert.equal(result.policy, true, 'document Mermaid configuration/link/size policy');
   assert.equal(result.foreign, 0);
   assert.ok(result.width > 0 && result.height > 0);
   assert.ok(result.labels.some((label) => label.text.includes("Browser") && label.fill === "rgb(23, 32, 51)"), JSON.stringify(result));

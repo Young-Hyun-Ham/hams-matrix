@@ -475,8 +475,7 @@
 
 .viewer .readingArea {
   display: grid;
-  grid-template-columns: minmax(0, 900px) 190px;
-  justify-content: center;
+  grid-template-columns: minmax(0, 1fr) var(--viewer-outline-width, 30%);
   align-items: start;
   align-content: start;
   gap: 20px;
@@ -488,7 +487,9 @@
   overscroll-behavior: contain;
   scroll-padding-top: 16px;
 }
-.viewer .readingArea[data-view-mode="source"] {
+.viewer .readingArea[data-view-mode="source"],
+.viewer .readingArea[data-has-outline="false"],
+.viewer .readingArea:not([data-outline-fits="true"]) {
   grid-template-columns: minmax(0, 1fr);
 }
 .viewer .documentPaper {
@@ -660,10 +661,14 @@
 }
 
 .viewer .outline {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
   position: sticky;
   top: 0;
-  max-height: 100%;
-  overflow-y: auto;
+  max-height: var(--viewer-outline-height, 300px);
+  overflow: hidden;
   padding: 14px 10px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -671,7 +676,23 @@
 }
 .viewer .outlineLinks {
   display: grid;
+  grid-auto-rows: max-content;
+  align-content: start;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
   margin-top: 6px;
+}
+.viewer .outline > strong {
+  flex-shrink: 0;
+}
+.viewer .outlineLinks::-webkit-scrollbar {
+  display: none;
+}
+.viewer .outlineLinks:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }
 .viewer .outlineButton {
   justify-content: flex-start;
@@ -686,19 +707,65 @@
   font-weight: 400;
   line-height: 1.35;
   text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 .viewer .outlineButton:hover {
   background: var(--primary-soft);
 }
 
-@container markdown-viewer (max-width: 1000px) {
-  .viewer .readingArea {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .viewer .outline {
-    display: none;
-  }
+.viewer .readingArea:not([data-outline-fits="true"]) .outline {
+  display: none;
+}
+
+.viewer .mermaidBlock {
+  min-width: 0;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.viewer .mermaidTabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-bottom: 1px solid var(--line);
+}
+.viewer .mermaidTabs button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ink);
+}
+.viewer .mermaidTabs button[aria-selected="true"] {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+.viewer .mermaidBlock pre {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+.viewer .mermaidBlock [role="status"] {
+  margin: 0;
+  padding: 12px;
+}
+.viewer .mermaidError {
+  color: var(--viewer-critical);
+}
+.viewer .mermaidCanvas {
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.viewer .mermaidCanvas svg {
+  display: block;
+  margin: auto;
 }
 @container markdown-viewer (max-width: 800px) {
   .viewer .documentHeader {

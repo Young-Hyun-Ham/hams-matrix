@@ -50,6 +50,14 @@ try {
     if (!prerequisite.rows.length)
       throw new Error("Migration 049 requires applied migration 048");
   }
+  if (selected === "050_project_shared_answers.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["049_project_rag_resume.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 050 requires applied migration 049");
+  }
   for (const name of migrations) {
     if (selected && name !== selected) continue;
     const applied = await db.execute({

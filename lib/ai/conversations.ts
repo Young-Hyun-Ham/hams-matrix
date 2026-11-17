@@ -1,4 +1,6 @@
 import { reviewInfo } from "./change-reviews";
+import { sharedHistoryOrigin } from "./shared-answers";
+import { parseProvenance } from "./answer-provenance";
 import "server-only";
 import type { Row } from "@libsql/client";
 import { workspacePlan } from "@/lib/plans";
@@ -72,7 +74,7 @@ export async function conversationChats(
     return { chats: [], nextCursor: null };
   // Stable rowid cursor also handles requests committed in the same millisecond.
   const result = await db().execute({
-    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result,rag_references_json,target_page AS targetPage,target_version AS targetVersion FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 11`,
+    sql: `SELECT rowid AS cursor,id,conv_id AS convId,prompt,model,screen_title AS screenTitle,created_at AS createdAt,result,rag_references_json,target_page AS targetPage,target_version AS targetVersion,provenance_json,shared_answer_id,shared_answer_version FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ${before ? "AND rowid < ?" : ""} ORDER BY rowid DESC LIMIT 11`,
     args: [
       user.workspaceId,
       user.id,
@@ -83,6 +85,21 @@ export async function conversationChats(
   });
   const hasMore = result.rows.length > 10;
   const rows = result.rows.slice(0, 10).reverse();
+  const sharedOrigins = new Map();
+  for (const row of rows)
+    if (row.shared_answer_id) {
+      const origin = await sharedHistoryOrigin(
+        user,
+        projectId,
+        String(row.shared_answer_id),
+        Number(row.shared_answer_version),
+      );
+      sharedOrigins.set(String(row.id), origin);
+      if (origin.unavailable) {
+        row.result = "현재 열람할 수 없는 공유 답변입니다.";
+        row.rag_references_json = "[]";
+      }
+    }
   const ids = rows.map((row) => String(row.id));
   const attachments = ids.length
     ? await db().execute({
@@ -100,6 +117,18 @@ export async function conversationChats(
     : [];
   return {
     chats: rows.map((row) => ({
+      responseSource: row.shared_answer_id
+        ? ("shared_answer" as const)
+        : ("generated" as const),
+      sharedAnswer: sharedOrigins.get(String(row.id)),
+      shareEligibility: {
+        eligible:
+          !row.shared_answer_id &&
+          parseProvenance(row.provenance_json)?.complete === true,
+        reason:
+          parseProvenance(row.provenance_json)?.reason ??
+          "근거 추적 정보가 없는 과거 답변입니다.",
+      },
       id: String(row.id),
       convId: String(row.convId),
       review: reviews.find((r) => r.chat_id === row.id)
@@ -129,9 +158,22 @@ export async function conversationHistory(
   if (!(await workspacePlan(user.id, user.workspaceId)).historyEnabled)
     return [];
   const result = await db().execute({
-    sql: "SELECT id,prompt,result FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ORDER BY rowid DESC LIMIT 20",
+    sql: "SELECT id,prompt,result,shared_answer_id,shared_answer_version FROM ai_prompt_chats WHERE workspace_id=? AND user_id=? AND project_id IS ? AND conv_id=? ORDER BY rowid DESC LIMIT 20",
     args: [user.workspaceId, user.id, projectId || null, convId],
   });
+  for (const row of result.rows)
+    if (row.shared_answer_id) {
+      const origin = await sharedHistoryOrigin(
+        user,
+        projectId,
+        String(row.shared_answer_id),
+        Number(row.shared_answer_version),
+      );
+      if (origin.unavailable)
+        row.result = "현재 열람할 수 없는 공유 답변입니다.";
+      else if (origin.stale)
+        row.result = "과거 공유 답변의 근거가 변경되어 새 질문의 근거로 제공하지 않습니다.";
+    }
   let remaining = 60000;
   const selected = [];
   for (const row of result.rows) {

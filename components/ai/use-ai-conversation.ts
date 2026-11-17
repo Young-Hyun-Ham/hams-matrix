@@ -112,6 +112,7 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
   return {
     chats,
     loading: query.isLoading,
+    revalidating: query.isFetching && !query.isFetchingNextPage,
     loadingOlder: query.isFetchingNextPage,
     error: query.isFetchNextPageError
       ? ""

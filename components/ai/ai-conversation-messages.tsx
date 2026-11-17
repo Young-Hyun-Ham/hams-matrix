@@ -1,5 +1,7 @@
 "use client";
 import { AiChangeReview } from "./ai-change-review";
+import { SharedAnswerControls } from "./shared-answer-dialog";
+import { AiEvidence } from "./ai-evidence";
 
 import { useCallback, useLayoutEffect, useRef } from "react";
 import type { AiChat } from "@/lib/ai-context";
@@ -10,11 +12,13 @@ export function AiConversationMessages({
   generating,
   showResult,
   reuse,
+  projectId = "",
 }: {
   conversation: ReturnType<typeof useAiConversation>;
   generating: boolean;
   showResult: (chat: AiChat) => void;
   reuse: (chat: AiChat) => void;
+  projectId?: string;
 }) {
   const last = conversation.chats.at(-1)?.id;
   const container = useRef<HTMLElement>(null);
@@ -189,23 +193,22 @@ export function AiConversationMessages({
               </div>
               <div className="matrix-ai-assistant-message">
                 <strong>AI</strong>
+                {chat.sharedAnswer && (
+                  <p>
+                    공유 답변 · 버전 {chat.sharedAnswer.version}
+                    {chat.sharedAnswer.unavailable
+                      ? " · 현재 열람 불가"
+                      : ` · 원래 답변 ${new Date(chat.sharedAnswer.originallyAnsweredAt).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}`}
+                    {chat.sharedAnswer.stale && !chat.sharedAnswer.unavailable
+                      ? " · 당시 답변, 현재 근거 변경"
+                      : ""}
+                  </p>
+                )}
                 <small>
                   {chat.screenTitle} · {chat.model}
                 </small>
                 <pre>{chat.result}</pre>
-                {!!chat.references?.length && (
-                  <details className="matrix-ai-evidence">
-                    <summary>프로젝트 근거 {chat.references.length}건</summary>
-                    <ul>
-                      {chat.references.map((ref) => (
-                        <li key={ref.chunkId}>
-                          <a href={ref.href}>{ref.title}</a> · 버전{" "}
-                          {ref.version} · {ref.section}
-                        </li>
-                      ))}
-                    </ul>
-                  </details>
-                )}
+                <AiEvidence references={chat.references} />
                 {chat.review && (
                   <AiChangeReview
                     initial={chat.review}
@@ -222,6 +225,11 @@ export function AiConversationMessages({
                   />
                 )}
                 <div className="matrix-ai-message-actions">
+                  <SharedAnswerControls
+                    projectId={projectId}
+                    chat={chat}
+                    disabled={generating}
+                  />
                   <button type="button" onClick={() => showResult(chat)}>
                     결과 크게 보기
                   </button>

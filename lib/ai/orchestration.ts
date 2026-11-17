@@ -18,6 +18,7 @@ export async function orchestrateChat(options: {
   requestId: string;
   signal?: AbortSignal;
   targetPage?: string;
+  skipRetrieval?: boolean;
 }) {
   const started = Date.now(),
     plan = await classifyIntent(options);
@@ -28,7 +29,12 @@ export async function orchestrateChat(options: {
     fallbackCode: null,
     manifest: null,
   };
-  if (options.projectId && plan.needsRag && !plan.needsClarification) {
+  if (
+    !options.skipRetrieval &&
+    options.projectId &&
+    plan.needsRag &&
+    !plan.needsClarification
+  ) {
     try {
       rag = await retrieveRag(options);
     } catch (error) {

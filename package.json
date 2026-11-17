@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:shared-answers": "node scripts/test-shared-answers.mjs",
+    "test:shared-answers-browser": "node scripts/test-shared-answers-browser.mjs",
     "worker:rag": "node scripts/rag-worker.mjs",
     "test:project-rag": "node scripts/test-project-rag.mjs",
     "dev": "node scripts/run-with-deliverable-worker.mjs dev",
@@ -80,7 +82,7 @@
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.62.0",
     "mermaid": "^12.2.0",
-    "next": "16.4.2",
+    "next": "16.4.6",
     "prettier": "3.6.2",
     "prettier-plugin-astro": "0.14.1",
     "prettier-plugin-svelte": "3.4.1",

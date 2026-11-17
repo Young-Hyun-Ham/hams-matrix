@@ -12,6 +12,9 @@ export type AiContext = {
   projectName: string;
 };
 export type AiChat = {
+  responseSource?: "generated" | "shared_answer";
+  sharedAnswer?: import("./ai/shared-answer-types").SharedAnswerOrigin;
+  shareEligibility?: { eligible: boolean; reason: string | null };
   references?: RagReference[];
   review?: AiChangeReview;
   id: string;

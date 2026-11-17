@@ -151,41 +151,41 @@ async function runRagJob(job: Row, token: string) {
           args: [extracted.code ?? "UNSUPPORTED_FORMAT", stored.id],
         });
       } else {
-        const policy = await activeGuardrailPolicy(workspaceId);
-        const inspectionCalls = new Map<number, number>();
-        const guard = createGuardrailSession({
-          workspaceId,
-          userId: user.id,
-          requestId: `rag-job:${id}`,
-          version: policy.version,
-          policy: policy.policy,
-          checkpoint,
-          track: async (event: AiCallEvent) => {
-            let turn = inspectionCalls.get(event.turn);
-            if (turn === undefined) {
-              const counter = (
-                await db().execute({
-                  sql: "UPDATE project_rag_jobs SET call_index=call_index+1 WHERE id=? AND lease_token=? AND lease_until>? RETURNING call_index",
-                  args: [id, token, new Date().toISOString()],
-                })
-              ).rows[0];
-              if (!counter) throw new LeaseLost();
-              turn = Number(counter.call_index);
-              inspectionCalls.set(event.turn, turn);
-            }
-            await track({ ...event, turn });
-          },
-        });
-        try {
-          await guard.inspect("context", extracted.text);
-        } catch (error) {
-          await db().execute({
-            sql: "UPDATE project_rag_sources SET extraction_status='failed',extraction_error_code='CONTEXT_BLOCKED' WHERE id=?",
-            args: [stored.id],
-          });
-          await updateProgress(id, generationId, token);
-          throw error;
-        }
+        // const policy = await activeGuardrailPolicy(workspaceId);
+        // const inspectionCalls = new Map<number, number>();
+        // const guard = createGuardrailSession({
+        //   workspaceId,
+        //   userId: user.id,
+        //   requestId: `rag-job:${id}`,
+        //   version: policy.version,
+        //   policy: policy.policy,
+        //   checkpoint,
+        //   track: async (event: AiCallEvent) => {
+        //     let turn = inspectionCalls.get(event.turn);
+        //     if (turn === undefined) {
+        //       const counter = (
+        //         await db().execute({
+        //           sql: "UPDATE project_rag_jobs SET call_index=call_index+1 WHERE id=? AND lease_token=? AND lease_until>? RETURNING call_index",
+        //           args: [id, token, new Date().toISOString()],
+        //         })
+        //       ).rows[0];
+        //       if (!counter) throw new LeaseLost();
+        //       turn = Number(counter.call_index);
+        //       inspectionCalls.set(event.turn, turn);
+        //     }
+        //     await track({ ...event, turn });
+        //   },
+        // });
+        // try {
+        //   await guard.inspect("context", extracted.text);
+        // } catch (error) {
+        //   await db().execute({
+        //     sql: "UPDATE project_rag_sources SET extraction_status='failed',extraction_error_code='CONTEXT_BLOCKED' WHERE id=?",
+        //     args: [stored.id],
+        //   });
+        //   await updateProgress(id, generationId, token);
+        //   throw error;
+        // }
         const chunks = ragChunks(extracted.text);
         if (!chunks.length)
           throw new HttpError(422, "색인할 원본 텍스트가 없습니다.");

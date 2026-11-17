@@ -27,6 +27,9 @@ export function useAiWindow(
     [dragging, setDragging] = useState(false);
   const drag = useRef<Drag | null>(null);
   const expanded = split ? splitExpanded : stackedExpanded;
+  const widthGrowth = expanded || split ? 100 : 0;
+  const popupBaseWidth = expanded ? 760 : 460;
+  const popupWidth = popupBaseWidth + widthGrowth;
   function toggleSplit() {
     if (!split) setSplitExpanded(true);
     setSplit((current) => !current);
@@ -73,7 +76,7 @@ export function useAiWindow(
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", clampPosition);
     };
-  }, [floating, expanded, open, panel]);
+  }, [floating, popupWidth, open, panel]);
   function toggleFloating() {
     if (!floating) {
       const rect = panel.current?.getBoundingClientRect();
@@ -83,7 +86,7 @@ export function useAiWindow(
           Math.min(
             (rect?.left ?? 0) + 24,
             window.innerWidth -
-              Math.min(expanded ? 760 : 460, window.innerWidth - 24) -
+              Math.min(popupWidth, window.innerWidth - 24) -
               12,
           ),
         ),
@@ -156,6 +159,8 @@ export function useAiWindow(
     floating,
     expanded,
     split,
+    widthGrowth,
+    popupBaseWidth,
     position,
     dragging,
     toggleFloating,

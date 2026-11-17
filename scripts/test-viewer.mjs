@@ -82,6 +82,22 @@ function stop(child) {
 }
 
 const fixture = "# Viewer fixture\n\n본문 검색키워드 `inline code`\n\n[다음 문서](nested/02-second.md#두번째-제목)\n\n## First section\n\n> 인용문\n\n```js\nconst answer = 42;\n```\n\n| Low | Medium | High | Critical |\n| --- | --- | --- | --- |\n| A: low | B: medium | C: high | D: critical |\n| S | M | L | XL |\n\n" + Array.from({ length: 30 }, (_, i) => `### Section ${i}\n\nLong content paragraph ${i}.\n\n`).join("");
+const diagrams = [
+  'flowchart TD\n A["시작"] --> B["완료"]',
+  'sequenceDiagram\n Alice->>Bob: Hello\n Bob-->>Alice: Reply',
+  'classDiagram\n Animal <|-- Duck\n Animal : +int age',
+  'stateDiagram-v2\n [*] --> Ready\n Ready --> Done\n Done --> [*]',
+  'erDiagram\n CUSTOMER ||--o{ ORDER : places\n CUSTOMER {\n int id\n }',
+  'gantt\n dateFormat YYYY-MM-DD\n section Work\n Task :a1, 2026-11-17, 2d',
+];
+const longTitles = ['가'.repeat(20), 'A'.repeat(40), '가'.repeat(10) + 'a'.repeat(20), 'W'.repeat(40)];
+const enhancedFixture = '# Enhanced viewer\n\n' + [1, 2, 3].flatMap(level => longTitles.map(text => '#'.repeat(level) + ' ' + text + '\n\n')).join('') +
+  diagrams.map(code => '```mermaid\n' + code + '\n```\n\n').join('') +
+  '```mermaid\nflowchart TD\n A --> [\n```\n\n' +
+  '```mermaid\n%%{init: {"securityLevel":"loose"}}%%\nflowchart TD\n A-->B\n```\n\n' +
+  '```mermaid\n\n```\n\n' +
+  '````text\n# fenced fake heading\n```\n## still fenced\n````\n\n~~~text\n# tilde fake heading\n~~~\n\n' +
+  Array.from({ length: 110 }, (_, i) => `### Long section ${i}\n\nParagraph ${i}.\n\n`).join('');
 try {
   for (const name of ["app", "components", "lib", "stores", "styles", "public", "tsconfig.json", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"])
     await cp(join(root, name), join(serverRoot, name), { recursive: true });
@@ -91,6 +107,8 @@ try {
   if (!development) await symlink(join(root, ".next"), join(serverRoot, ".next"), process.platform === "win32" ? "junction" : "dir");
   await mkdir(join(serverRoot, "docs/nested"), { recursive: true });
   await writeFile(join(serverRoot, "docs/01-viewer-fixture.md"), fixture);
+  await writeFile(join(serverRoot, "docs/20-enhanced-viewer.md"), enhancedFixture);
+  await writeFile(join(serverRoot, "docs/21-no-outline.md"), '# Single heading\n\nOnly content.\n');
   await writeFile(join(serverRoot, "docs/nested/02-second.md"), "# Second document\n\n## 두번째 제목\n\nSecond content\n");
   for (let i = 3; i <= 14; i++) await writeFile(join(serverRoot, `docs/${i}-long-document-name-for-tabs.md`), `# Document ${i}\n\n## Detail\n\nBody\n`);
   for (const name of (await readdir("db/migrations")).filter(n => n.endsWith(".sql")).sort())
@@ -161,8 +179,8 @@ try {
     await setValue('aside input', "");
     await click('article a');
     await waitFor(() => evaluate("document.querySelector('article h1')?.textContent==='Second document'"), "relative Markdown link");
-    assert.equal(await evaluate("document.querySelectorAll('[role=tab]').length"), 2);
-    await click('[role=tab]');
+    assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"열린 문서\"] [role=tab]').length"), 2);
+    await click('[aria-label="열린 문서"] [role=tab]');
     await waitFor(() => evaluate("document.querySelector('article h1')?.textContent==='Viewer fixture'"), "first tab");
     await click('button[value="source"]');
     await waitFor(() => evaluate("!!document.querySelector('[role=tabpanel] textarea')"), "source editor");
@@ -181,10 +199,10 @@ try {
       await evaluate("Array.from(document.querySelectorAll('aside button')).find(e=>e.textContent.includes(" + JSON.stringify(`${n}-long-document`) + ")).click()");
       await pause(120);
     }
-    await waitFor(() => evaluate("document.querySelectorAll('[role=tab]').length===6"), "scrollable document tabs");
+    await waitFor(() => evaluate("document.querySelectorAll('[aria-label=\"열린 문서\"] [role=tab]').length===6"), "scrollable document tabs");
     assert.ok(await evaluate("!!document.querySelector('.lucide-chevron-left') && !!document.querySelector('.lucide-chevron-right')"));
     await click('button[class*=closeOtherTabsButton]');
-    assert.equal(await evaluate("document.querySelectorAll('[role=tab]').length"), 1);
+    assert.equal(await evaluate("document.querySelectorAll('[aria-label=\"열린 문서\"] [role=tab]').length"), 1);
     for (const width of [1000, 720, 390]) {
       await cdp("Emulation.setDeviceMetricsOverride", { width, height: 1000, deviceScaleFactor: 1, mobile: false });
       await pause(250);
@@ -193,6 +211,95 @@ try {
     }
     await click('button[class*=tabCloseButton]');
     assert.ok(await evaluate("!!document.querySelector('.lucide-info') && !document.querySelector('article')"));
+    await cdp("Emulation.setDeviceMetricsOverride", { width: 1920, height: 900, deviceScaleFactor: 1, mobile: false });
+    await evaluate("Array.from(document.querySelectorAll('aside button')).find(e=>e.textContent.includes('20-enhanced-viewer')).click()");
+    await waitFor(() => evaluate("document.querySelectorAll('[data-mermaid-block]').length===9"), "Mermaid blocks");
+    await evaluate("document.fonts.ready");
+    const outlineSelector = 'nav[aria-label="이 문서의 목차"]';
+    const readerSelector = '[data-view-mode="preview"]';
+    await waitFor(() => evaluate("document.querySelector('[data-outline-fits=true]') !== null"), "measured outline");
+    const layout = () => evaluate(`(()=>{const r=document.querySelector('${readerSelector}'),p=document.querySelector('article').parentElement,n=document.querySelector('${outlineSelector}');return {reader:r.clientWidth,paper:p.getBoundingClientRect().width,outlineWidth:n.getBoundingClientRect().width,outline:getComputedStyle(n).display}})()`);
+    const expanded = await layout();
+    await click('.menu-toggle'); await pause(300);
+    const collapsed = await layout();
+    assert.ok(Math.abs(collapsed.reader-expanded.reader-176)<=2, JSON.stringify({expanded,collapsed}));
+    assert.ok(collapsed.paper>900 && Math.abs(collapsed.paper-expanded.paper-176)<=2, "only paper receives sidebar space");
+    assert.ok(Math.abs(collapsed.outlineWidth-expanded.outlineWidth)<=2, "outline width stays fixed when menu collapses");
+    assert.ok(Math.abs(expanded.paper / (expanded.paper + expanded.outlineWidth) - 0.7) < 0.002, JSON.stringify(expanded));
+    await click('.menu-toggle'); await pause(300);
+    const restored = await layout();
+    assert.ok(Math.abs(restored.outlineWidth-expanded.outlineWidth)<=2 && Math.abs(restored.paper-expanded.paper)<=2, "expanded menu restores original layout");
+    const widthResults = await evaluate(`Array.from(document.querySelectorAll('${outlineSelector} button')).slice(1,13).map(e=>({text:e.textContent,width:e.clientWidth,scroll:e.scrollWidth,height:e.clientHeight,whiteSpace:getComputedStyle(e).whiteSpace}))`);
+    assert.ok(widthResults.every(item=>item.height>=30 && item.whiteSpace==='nowrap'), JSON.stringify(widthResults));
+    assert.ok(widthResults.some(item=>item.scroll>item.width), "long titles truncate instead of widening the outline");
+    assert.ok(await evaluate(`!Array.from(document.querySelectorAll('${outlineSelector} button')).some(e=>/fenced|still fenced/.test(e.textContent))`), "fenced headings excluded");
+    const linksSelector = outlineSelector + ' [role=region]';
+    assert.equal(await evaluate(`getComputedStyle(document.querySelector('${linksSelector}')).scrollbarWidth`), 'none');
+    assert.ok(await evaluate(`(()=>{const e=document.querySelector('${linksSelector}');return e.scrollHeight>e.clientHeight})()`), "outline is height constrained");
+    async function wheelOver(selector, deltaY) {
+      const point = await evaluate(`(()=>{const r=document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+Math.min(10,r.height/2)}})()`);
+      await cdp('Input.dispatchMouseEvent', {type:'mouseMoved',...point});
+      await cdp('Input.dispatchMouseEvent', {type:'mouseWheel',...point,deltaX:0,deltaY});
+      await pause(250);
+    }
+    await evaluate(`document.querySelector('${readerSelector}').scrollTop=0;document.querySelector('${linksSelector}').scrollTop=0`);
+    await wheelOver(linksSelector, 220);
+    assert.ok(await evaluate(`document.querySelector('${linksSelector}').scrollTop>0 && document.querySelector('${readerSelector}').scrollTop===0`), "native wheel only scrolls outline");
+    await wheelOver(outlineSelector+' strong', 180);
+    assert.ok(await evaluate(`document.querySelector('${linksSelector}').scrollTop>220 && document.querySelector('${readerSelector}').scrollTop===0`), "outline heading forwards wheel");
+    await evaluate(`document.querySelector('${linksSelector}').scrollTop=999999`);
+    await wheelOver(linksSelector, 300);
+    assert.equal(await evaluate(`document.querySelector('${readerSelector}').scrollTop`), 0, "outline end does not chain");
+    await wheelOver(linksSelector, -220);
+    assert.ok(await evaluate(`(()=>{const e=document.querySelector('${linksSelector}');return e.scrollTop<e.scrollHeight-e.clientHeight-100})()`), "reverse outline scroll");
+    assert.equal(await evaluate("document.querySelectorAll('[data-mermaid-block] svg').length"), 0, "text is default");
+    const diagramLabels = [['시작','완료'], ['Alice','Bob','Hello'], ['Animal','Duck','age'], ['Ready','Done'], ['CUSTOMER','ORDER','places'], ['Work','Task']];
+    for (let i=0;i<diagrams.length;i++) {
+      await click(`[data-mermaid-block]:nth-of-type(${i+1}) [role=tab]:last-child`);
+      await waitFor(() => evaluate(`!!document.querySelectorAll('[data-mermaid-block]')[${i}].querySelector('svg[role=img]')`), `diagram ${i}`);
+      assert.ok(await evaluate(`document.querySelectorAll('[data-mermaid-block]')[${i}].querySelectorAll('text,tspan,path,rect').length>0`));
+      const labelText = await evaluate(`document.querySelectorAll('[data-mermaid-block]')[${i}].querySelector('svg').textContent`);
+      assert.ok(diagramLabels[i].every(label=>labelText.includes(label)), `missing diagram labels ${i}`);
+    }
+    assert.equal(await evaluate("document.querySelectorAll('[data-mermaid-block] foreignObject').length"), 0);
+    assert.ok(await evaluate("!document.querySelector('pre [role=tablist]')"), "valid pre replacement");
+    await click('[data-mermaid-block] [role=tab]:last-child');
+    assert.equal(await evaluate("document.querySelector('[data-mermaid-block] [role=status]')"), null, "reselect does not leave loading state");
+    for (let i=6;i<9;i++) {
+      await evaluate(`document.querySelectorAll('[data-mermaid-block]')[${i}].querySelectorAll('[role=tab]')[1].click()`);
+      await waitFor(() => evaluate(`!!document.querySelectorAll('[data-mermaid-block]')[${i}].querySelector('[role=status]')?.textContent && !document.querySelectorAll('[data-mermaid-block]')[${i}].querySelector('[role=status]')?.textContent.includes('불러오는')`), `diagram error ${i}`);
+    }
+    await theme('dark');
+    await waitFor(() => evaluate("document.querySelectorAll('[data-mermaid-block] svg').length===6 && !document.querySelector('[data-mermaid-block]').querySelector('[role=status]')"), "dark diagram rerender");
+    const darkSvg = await evaluate("getComputedStyle(document.querySelector('[data-mermaid-block] svg rect')).fill");
+    await theme('light');
+    await waitFor(() => evaluate("document.querySelectorAll('[data-mermaid-block] svg').length===6 && !document.querySelector('[data-mermaid-block]').querySelector('[role=status]')"), "light diagram rerender");
+    assert.notEqual(await evaluate("getComputedStyle(document.querySelector('[data-mermaid-block] svg rect')).fill"), darkSvg);
+    await screenshot('viewer-enhanced-mermaid');
+    await click('[data-mermaid-block] [role=tab]:first-child');
+    await cdp('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight'});
+    await cdp('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight'});
+    await waitFor(() => evaluate("document.querySelector('[data-mermaid-block] [role=tab]:last-child').getAttribute('aria-selected')==='true'"), "keyboard Mermaid tab");
+    await evaluate("document.querySelector('.workspace-page-content').style.width='700px'");
+    await waitFor(() => evaluate("document.querySelector('[data-outline-fits]').dataset.outlineFits==='false'"), "nested page width hides outline");
+    assert.equal(await evaluate("innerWidth"), 1920, "outline responds to nested width independently of viewport");
+    await evaluate("document.querySelector('.workspace-page-content').style.removeProperty('width')");
+    await waitFor(() => evaluate("document.querySelector('[data-outline-fits]').dataset.outlineFits==='true'"), "nested width restored");
+    for (const width of [1600, 1440, 1200, 1000, 720, 390]) {
+      await cdp('Emulation.setDeviceMetricsOverride', {width,height:800,deviceScaleFactor:1,mobile:false});
+      await pause(250);
+      assert.ok(await evaluate('document.documentElement.scrollWidth<=innerWidth+1'), `Mermaid page overflow at ${width}`);
+      const fit = await evaluate(`(()=>{const r=document.querySelector('${readerSelector}'),n=document.querySelector('${outlineSelector}'),p=document.querySelector('article').parentElement;return {fits:r.dataset.outlineFits,visible:getComputedStyle(n).display!=='none',paper:p.getBoundingClientRect().width,outline:n.getBoundingClientRect().width}})()`);
+      assert.equal(fit.visible, fit.fits==='true', `outline fit at ${width}`);
+      if (fit.visible) assert.ok(Math.abs(fit.paper / (fit.paper + fit.outline) - 0.7) < 0.002, `7:3 ratio at ${width}`);
+    }
+    // Switch documents while a freshly requested render may still be pending.
+    await evaluate("Array.from(document.querySelectorAll('aside button')).find(e=>e.textContent.includes('21-no-outline')).click()");
+    await waitFor(() => evaluate("document.querySelector('article h1')?.textContent==='Single heading'"), "single-heading document");
+    await pause(400);
+    assert.equal(await evaluate("document.querySelectorAll('[data-mermaid-block],nav[aria-label=\"이 문서의 목차\"]').length"), 0);
+    assert.ok(await evaluate(`(()=>{const r=document.querySelector('${readerSelector}'),p=document.querySelector('article').parentElement,s=getComputedStyle(r);return Math.abs(p.getBoundingClientRect().width-r.clientWidth+parseFloat(s.paddingLeft)+parseFloat(s.paddingRight))<=2})()`), "no empty outline column");
+    console.log('PASS: expanded-menu 7:3 baseline, fixed outline on menu collapse, paper-only expansion, truncated long headings, hidden real-wheel outline, six Mermaid types, error isolation, theme and keyboard tabs, cancelled renders, no-outline layout.');
     await cdp("Emulation.setDeviceMetricsOverride", { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
     await transition(settings, ".settings-form");
     await evaluate("history.back()");

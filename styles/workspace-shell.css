@@ -1,7 +1,8 @@
 /* Workspace layout, sidebar, navigation, header, footer and their responsive rules. */
 
 .workspace {
-  --workspace-sidebar-width: 240px;
+  --workspace-sidebar-expanded-width: 240px;
+  --workspace-sidebar-width: var(--workspace-sidebar-expanded-width);
   min-height: max(600px, 100dvh);
 }
 .sidebar {
@@ -454,7 +455,7 @@
 }
 @media (max-width: 1200px) {
   .workspace {
-    --workspace-sidebar-width: 214px;
+    --workspace-sidebar-expanded-width: 214px;
   }
   .sidebar-content {
     padding-left: 13px;
@@ -472,7 +473,7 @@
 }
 @media (max-width: 960px) {
   .workspace {
-    --workspace-sidebar-width: 210px;
+    --workspace-sidebar-expanded-width: 210px;
   }
   .main-content {
     padding: 25px 22px;
@@ -492,7 +493,7 @@
 }
 @media (max-width: 700px) {
   .workspace {
-    --workspace-sidebar-width: 0px;
+    --workspace-sidebar-expanded-width: 0px;
   }
   .sidebar {
     transform: translateX(-100%);

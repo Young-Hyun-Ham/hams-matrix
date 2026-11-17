@@ -536,6 +536,17 @@
 .matrix-ai-result-body {
   overscroll-behavior: contain;
 }
+.matrix-ai-evidence {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-evidence summary {
+  cursor: pointer;
+}
+.matrix-ai-evidence ul {
+  padding-left: 20px;
+  overflow-wrap: anywhere;
+}
 .matrix-ai-result-context {
   margin: 0 0 12px;
   color: var(--muted);
@@ -725,4 +736,31 @@
 .matrix-ai-review textarea {
   width: 100%;
   min-height: 64px;
+}
+.matrix-ai .matrix-shared-candidates {
+  border: 1px solid var(--border-color, #aaa);
+  border-radius: 8px;
+  padding: 12px;
+}
+.matrix-shared-dialog {
+  max-width: min(760px, calc(100vw - 32px));
+  max-height: 85vh;
+  overflow: auto;
+}
+.matrix-shared-dialog pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.matrix-shared-dialog label {
+  display: block;
+  margin-block: 12px;
+}
+.matrix-shared-dialog textarea {
+  display: block;
+  width: 100%;
+  min-height: 70px;
+}
+.matrix-shared-dialog article {
+  border-top: 1px solid var(--border-color, #aaa);
+  padding-block: 12px;
 }

@@ -192,6 +192,34 @@ export async function checkAiTargetBrowser({
   await screenshot("target-cross-page-draft");
   await click(".matrix-ai-remove-image");
   await input("[UI] 요구사항을 분석해줘");
+  const evidence = [
+    {
+      chunkId: "ui-evidence-1",
+      sourceType: "artifact",
+      sourceId: "ui-requirement",
+      version: "3",
+      hash: "synthetic",
+      title: "관련 요구사항 · 긴 제목 ".repeat(12),
+      section: "승인 기준",
+      href: "/projects/nav-project?tab=requirement",
+      indexedAt: "2026-11-17T00:00:00Z",
+    },
+    {
+      chunkId: "ui-evidence-2",
+      sourceType: "artifact",
+      sourceId: "ui-screen",
+      version: "2",
+      hash: "synthetic",
+      title: "관련 화면",
+      section: "화면 구성",
+      href: "/projects/nav-project?tab=screen",
+      indexedAt: "2026-11-17T00:00:00Z",
+    },
+  ];
+  // Only enrich the synthetic provider response; no RAG or paid provider call.
+  await evaluate(
+    `window.aiEvidenceFetch=window.fetch;window.fetch=async(...args)=>{const response=await window.aiEvidenceFetch(...args);if(args[0]==='/api/ai/chats'&&args[1]?.method==='POST'&&response.ok){const data=await response.clone().json();if(data.chat){data.chat.references=${JSON.stringify(evidence)};return Response.json(data,{status:response.status})}}return response}`,
+  );
   await waitFor(
     () => evaluate("!document.querySelector('.matrix-ai-generate').disabled"),
     "generation ready",
@@ -203,19 +231,53 @@ export async function checkAiTargetBrowser({
   );
   const chat = (
     await db.execute({
-      sql: "SELECT pathname,tab,target_page,target_version,screen_title FROM ai_prompt_chats WHERE conv_id=?",
+      sql: "SELECT id,result,pathname,tab,target_page,target_version,screen_title FROM ai_prompt_chats WHERE conv_id=?",
       args: [room.conv_id],
     })
   ).rows[0];
   assert.equal(chat.tab, "database");
   assert.equal(chat.target_page, "requirement");
   assert.ok(chat.screen_title.includes("요구사항"));
+  await evaluate("window.fetch=window.aiEvidenceFetch");
+  // Persist the same synthetic references to exercise the real history decoder on reload.
+  await db.execute({
+    sql: "UPDATE ai_prompt_chats SET rag_references_json=? WHERE id=?",
+    args: [JSON.stringify(evidence), chat.id],
+  });
+  assert.equal(
+    await evaluate(
+      "document.querySelector('.matrix-ai-assistant-message .matrix-ai-evidence').open",
+    ),
+    false,
+  );
   await click('[aria-label="AI 채팅 좌우 분리"]');
-  await click(".matrix-ai-message-actions button");
+  await evaluate(
+    "[...document.querySelectorAll('.matrix-ai-message-actions button')].find(b=>b.textContent==='결과 크게 보기').click()",
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        "!!document.querySelector('.matrix-ai-result[open] .matrix-ai-evidence')",
+      ),
+    "generated answer evidence modal",
+  );
   assert.equal(
     await evaluate("!!document.querySelector('.matrix-ai-result[open]')"),
     true,
   );
+  assert.deepEqual(
+    await evaluate(
+      "(()=>{const e=document.querySelector('.matrix-ai-result .matrix-ai-evidence');return {open:e.open,items:[...e.querySelectorAll('li')].map(li=>({text:li.textContent,href:li.querySelector('a').getAttribute('href')}))}})()",
+    ),
+    {
+      open: true,
+      items: evidence.map((ref) => ({
+        text: `${ref.title} · 버전 ${ref.version} · ${ref.section}`,
+        href: ref.href,
+      })),
+    },
+  );
+  await screenshot("result-project-evidence");
   await call("Input.dispatchKeyEvent", {
     type: "keyDown",
     key: "Escape",
@@ -266,6 +328,56 @@ export async function checkAiTargetBrowser({
       "document.querySelector('.matrix-ai-assistant-message small').textContent.includes('요구사항')",
     ),
     "past message retains original target",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelectorAll('.matrix-ai-assistant-message .matrix-ai-evidence li').length",
+    ),
+    2,
+  );
+  await evaluate(
+    "[...document.querySelectorAll('.matrix-ai-message-actions button')].find(b=>b.textContent==='결과 크게 보기').click()",
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        "!!document.querySelector('.matrix-ai-result[open] .matrix-ai-evidence')",
+      ),
+    "saved answer evidence modal",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelector('.matrix-ai-result .matrix-ai-evidence').open",
+    ),
+    true,
+  );
+  // Clipboard failure must preserve both the modal and unsent input.
+  await evaluate(
+    "window.aiClipboardDescriptor=Object.getOwnPropertyDescriptor(navigator,'clipboard');Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw new Error('Synthetic clipboard failure')}}});[...document.querySelectorAll('.matrix-ai-result button')].find(b=>b.textContent==='결과 복사').click()",
+  );
+  await waitFor(
+    () =>
+      evaluate(
+        "document.querySelector('.matrix-ai-result [role=alert]')?.textContent.includes('복사하지 못했습니다')",
+      ),
+    "clipboard failure preserves result",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelectorAll('.matrix-ai-result .matrix-ai-evidence li').length",
+    ),
+    2,
+  );
+  await evaluate(
+    "Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async(text)=>{window.aiCopiedResult=text}}});[...document.querySelectorAll('.matrix-ai-result button')].find(b=>b.textContent==='결과 복사').click()",
+  );
+  await waitFor(
+    () => evaluate("!document.querySelector('.matrix-ai-result[open]')"),
+    "clipboard success closes result",
+  );
+  assert.equal(await evaluate("window.aiCopiedResult"), chat.result);
+  await evaluate(
+    "if(window.aiClipboardDescriptor)Object.defineProperty(navigator,'clipboard',window.aiClipboardDescriptor);else delete navigator.clipboard",
   );
   await evaluate(
     "[...document.querySelectorAll('.matrix-tabs button')].find(e=>e.textContent==='WBS 일정').click()",
@@ -342,6 +454,21 @@ export async function checkAiTargetBrowser({
     () => evaluate("document.querySelectorAll('.matrix-ai-turn').length===2"),
     "generation settled",
   );
+  await evaluate(
+    "[...document.querySelectorAll('.matrix-ai-message-actions button')].filter(b=>b.textContent==='결과 크게 보기').at(-1).click()",
+  );
+  await waitFor(
+    () => evaluate("!!document.querySelector('.matrix-ai-result[open]')"),
+    "answer without evidence modal",
+  );
+  assert.equal(
+    await evaluate(
+      "document.querySelectorAll('.matrix-ai-result .matrix-ai-evidence').length",
+    ),
+    0,
+    "answer without references never retains previous evidence",
+  );
+  await click('[aria-label="AI 결과 닫기"]');
   await click('[aria-label="AI 채팅 팝업으로 전환"]');
   assert.equal(
     await evaluate(`document.querySelector(${JSON.stringify(selector)}).value`),

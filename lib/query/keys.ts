@@ -1,5 +1,7 @@
 export type QueryScope = { userId: string; workspaceId: string };
 export const matrixKeys = {
+  sharedAnswers: (s: QueryScope, projectId: string) =>
+    [...matrixKeys.scope(s), "project", projectId, "shared-answers"] as const,
   projectRag: (s: QueryScope, projectId: string) =>
     [...matrixKeys.scope(s), "project", projectId, "rag"] as const,
   image: (

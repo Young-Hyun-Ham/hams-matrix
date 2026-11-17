@@ -154,6 +154,7 @@ try {
     "047_notification_acknowledgements.sql",
     "048_project_rag_orchestration.sql",
     "049_project_rag_resume.sql",
+    "050_project_shared_answers.sql",
   ])
     for (let pass = 0; pass < 2; pass++) {
       const migrated = spawnSync(
@@ -182,8 +183,17 @@ try {
   );
   assert.deepEqual(
     (await client.execute("SELECT rowid,* FROM ai_prompt_chats")).rows.map(
-      ({ rag_references_json, ...oldColumns }) => {
+      ({
+        rag_references_json,
+        provenance_json,
+        shared_answer_id,
+        shared_answer_version,
+        ...oldColumns
+      }) => {
         assert.equal(rag_references_json, "[]");
+        assert.equal(provenance_json, "{}");
+        assert.equal(shared_answer_id, null);
+        assert.equal(shared_answer_version, null);
         return oldColumns;
       },
     ),

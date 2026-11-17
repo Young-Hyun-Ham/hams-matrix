@@ -7,54 +7,43 @@
   font-size: 12px;
 }
 .project-rag-summary {
-  color: var(--text-muted, #6b7280);
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
-.project-rag-dialog {
-  width: min(640px, calc(100vw - 32px));
-  max-height: 85vh;
-  overflow: auto;
-  padding: 24px;
-  color: var(--text-primary, inherit);
-  background: var(--surface, Canvas);
-  border: 1px solid var(--border-color, #aaa);
-  border-radius: 12px;
-}
-.project-rag-dialog::backdrop {
-  background: #0007;
-}
-.project-rag-dialog header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.project-rag-dialog .project-registration-body {
+  display: grid;
   gap: 12px;
 }
-.project-rag-dialog label {
+.project-rag-dialog .admin-detail-header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.project-rag-dialog .admin-detail-body > .button {
+  justify-self: start;
+}
+.project-rag-dialog [role="status"] {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin: 12px 0;
+  flex-wrap: wrap;
+  gap: 8px;
 }
-.project-rag-dialog input,
-.project-rag-dialog select {
-  width: 100%;
-  min-height: 36px;
+.project-rag-dialog [role="status"] p {
+  flex-basis: 100%;
 }
-.project-rag-dialog button {
-  margin: 4px;
+.project-rag-dialog fieldset {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
 }
-.project-rag-dialog p {
-  line-height: 1.65;
-}
-.project-rag-dialog fieldset label {
-  flex-direction: row;
+.workspace-dialog.project-rag-dialog fieldset label {
+  display: flex;
   align-items: center;
 }
-.project-rag-dialog fieldset input[type="radio"] {
+.workspace-dialog.project-rag-dialog fieldset input[type="radio"] {
   width: auto;
   min-height: 0;
-}
-.matrix-ai-evidence ul {
-  padding-left: 20px;
-  overflow-wrap: anywhere;
+  margin: 0;
 }
