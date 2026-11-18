@@ -1,0 +1,46 @@
+@import "tailwindcss/theme.css";
+
+/* Local defaults replace preflight without resetting the workspace UI. */
+:where(.sample-screen, .sample-screen *) {
+  box-sizing: border-box;
+  border: 0 solid;
+}
+
+:where(.sample-screen) :where(h1, h2, h3, p) {
+  margin: 0;
+}
+
+:where(.sample-screen) :where(button, input, textarea, select) {
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+:where(.sample-screen) :where(textarea, img) {
+  display: block;
+}
+
+.sample-screen {
+  min-width: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #ffffff;
+  color: #111827;
+  font-family: Arial, "Malgun Gothic", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  color-scheme: light;
+}
+
+/* Keep the slash-command menu inside narrow iframe viewports. */
+.sample-screen [class~="w-80"] {
+  max-width: calc(100% - 2rem);
+}
+
+@media (max-width: 480px) {
+  .sample-screen > main[class~="p-6"] {
+    padding: 16px;
+  }
+}

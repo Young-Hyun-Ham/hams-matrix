@@ -244,10 +244,13 @@
   display: none;
 }
 .ai-is-floating .matrix-ai-drawer {
-  --ai-added-width: clamp(
-    0px,
-    calc(100vw - 24px - var(--ai-popup-base-width)),
-    var(--ai-window-growth)
+  --ai-floating-composer-width: 301px;
+  --ai-popup-width: min(
+    var(
+      --ai-popup-custom-width,
+      calc(var(--ai-popup-base-width) + var(--ai-window-growth))
+    ),
+    max(0px, calc(100vw - 24px))
   );
   opacity: 0;
   position: fixed;
@@ -255,10 +258,7 @@
   left: var(--ai-window-x, 24px);
   top: var(--ai-window-y, 88px);
   bottom: auto;
-  width: min(
-    calc(var(--ai-popup-base-width) + var(--ai-window-growth)),
-    calc(100vw - 24px)
-  );
+  width: var(--ai-popup-width);
   height: min(720px, calc(100dvh - 100px));
   max-height: calc(100dvh - 24px);
   border: 1px solid var(--line);
@@ -273,6 +273,50 @@
 .ai-is-floating.ai-is-open .matrix-ai-drawer {
   opacity: 1;
   transition-delay: 0s;
+}
+.matrix-ai-resize-handle {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.matrix-ai-resize-left {
+  left: 0;
+}
+.matrix-ai-resize-right {
+  right: 0;
+}
+.matrix-ai-resize-handle::after {
+  content: "";
+  position: absolute;
+  inset: 12px 2px;
+  border-radius: 4px;
+}
+.matrix-ai-resize-handle:hover::after,
+.matrix-ai-resize-handle:focus-visible::after,
+.ai-is-resizing .matrix-ai-resize-handle::after {
+  background: var(--primary);
+}
+.matrix-ai-resize-handle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+.matrix-ai-resize-handle[aria-disabled="true"] {
+  cursor: default;
+}
+.matrix-ai-resize-handle[aria-disabled="true"]::after {
+  background: none;
+}
+.ai-is-resizing .matrix-ai-drawer,
+.ai-is-resizing .matrix-ai-drawer * {
+  cursor: ew-resize;
+  user-select: none;
+}
+.ai-is-dragging .matrix-ai-drawer {
+  user-select: none;
 }
 .ai-is-floating .matrix-ai-drawer-inner {
   height: 100%;
@@ -433,7 +477,7 @@
 
 /* A single chat DOM changes layout only when its own content width permits it. */
 @container ai-chat (min-width: 560px) {
-  .ai-is-split .matrix-ai-panel-content {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-panel-content {
     display: grid;
     /* Keep the old conversation track, including the old 240px composer minimum. */
     grid-template-columns:
@@ -449,21 +493,21 @@
     grid-template-areas: "heading heading" "messages composer";
     column-gap: 12px;
   }
-  .ai-is-split .matrix-ai-panel-heading {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-panel-heading {
     grid-area: heading;
     max-height: none;
   }
-  .ai-is-split .matrix-ai-conversation-pane {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-conversation-pane {
     grid-area: messages;
     min-height: 0;
   }
-  .ai-is-split .matrix-ai-drawer .matrix-ai-messages {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-drawer .matrix-ai-messages {
     min-width: 0;
     min-height: 0;
     max-height: none;
     margin-bottom: 0;
   }
-  .ai-is-split .matrix-ai-drawer .matrix-ai-card {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-drawer .matrix-ai-card {
     grid-area: composer;
     display: flex;
     flex-direction: column;
@@ -471,10 +515,54 @@
     max-height: none;
     overscroll-behavior: contain;
   }
-  .ai-is-split .matrix-ai-drawer .matrix-ai-card > * {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-drawer .matrix-ai-card > * {
     flex-shrink: 0;
   }
-  .ai-is-split .matrix-ai-drawer .matrix-ai-card textarea {
+  .ai-is-split:not(.ai-is-floating) .matrix-ai-drawer .matrix-ai-card textarea {
+    flex: 1 0 100px;
+    height: auto;
+    min-height: 100px;
+    max-height: 100%;
+  }
+}
+
+/* 638px = 386px fixed composer + 12px gap + 240px minimum conversation.
+   Keep this threshold in sync with --ai-floating-composer-width above.
+   Floating windows allocate every width change to the conversation only. */
+@container ai-chat (min-width: 638px) {
+  .ai-is-split.ai-is-floating .matrix-ai-panel-content {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--ai-floating-composer-width);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "heading heading" "messages composer";
+    column-gap: 12px;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-panel-heading {
+    grid-area: heading;
+    max-height: none;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-conversation-pane {
+    grid-area: messages;
+    min-height: 0;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-drawer .matrix-ai-messages {
+    min-width: 0;
+    min-height: 0;
+    max-height: none;
+    margin-bottom: 0;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-drawer .matrix-ai-card {
+    grid-area: composer;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: none;
+    overscroll-behavior: contain;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-drawer .matrix-ai-card > * {
+    flex-shrink: 0;
+  }
+  .ai-is-split.ai-is-floating .matrix-ai-drawer .matrix-ai-card textarea {
     flex: 1 0 100px;
     height: auto;
     min-height: 100px;

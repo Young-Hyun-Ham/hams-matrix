@@ -32,7 +32,8 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
     aiContext.pathname === pathname;
   const panel = useRef<HTMLElement>(null);
   const windowState = useAiWindow(panel, aiOpen);
-  const { floating, expanded, split, position, dragging } = windowState;
+  const { floating, expanded, split, position, dragging, resizing } =
+    windowState;
   const closeButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (!aiOpen) return;
@@ -65,11 +66,15 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
   }
   return (
     <div
-      className={`workspace-content-layout ${aiOpen ? "ai-is-open" : ""} ${expanded ? "ai-is-expanded" : ""} ${split ? "ai-is-split" : ""} ${floating ? "ai-is-floating" : ""} ${dragging ? "ai-is-dragging" : ""}`}
+      className={`workspace-content-layout ${aiOpen ? "ai-is-open" : ""} ${expanded ? "ai-is-expanded" : ""} ${split ? "ai-is-split" : ""} ${floating ? "ai-is-floating" : ""} ${dragging ? "ai-is-dragging" : ""} ${resizing ? "ai-is-resizing" : ""}`}
       style={
         {
           "--ai-window-growth": `${windowState.widthGrowth}px`,
           "--ai-popup-base-width": `${windowState.popupBaseWidth}px`,
+          "--ai-popup-custom-width":
+            windowState.customWidth === null
+              ? undefined
+              : `${windowState.customWidth}px`,
         } as CSSProperties
       }
     >
@@ -99,6 +104,15 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
         aria-hidden={!aiOpen}
         inert={!aiOpen}
       >
+        {floating &&
+          aiOpen &&
+          (["left", "right"] as const).map((edge) => (
+            <div
+              key={edge}
+              className={`matrix-ai-resize-handle matrix-ai-resize-${edge}`}
+              {...windowState.resizeHandleProps(edge)}
+            />
+          ))}
         <div className="matrix-ai-drawer-inner">
           <header className="matrix-ai-drawer-header">
             <button
@@ -166,9 +180,10 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
                 type="button"
                 className="icon-button"
                 aria-label={expanded ? "AI 채팅 축소" : "AI 채팅 확대"}
+                aria-describedby={floating ? "matrix-ai-width-help" : undefined}
                 title={
                   floating
-                    ? `${expanded ? `축소 · 팝업 최대 ${split ? 560 : 460}px` : "확대 · 팝업 최대 860px"} · 화면 너비 이내`
+                    ? `${windowState.customWidth === null ? "" : `사용자 지정 너비 · 현재 ${Math.round(windowState.displayedWidth)}px · 프리셋 적용: `}${expanded ? `축소 · 팝업 최대 ${split ? 560 : 460}px` : "확대 · 팝업 최대 860px"} · 화면 너비 이내`
                     : expanded
                       ? `축소 · 패널 30%${split ? " + 100px" : ""}`
                       : "확대 · 패널 50% + 100px"
@@ -180,6 +195,14 @@ export function AiWorkspaceLayout({ children }: { children: ReactNode }) {
                   name={expanded ? "window-restore" : "window-expand"}
                   size={17}
                 />
+                {floating && (
+                  <span id="matrix-ai-width-help" className="sr-only">
+                    {windowState.customWidth === null
+                      ? "프리셋 너비"
+                      : "사용자 지정 너비"}
+                    {` · 현재 ${Math.round(windowState.displayedWidth)}px. 확대 또는 축소하면 프리셋 너비를 적용합니다.`}
+                  </span>
+                )}
               </button>
               <button
                 ref={closeButton}

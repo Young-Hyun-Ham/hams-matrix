@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { checkAiWindowResizeBrowser } from "./check-ai-window-resize-browser.mjs";
 
 // Called with a real, hydrated room containing an unsent prompt and image.
 export async function checkAiWindowBrowser({
@@ -24,6 +25,7 @@ export async function checkAiWindowBrowser({
       const root=document.querySelector('.matrix-ai'),style=getComputedStyle(root);
       return {width:panel.width,layoutWidth:layout.width,ratio:panel.width/layout.width,left:panel.left,right:panel.right,
         messagesWidth:messages.width,cardWidth:card.width,
+        floating:document.querySelector('.workspace-content-layout').classList.contains('ai-is-floating'),
         split:card.left>messages.left+messages.width-1&&Math.abs(card.top-messages.top)<2,
         contentWidth:root.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight),
         sameHeight:Math.abs(card.bottom-pane.bottom)<2&&Math.abs(card.top-pane.top)<2,
@@ -52,16 +54,26 @@ export async function checkAiWindowBrowser({
     near(after.width - baseline.width, expectedGrowth, "actual outer growth");
     near(after.width, before.width, "restored growth");
     if (baseline.split && after.split) {
-      near(
-        after.messagesWidth,
-        baseline.messagesWidth,
-        "conversation width preserved",
-      );
-      near(
-        after.cardWidth - baseline.cardWidth,
-        expectedGrowth,
-        "all growth goes to input",
-      );
+      if (after.floating) {
+        near(after.cardWidth, 386, "popup fixed composer");
+        near(after.cardWidth, baseline.cardWidth, "popup composer preserved");
+        near(
+          after.messagesWidth - baseline.messagesWidth,
+          expectedGrowth,
+          "all popup growth goes to conversation",
+        );
+      } else {
+        near(
+          after.messagesWidth,
+          baseline.messagesWidth,
+          "panel conversation preserved",
+        );
+        near(
+          after.cardWidth - baseline.cardWidth,
+          expectedGrowth,
+          "all panel growth goes to input",
+        );
+      }
     }
     assert.ok(after.footerVisible, JSON.stringify(after));
   }
@@ -146,6 +158,15 @@ export async function checkAiWindowBrowser({
     await click(shrink);
     await click(popout);
     near((await geometry()).width, 460, "default popup");
+    await checkAiWindowResizeBrowser({
+      evaluate,
+      call,
+      click,
+      resize,
+      pause,
+      screenshot,
+      preserved,
+    });
     // Place the narrow popup at the right edge before expanding it via split.
     await evaluate("document.querySelector('.matrix-ai-drag-handle').focus()");
     for (let i = 0; i < 32; i++)
@@ -190,14 +211,15 @@ export async function checkAiWindowBrowser({
     await resize(1440);
     await preserved();
     // Exact container-query boundaries, independent of viewport or sidebar width.
-    for (const width of [559, 560, 561]) {
+    for (const width of [559, 560, 561, 637, 638, 639]) {
       await evaluate(
         `Object.assign(document.querySelector('.matrix-ai').style,{boxSizing:'content-box',width:'${width}px'})`,
       );
       await pause(100);
       g = await geometry();
       near(g.contentWidth, width, "container content width", 0.1);
-      assert.equal(g.split, width >= 560, `container threshold ${width}`);
+      assert.equal(g.split, width >= 638, `popup container threshold ${width}`);
+      if (g.split) near(g.cardWidth, 386, "fixed composer at popup threshold");
     }
     await evaluate(
       "document.querySelector('.matrix-ai').removeAttribute('style')",
@@ -206,6 +228,19 @@ export async function checkAiWindowBrowser({
     await click(dock);
     g = await geometry();
     near(g.width, g.layoutWidth * 0.5 + 100, "dock split popup");
+    // The panel retains its original threshold and input-first growth policy.
+    for (const width of [559, 560, 561]) {
+      await evaluate(
+        `Object.assign(document.querySelector('.matrix-ai').style,{boxSizing:'content-box',width:'${width}px'})`,
+      );
+      await pause(100);
+      g = await geometry();
+      near(g.contentWidth, width, "panel container content width", 0.1);
+      assert.equal(g.split, width >= 560, `panel container threshold ${width}`);
+    }
+    await evaluate(
+      "document.querySelector('.matrix-ai').removeAttribute('style')",
+    );
     await click(stacked);
     near(
       (await geometry()).ratio,
@@ -251,7 +286,7 @@ export async function checkAiWindowBrowser({
     await click(stacked);
     await preserved();
     console.log(
-      "PASS chat layout: panel +100px, 460/560/860px popup, 100/40/0px input-only growth, footer alignment, bounds, mode restoration, DOM/draft/model/target/image preservation without API requests, 559/560/561px containers, responsive controls, independent scroll and dark/low-height.",
+      "PASS chat layout: panel input-first growth/560px threshold; popup 386px composer, conversation-only 100/40/0px growth/638px threshold; 460/560/860px presets, footer alignment, bounds, mode restoration, DOM/draft/model/target/image preservation without API requests, responsive controls, independent scroll and dark/low-height.",
     );
   } finally {
     await evaluate(
