@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "cleanup:guardrail-approvals": "node --env-file=.env scripts/cleanup-guardrail-approvals.mjs",
+    "test:ai-guardrail-approvals": "node scripts/test-ai-guardrail-approvals.mjs",
+    "test:ai-guardrail-approvals-browser": "node scripts/test-ai-guardrail-approvals.mjs --browser",
     "test:shared-answers": "node scripts/test-shared-answers.mjs",
     "test:shared-answers-browser": "node scripts/test-shared-answers-browser.mjs",
     "worker:rag": "node scripts/rag-worker.mjs",
@@ -59,7 +62,9 @@
     "test:artifact-detail-browser": "node scripts/test-artifact-detail-navigation-browser.mjs",
     "worker:deliverables": "node scripts/deliverable-worker.mjs",
     "test:deliverable-background": "node scripts/test-deliverable-background.mjs",
-    "test:ai-settings-reviews": "node scripts/test-ai-settings-reviews.mjs"
+    "test:ai-settings-reviews": "node scripts/test-ai-settings-reviews.mjs",
+    "test:intent-classifications": "node scripts/test-intent-classifications.mjs",
+    "test:intent-classifications-browser": "node scripts/test-intent-classifications.mjs --browser"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",

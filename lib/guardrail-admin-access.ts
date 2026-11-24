@@ -3,6 +3,14 @@ import { db } from "./db";
 import { HttpError, requireUser } from "./auth";
 import { productAdminScope, productWorkspace } from "./product-access";
 import { masterWorkspaceScope } from "./master-workspace-admin";
+import { requireConsoleOwner } from "./ai-console-access";
+export async function guardrailConsoleUser(request: Request) {
+  const user = await guardrailAdminUser(request);
+  const entryProjectId =
+    new URL(request.url).searchParams.get("entryProjectId") ?? "";
+  await requireConsoleOwner(user, entryProjectId);
+  return { ...user, entryProjectId };
+}
 export async function guardrailAdminUser(request: Request) {
   const user = await requireUser({ allowPlanMismatch: true });
   const url = new URL(request.url),

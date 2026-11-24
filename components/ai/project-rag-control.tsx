@@ -1,4 +1,5 @@
 "use client";
+import { ConsoleWindowButton } from "@/components/shared/console-access";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
@@ -44,6 +45,7 @@ function RagControl({
   const { scope, policy, settings } = useWorkspaceQueryPolicy(),
     client = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [moved, setMoved] = useState(false);
   const query = useQuery({
     queryKey: matrixKeys.projectRag(scope, projectId),
     queryFn: ({ signal }) =>
@@ -86,16 +88,30 @@ function RagControl({
     : "";
   return (
     <div className="project-rag-control">
-      <button
-        type="button"
-        disabled={!projectId}
-        onClick={() => {
-          setOpen(true);
-          void query.refetch();
-        }}
-      >
-        의도분류
-      </button>
+      <div className="project-rag-actions">
+        <button
+          type="button"
+          className="button small"
+          disabled={!projectId}
+          onClick={() => {
+            setOpen(true);
+            void query.refetch();
+          }}
+        >
+          의도분류
+        </button>
+        {moved && !open && (
+          <ConsoleWindowButton
+            workspaceId={scope.workspaceId}
+            projectId={projectId}
+            intent
+            accessUrl={`/api/projects/${encodeURIComponent(projectId)}/access`}
+            href={`/projects/${encodeURIComponent(projectId)}/intent-classifications`}
+            label="의도분류 새창 다시 열기 ↗"
+            buttonClassName="small"
+          />
+        )}
+      </div>
       <span className="project-rag-summary" role="status">
         {complete
           ? `${complete.model} · ${formatted} (KST)`
@@ -118,6 +134,7 @@ function RagControl({
               : ""
           }
           close={() => setOpen(false)}
+          moved={() => setMoved(true)}
           saved={() => {
             void query.refetch();
             void client.invalidateQueries({
@@ -136,6 +153,7 @@ function RagDialog({
   error,
   close,
   saved,
+  moved,
 }: {
   projectId: string;
   projectName: string;
@@ -143,11 +161,12 @@ function RagDialog({
   error: string;
   close: () => void;
   saved: () => void;
+  moved: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null),
     alive = useRef(true),
     controller = useRef<AbortController | null>(null);
-  const { settings } = useWorkspaceQueryPolicy();
+  const { settings, scope } = useWorkspaceQueryPolicy();
   const [apiKey, setApiKey] = useState(""),
     [models, setModels] = useState<string[]>([]),
     [model, setModel] = useState("");
@@ -415,28 +434,43 @@ function RagDialog({
         <p>창을 닫아도 시작한 작업은 계속 진행됩니다.</p>
       </div>
       <footer className="project-registration-footer">
-        <button type="button" className="button" onClick={close}>
-          닫기
-        </button>
-        <button
-          type="button"
-          className="button primary"
-          disabled={
-            pending ||
-            !summary?.canManage ||
-            (!resume && !model) ||
-            active(summary?.latestJob?.status)
-          }
-          onClick={() => void call("start")}
-        >
-          {pending
-            ? "처리 중…"
-            : resume
-              ? "실패 지점부터 이어서 시작"
-              : failed
-                ? "새로 벡터화 시작"
-                : "전체 자료 벡터화 시작"}
-        </button>
+        <ConsoleWindowButton
+          workspaceId={scope.workspaceId}
+          projectId={projectId}
+          intent
+          disabled={pending}
+          accessUrl={`/api/projects/${encodeURIComponent(projectId)}/access`}
+          href={`/projects/${encodeURIComponent(projectId)}/intent-classifications`}
+          label="의도분류 화면 이동 ↗"
+          onOpened={() => {
+            moved();
+            close();
+          }}
+        />
+        <div className="project-rag-footer-actions">
+          <button type="button" className="button" onClick={close}>
+            닫기
+          </button>
+          <button
+            type="button"
+            className="button primary"
+            disabled={
+              pending ||
+              !summary?.canManage ||
+              (!resume && !model) ||
+              active(summary?.latestJob?.status)
+            }
+            onClick={() => void call("start")}
+          >
+            {pending
+              ? "처리 중…"
+              : resume
+                ? "실패 지점부터 이어서 시작"
+                : failed
+                  ? "새로 벡터화 시작"
+                  : "전체 자료 벡터화 시작"}
+          </button>
+        </div>
       </footer>
     </dialog>
   );

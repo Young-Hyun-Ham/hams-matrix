@@ -272,7 +272,45 @@
 }
 .matrix-ai-message-actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+  margin-top: 12px;
+}
+.matrix-ai-hitl-actions,
+.matrix-ai-result-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.matrix-ai-result-actions {
+  margin-inline-start: auto;
+  justify-content: flex-end;
+}
+.matrix-ai-hitl-actions > button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.matrix-ai-message-actions button,
+.matrix-ai .matrix-ai-guardrail button {
+  min-height: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: normal;
+}
+.matrix-ai-message-actions button:disabled,
+.matrix-ai .matrix-ai-guardrail button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.matrix-ai-approval-history {
   margin-top: 12px;
 }
 .matrix-ai-messages .matrix-ai-saved-images {
@@ -360,6 +398,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   max-width: 100%;
   color: var(--muted);
   font-size: 11px;
@@ -368,6 +407,7 @@
   white-space: nowrap;
 }
 .matrix-ai-target select {
+  margin-left: auto;
   min-width: 0;
   max-width: 180px;
   min-height: 36px;
@@ -763,4 +803,21 @@
 .matrix-shared-dialog article {
   border-top: 1px solid var(--border-color, #aaa);
   padding-block: 12px;
+}
+.matrix-ai-guardrail {
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border, #cfc9dd);
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.matrix-ai-guardrail .matrix-ai-hitl-actions {
+  margin-top: 8px;
+}
+.matrix-ai-guardrail .button {
+  margin: 0;
+}
+.matrix-ai-guardrail small {
+  display: block;
+  margin-top: 8px;
 }

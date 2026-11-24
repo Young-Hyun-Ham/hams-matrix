@@ -1,5 +1,5 @@
 "use client";
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePreferences, type Preferences } from "@/stores/preferences";
 import { resolveWorkspaceError } from "@/lib/query/error-messages";
 import { useToasts } from "@/stores/toast";
@@ -47,6 +47,59 @@ export function PreferencesRuntime({
     if (!busy) initialize(userId, query.data, owner.current);
   }, [userId, query.data, initialize, busy]);
   const { refetch } = query;
+  useEffect(() => {
+    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    let inFlight = false;
+    const flush = () => {
+      const state = usePreferences.getState();
+      if (
+        disposed ||
+        !pending ||
+        inFlight ||
+        state.busy ||
+        state.userId !== userId ||
+        state.owner !== owner.current
+      )
+        return;
+      pending = false;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (disposed) return;
+        if (usePreferences.getState().busy) {
+          pending = true;
+          return;
+        }
+        // Only the authenticated API is authoritative; never apply storage payloads.
+        inFlight = true;
+        void refetch({ cancelRefetch: false })
+          .catch(() => undefined)
+          .finally(() => {
+            inFlight = false;
+            flush();
+          });
+      }, 100);
+    };
+    const changed = (event: StorageEvent) => {
+      if (event.key !== `matrix-preferences:${userId}`) return;
+      try {
+        if (event.storageArea !== window.localStorage) return;
+      } catch {
+        return;
+      }
+      pending = true;
+      flush();
+    };
+    window.addEventListener("storage", changed);
+    const unsubscribe = usePreferences.subscribe(flush);
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      unsubscribe();
+      window.removeEventListener("storage", changed);
+    };
+  }, [userId, refetch]);
   const { mutateAsync } = command;
   useLayoutEffect(
     () =>

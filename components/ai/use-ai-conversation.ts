@@ -5,7 +5,11 @@ import {
   useQueryClient,
   type InfiniteData,
 } from "@tanstack/react-query";
-import type { AiChat, AiConversation } from "@/lib/ai-context";
+import type {
+  AiChat,
+  AiConversation,
+  AiConversationTurn,
+} from "@/lib/ai-context";
 import { useWorkspace } from "@/stores/workspace";
 import { useWorkspaceQueryPolicy } from "@/components/query/workspace-query-runtime";
 import { matrixKeys } from "@/lib/query/keys";
@@ -13,6 +17,7 @@ import { requestJson } from "@/lib/query/browser-fetch";
 import { resolveWorkspaceError } from "@/lib/query/error-messages";
 type ChatPage = {
   chats: AiChat[];
+  turns?: AiConversationTurn[];
   nextCursor: string | null;
   historyEnabled: boolean;
   conversation: AiConversation;
@@ -67,6 +72,12 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
       chats.push(chat);
       ids.add(chat.id);
     }
+  chats.sort((a, b) => (a.turnSeq ?? 0) - (b.turnSeq ?? 0));
+  const turns = new Map<string, AiConversationTurn>();
+  for (const page of query.data?.pages ?? [])
+    for (const turn of page.turns ?? [])
+      if ((turns.get(turn.id)?.version ?? 0) <= turn.version)
+        turns.set(turn.id, turn);
   const append = useCallback(
     (chat: AiChat) => {
       setLocal((current) => ({
@@ -74,9 +85,7 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
         chats:
           current.scope !== localScope
             ? [chat]
-            : current.chats.some((item) => item.id === chat.id)
-              ? current.chats
-              : [...current.chats, chat],
+            : [...current.chats.filter((item) => item.id !== chat.id), chat],
       }));
       client.setQueryData<InfiniteData<ChatPage>>(
         [
@@ -94,14 +103,35 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
             current.pages[0].historyEnabled === false
           )
             return current;
-          const first = current.pages[0];
-          if (first.chats.some((item) => item.id === chat.id)) return current;
+          const existing = current.pages.findIndex(
+            (page) =>
+              page.turns?.some((turn) => turn.id === chat.turnId) ||
+              page.chats.some((item) => item.id === chat.id),
+          );
+          const index = existing < 0 ? 0 : existing;
           return {
             ...current,
-            pages: [
-              { ...first, chats: [...first.chats, chat] },
-              ...current.pages.slice(1),
-            ],
+            pages: current.pages.map((page, i) =>
+              i !== index
+                ? page
+                : {
+                    ...page,
+                    chats: [
+                      ...page.chats.filter((item) => item.id !== chat.id),
+                      chat,
+                    ],
+                    turns: page.turns?.map((turn) =>
+                      turn.id === chat.turnId
+                        ? {
+                            ...turn,
+                            chatId: chat.id,
+                            status: "completed",
+                            version: turn.version + 1,
+                          }
+                        : turn,
+                    ),
+                  },
+            ),
           };
         },
       );
@@ -111,6 +141,7 @@ export function useAiConversation(conversation: AiConversation, open: boolean) {
   );
   return {
     chats,
+    turns: [...turns.values()].sort((a, b) => a.seq - b.seq),
     loading: query.isLoading,
     revalidating: query.isFetching && !query.isFetchingNextPage,
     loadingOlder: query.isFetchingNextPage,

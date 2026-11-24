@@ -155,6 +155,8 @@ try {
     "048_project_rag_orchestration.sql",
     "049_project_rag_resume.sql",
     "050_project_shared_answers.sql",
+    "051_ai_guardrail_approvals.sql",
+    "052_ai_conversation_turns.sql",
   ])
     for (let pass = 0; pass < 2; pass++) {
       const migrated = spawnSync(

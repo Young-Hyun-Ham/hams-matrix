@@ -116,11 +116,16 @@ const stages: Record<string, string> = {
   "tool-result": "도구 결과",
   output: "출력",
 };
+import { GuardrailConsoleEntry } from "./guardrail-console-entry";
 export function GuardrailAdmin({
   workspaceName,
+  workspaceId,
+  superMode = false,
   endpoint = "/api/admin/ai-guardrails",
 }: {
   workspaceName: string;
+  workspaceId?: string;
+  superMode?: boolean;
   endpoint?: string;
 }) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
@@ -263,6 +268,13 @@ export function GuardrailAdmin({
       <header className="guardrail-heading">
         <div>
           <p>{workspaceName}의 입력·출력과 도구 실행 정책을 관리합니다.</p>
+          {workspaceId && (
+            <GuardrailConsoleEntry
+              key={workspaceId}
+              workspaceId={workspaceId}
+              superMode={superMode}
+            />
+          )}
         </div>
         <button
           className="button"
@@ -486,14 +498,6 @@ export function GuardrailAdmin({
                     </small>
                   </div>
 
-                  <BlockedTermsEditor
-                    terms={policy.blockedTerms}
-                    onChange={(terms) => update("blockedTerms", terms)}
-                  />
-                  <AllowedDomainsEditor
-                    domains={policy.allowedDomains}
-                    onChange={(domains) => update("allowedDomains", domains)}
-                  />
                   {policy.classifierEnabled && (
                     <>
                       <label>
@@ -536,6 +540,16 @@ export function GuardrailAdmin({
                       </label>
                     </>
                   )}
+                  <div className="guardrail-editors-row">
+                    <BlockedTermsEditor
+                      terms={policy.blockedTerms}
+                      onChange={(terms) => update("blockedTerms", terms)}
+                    />
+                    <AllowedDomainsEditor
+                      domains={policy.allowedDomains}
+                      onChange={(domains) => update("allowedDomains", domains)}
+                    />
+                  </div>
                 </fieldset>
                 <div className="guardrail-footer">
                   <p>

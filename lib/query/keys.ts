@@ -1,5 +1,20 @@
 export type QueryScope = { userId: string; workspaceId: string };
 export const matrixKeys = {
+  consoleAccess: (s: QueryScope, endpoint: string) =>
+    [...matrixKeys.scope(s), "console-access", endpoint] as const,
+  intentClassifications: (s: QueryScope, projectId: string) =>
+    [
+      ...matrixKeys.scope(s),
+      "project",
+      projectId,
+      "intent-classifications",
+    ] as const,
+  guardrailApprovals: (s: QueryScope, endpoint: string) =>
+    [...matrixKeys.scope(s), "guardrail-approvals", endpoint] as const,
+  guardrailApproval: (s: QueryScope, endpoint: string, id: string) =>
+    [...matrixKeys.guardrailApprovals(s, endpoint), "detail", id] as const,
+  guardrailOverview: (s: QueryScope, endpoint: string) =>
+    [...matrixKeys.scope(s), "guardrail-overview", endpoint] as const,
   sharedAnswers: (s: QueryScope, projectId: string) =>
     [...matrixKeys.scope(s), "project", projectId, "shared-answers"] as const,
   projectRag: (s: QueryScope, projectId: string) =>

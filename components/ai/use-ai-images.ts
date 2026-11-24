@@ -75,6 +75,7 @@ export function useAiImages(
     [imagesLoading, setImagesLoading] = useState(false),
     [attachmentError, setAttachmentError] = useWorkspaceErrorState("");
   const current = useRef<PastedAiImage[]>(initial),
+    revision = useRef(0),
     busy = useRef(false),
     operation = useRef(0),
     active = useRef(true);
@@ -85,6 +86,7 @@ export function useAiImages(
     };
   }, []);
   function clearImages() {
+    revision.current += 1;
     operation.current += 1;
     busy.current = false;
     current.current = [];
@@ -94,6 +96,7 @@ export function useAiImages(
   }
   function removeImage(id: string) {
     if (disabled) return;
+    revision.current += 1;
     current.current = current.current.filter((image) => image.id !== id);
     setImages(current.current);
     setAttachmentError("");
@@ -117,6 +120,7 @@ export function useAiImages(
       return;
     }
     busy.current = true;
+    revision.current += 1;
     const operationId = ++operation.current;
     setImagesLoading(true);
     setAttachmentError("");
@@ -143,6 +147,7 @@ export function useAiImages(
   }
   async function restoreImages(saved: AiImageInfo[]) {
     if (disabled || busy.current) return false;
+    revision.current += 1;
     busy.current = true;
     const operationId = ++operation.current;
     setImagesLoading(true);
@@ -188,5 +193,6 @@ export function useAiImages(
     removeImage,
     restoreImages,
     clearImages,
+    getRevision: () => revision.current,
   };
 }

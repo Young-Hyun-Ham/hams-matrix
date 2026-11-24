@@ -1,12 +1,40 @@
 .project-rag-control {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
+  display: grid;
+  min-width: 0;
   gap: 8px;
   margin: 8px 0;
   font-size: 12px;
 }
+.project-rag-actions {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+.project-rag-actions > .button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.project-rag-actions > .console-window-entry {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.project-rag-actions > .console-window-entry > .button {
+  justify-self: start;
+  max-width: 100%;
+}
+.project-rag-actions > .console-window-entry > small {
+  /* Keep status text from widening the action or pushing it to a new row. */
+  width: 0;
+  min-width: 100%;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
 .project-rag-summary {
+  min-width: 0;
   color: var(--muted);
   overflow-wrap: anywhere;
 }
@@ -46,4 +74,30 @@
   width: auto;
   min-height: 0;
   margin: 0;
+}
+
+.workspace-dialog.project-rag-dialog .project-registration-footer {
+  justify-content: space-between;
+  align-items: center;
+}
+.project-rag-footer-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+.project-rag-dialog .console-window-entry {
+  flex: 1 1 220px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.project-rag-dialog .console-window-entry .button {
+  white-space: nowrap;
+}
+
+.project-rag-footer-actions .button {
+  min-height: 32px;
+  white-space: nowrap;
 }

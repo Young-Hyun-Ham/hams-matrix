@@ -20,6 +20,7 @@ import { prepareDatabaseInput } from "../database-domain-generation";
 import type { Client, Transaction } from "@libsql/client";
 import { GenerationCancelled } from "./generation-control";
 import { GuardrailBlocked } from "./guardrails";
+import { journalStep } from "./execution-journal";
 import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
 import {
   applyDatabaseBatch,
@@ -224,11 +225,10 @@ export function createPageAgent(
         page.key === "project-analysis" &&
         ["read_project_artifact", "read_project_rfp"].includes(name)
       ) {
-        const data = await readProjectDetail(
-          user,
-          context.projectId,
-          name,
-          input,
+        const { value: data } = await journalStep(
+          "tool-read",
+          { name, input },
+          () => readProjectDetail(user, context.projectId, name, input),
         );
         await guard?.inspect("tool-result", data);
         return { success: true, data };
@@ -239,7 +239,11 @@ export function createPageAgent(
           Object.keys(input).some((k) => !["q", "page", "pageSize"].includes(k))
         )
           throw new HttpError(400, "도메인 메타 조회 요청을 확인해 주세요.");
-        const data = await readDatabaseDomains(user, context.projectId, input);
+        const { value: data } = await journalStep(
+          "tool-read",
+          { name, input },
+          () => readDatabaseDomains(user, context.projectId, input),
+        );
         observedDomainRevision = data.catalogRevision;
         await guard?.inspect("tool-result", data);
         return { success: true, data, ...progress() };
@@ -337,7 +341,11 @@ export function createPageAgent(
       if (name === "read_page") {
         if (Object.keys(input).length)
           throw new HttpError(400, "조회 도구에는 인자를 지정할 수 없습니다.");
-        const data = await readAiPage(user, context, page);
+        const { value: data } = await journalStep(
+          "tool-read",
+          { name, input },
+          () => readAiPage(user, context, page),
+        );
         if ("domainMeta" in data && data.domainMeta)
           observedDomainRevision = data.domainMeta.catalogRevision;
         await guard?.inspect("tool-result", data);
@@ -634,6 +642,10 @@ export function createPageAgent(
     exportChanges: () => structuredClone(pending),
     restoreChanges: (changes: typeof pending) => {
       pending.splice(0, pending.length, ...structuredClone(changes));
+      seen.clear();
+      for (const change of pending) {
+        if (!change.batch) seen.add(JSON.stringify(change.input));
+      }
     },
   };
 }

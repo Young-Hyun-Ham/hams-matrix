@@ -24,6 +24,22 @@ try {
   const migrations = (await readdir(directory))
     .filter((name) => name.endsWith(".sql"))
     .sort();
+  if (selected === "051_ai_guardrail_approvals.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["050_project_shared_answers.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 051 requires applied migration 050");
+  }
+  if (selected === "052_ai_conversation_turns.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["051_ai_guardrail_approvals.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 052 requires applied migration 051");
+  }
   if (selected && !migrations.includes(selected))
     throw new Error("Selected migration not found");
   if (selected === "046_ai_project_analysis_reviews.sql") {

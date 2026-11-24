@@ -362,6 +362,38 @@ try {
   assert.equal(await oldFailure, null);
   assert.equal(properties.get("--primary"), cColor);
   assert.equal(store().userId, "C");
+  store().preview({ ...store().saved, accentColor: "#22aa66" }, "C");
+  store().initialize(
+    "C",
+    { ...defaults, defaultTheme: "dark", accentColor: "#0055cc", version: 3 },
+    c,
+  );
+  assert.equal(
+    store().current.accentColor,
+    "#22aa66",
+    "remote preferences preserve the local draft",
+  );
+  assert.equal(
+    store().current.defaultTheme,
+    "dark",
+    "remote untouched fields update immediately",
+  );
+  store().initialize(
+    "C",
+    { ...defaults, defaultTheme: "light", version: 2 },
+    c,
+  );
+  assert.equal(
+    store().saved.version,
+    3,
+    "older remote versions cannot replace current preferences",
+  );
+  store().restore("C");
+  assert.equal(
+    store().current.accentColor,
+    "#0055cc",
+    "closing draft restores newest remote settings",
+  );
   assert.equal(store().reset("C", b), false);
   assert.equal(store().reset("C", c), true);
   assert.equal(properties.size, 0);

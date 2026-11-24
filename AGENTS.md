@@ -8,6 +8,31 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+## 챗봇 승인 요청·고정 문맥 (2026-11-23)
+
+- 승인 선택·재개·상태 새로고침은 공통 HITL 버튼 행에 둔다. 버튼은 한 줄을 우선하며 실제 너비가 부족할 때만 자연 줄바꿈한다. 버튼 글자 줄바꿈이나 강제 행 분리는 추가하지 않는다.
+
+- 최신 동작은 [구현 기록](docs/work/2026-11-23/AI챗봇-승인요청-대화통합-문맥분리-구현.md)을 따른다. 승인 카드는 해당 turn의 AI 대화 영역에 두고, 정책 승인과 사용자 변경안 HITL을 분리한다. 가드레일 대기는 일반 질문을 막지 않으며 실제 실행만 방당 1건으로 제한한다.
+- `ai_conversation_turns`의 서버 할당 순서와 원래 chat ID로 재개 결과를 갱신한다. 표시용 turn을 모델 이력으로 직렬화하지 않는다. 최초 선택한 완료 이력/첨부를 암호화 journal에 고정하고, 재개 시 후속 이력·현재 초안을 섞거나 완료 모델 호출을 반복하지 않는다. 고정 이력·정책·권한·대상·자료 검증은 저장 직전까지 유지한다.
+- 052는 051 이후 선택 적용한다. 구형 포맷 1 checkpoint의 암호문과 기존 방 잠금/해시 검증을 보존한다. 새 포맷 2만 요청별 복수 대기를 허용한다. 사용자 변경안 `pending`의 방 단위 제약은 이번에 해제하지 않았다.
+- 새 초안·첨부는 재개 완료나 결과 모달 닫기로 지우지 않는다. HITL은 왼쪽, 결과 작업은 오른쪽, 공통 compact 버튼을 사용한다. 기존 팝업 386px 입력 열·분리 임계값·권한 폴링 금지·쓰기 자동 재시도 금지를 유지한다.
+- 회귀는 임시 DB·모의 AI로 `pnpm test:ai-guardrail-approvals`, 빌드 후 브라우저 검증, 페이지·사용자 검토·도구 실행을 수행한다. 구성 DB는 schema/integrity 읽기 검증에 한정한다. 기존 공유 가능 플래그와 테스트의 불일치는 작업 기록에 별도 남겼으며 임의 변경하지 않는다.
+
+## 가드레일 컨트롤타워·관리자 승인 (2026-11-23)
+
+- 관제 화면 개편은 [작업 기록](docs/work/2026-11-23/가드레일-컨트롤타워-관제화면-개편-구현.md)을 따른다. view=dashboard/queue/history와 기존 approvalId 직접 링크를 지원한다. view 없는 진입은 승인 대기열이다. 목록 미리보기와 상세 처리를 분리하고 필수 의견·승인 확인·canDecide·사용자 재개를 유지한다.
+- overview는 최소 읽기 DTO로 KST 당일 검사/차단(정책 테스트 포함), 현재 승인 현황, 2시간 내 만료 요청을 집계한다. 검사 건수를 AI 실행 횟수로 부르지 않는다. 최근 20건/목록 페이지로 전체 통계를 계산하지 않는다. 활성 대시보드만 주기 조회하며 기존 만료/lease 정리를 재사용한다.
+- 테마는 공통 ThemeToggle/PreferencesRuntime을 사용한다. storage 이벤트의 payload를 적용하지 말고 현재 사용자 API로 재조회한다. 다른 계정·오래된 version·편집 초안·저장 중 상태를 보호하고 중복 리스너·프로젝트 접근 폴링을 추가하지 않는다. 이번 개편의 추가 DB migration은 없다.
+
+- 후속 사용자 지시에 따라 자기 요청은 해당 프로젝트 owner/admin이면 승인·반려를 허용한다. 기존 컨트롤타워 관리 범위 권한도 필요하다. DTO와 처리 트랜잭션에서 현재 역할을 동일하게 검증하며 프로젝트 없음/member/viewer는 차단한다. [변경 기록](docs/work/2026-11-23/가드레일-프로젝트관리자-자기요청승인.md).
+
+- 최신 화면 설계와 [작업 기록](docs/work/2026-11-23/가드레일-컨트롤타워-승인재개-구현.md)을 확인한다. 독립 창은 `/admin/guardrail-control-tower`, 슈퍼관리자는 별도 `/super-admin/guardrail-control-tower`를 사용한다.
+- 사용자가 예를 선택한 요청만 관리자 목록에 나타난다. 관리자 승인은 요청자의 이어서 진행과 분리하고, 기존 사용자 변경안 HITL을 생략하지 않는다. 프로젝트 역할만으로 상품 관리자 승인 권한을 부여하지 않는다.
+- 재개는 암호화 journal의 완료한 모델 응답·조회 결과·pending 변경안을 복원한다. 승인 범위는 동일 logical request·검사 operation/hash에 한정한다. 변경된 정책/자료/권한/대상은 무효화하며 클라이언트 approved 플래그를 신뢰하지 않는다.
+- 051은 050 이후에만 선택 적용한다. 기존 생성 요청을 보존하면서 paused 상태와 승인·이력을 추가했다. 구성 DB 적용/무결성 결과는 작업 기록을 따른다. 이력 미저장 대화와 독립 RFP/일괄 생성/RAG 검사 복구는 이번 승인 기능 범위에 추가하지 않는다.
+- 대기 중 HTTP·모델·대화 lease·쓰기 트랜잭션을 유지하지 않는다. 재개 POST는 기존 실행 기한 내에서 처리하고 쓰기 자동 재시도는 하지 않는다. 만료/종료 checkpoint는 정리하며 운영상 주기 정리는 `pnpm cleanup:guardrail-approvals`를 사용한다.
+- 회귀는 임시 SQLite·합성 계정·모의 AI만 사용한다. `pnpm test:ai-guardrail-approvals`, 빌드 후 `pnpm test:ai-guardrail-approvals-browser`, `pnpm test:ai-settings-reviews`, `pnpm test:ai-tool-execution`로 검증한다. 키·암호문·개인 대화 원문을 DTO 목록·URL·문서에 기록하지 않는다.
+
 ## Query 및 workspace 설정 작업 지침 (2026-11-11)
 
 - 구현 범위와 검증 결과는 `docs/work/2026-11-11/fetch-ReactQuery-전환-구현.md`를 확인한다. `pnpm test:query-audit`로 전송 호출의 분류 누락을 검사한다.
@@ -158,3 +183,23 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - floating+split의 실제 좌우 배치는 입력 카드 전체 386px, 간격 12px, 답변 최소 240px다. 내부 콘텐츠 638px 이상에서만 적용하고 좁으면 기존 상하 표시로 복귀한다. 입력 폭 상수와 쿼리 임계값은 함께 갱신한다.
 - `styles/ai-workspace-layout.css`에서 패널의 560px 쿼리와 팝업의 638px 쿼리를 분리한다. 패널의 입력 우선 배분과 외부 창 프리셋·수동 너비·높이·위치 상태를 유지한다. 팝업 너비 변화는 답변 열에만 반영하며 새로운 측정 상태·API·저장소를 추가하지 않는다.
 - `pnpm test:ai-targets-browser`에서 실제 두 열 폭, 양쪽 포인터·키보드·터치, 모드별 경계, 초안·DOM 보존을 검증한다. DB 변경 없음. [작업 기록](docs/work/2026-11-18/AI챗봇-창모드-좌우분리-입력폭고정-답변확장-구현.md).
+
+## 의도분류 조회·새창 접근 (2026-11-23)
+
+- [구현 기록](docs/work/2026-11-23/의도분류-조회화면-새창이동-owner권한-구현.md)을 따른다. 의도분류 조회는 프로젝트 owner만 가능하며 기존 이벤트의 최소 메타데이터/참조 ID·버전만 반환한다. 개인 질문·대화나 비밀키를 JOIN/복원하지 않는다.
+- 새창 owner 제한과 RAG의 기존 owner/admin 관리 권한을 구분한다. 가드레일은 기존 관리자 범위와 진입 프로젝트의 실제 owner·현재 배정·플랜을 모두 검증한다. master 예외는 없다.
+- `entryProjectId`는 진입 자격이며 목록 필터 `projectId`와 다르다. admin/super-admin의 목록·건수·상세·overview·결정 모두 진입 조건을 강제하고 승인 트랜잭션에서도 현재 owner를 검사한다. 정책 편집과 요청자용 승인/재개 API에 일괄 전파하지 않는다.
+- workspace 전체 관제를 유지한다. 프로젝트별 통계라고 표현하지 않는다. 프로젝트 context 없는 기존 북마크는 선택 단계를 거치며 승인 ID/view를 보존한다.
+- 최신 권한 확인 전에 빈 창을 만들지 않는다. noopener 반환 handle만으로 차단을 판정하지 않고 필요 시 직접 재클릭/재시도를 제공한다. 프로젝트 권한 폴링과 비밀키 localStorage 저장을 추가하지 않는다.
+- DB 변경 없음. 임시 DB/합성 계정으로 `pnpm test:intent-classifications`, 빌드 후 `pnpm test:intent-classifications-browser`와 기존 가드레일·RAG 회귀를 수행한다.
+
+## 의도분류 카드 버튼·조회 콘솔 (2026-11-24)
+
+- [작업 기록](docs/work/2026-11-24/대시보드-의도분류-버튼배치와-조회화면-스타일-구현.md)을 따른다. `.project-rag-actions`는 버튼 행, `.project-rag-summary`는 아래 요약이다. 공통 `button small`을 사용하고 대시보드의 양끝 정렬은 `.matrix-dashboard .dashboard-project`로 제한한다. 문구는 유지하며 가용 폭이 부족할 때만 오른쪽 다음 줄을 허용한다.
+- `ConsoleWindowButton`의 `buttonClassName`은 보조 스타일만 확장한다. 기존 owner 확인·팝업·재클릭과 `moved && !open`, 모달 footer 배치를 유지한다.
+- 의도분류는 전용 CSS로 관제센터의 셸·카드·반응형을 맞춘다. 공통 셸 추출·가드레일 CSS 전체 import·새 통계·폴링은 추가하지 않는다. 필터 초안·적용 조건·커서·eventId·URL 및 기존 권한 오류 데이터 숨김을 보존한다.
+- DB 변경 없음. 타입·변경 파일 ESLint·빌드, `pnpm test:intent-classifications`, `pnpm test:dashboard`, `pnpm test:project-rag`, `pnpm test:ai-guardrail-approvals` 및 관련 브라우저 검증을 사용한다. 검증은 임시 DB·합성 계정으로 수행한다.
+
+## 의도분류 검색 참조 ID 링크 (2026-11-24)
+
+검색 참조의 자료 ID·청크 ID를 누르면 현재 원본 정보와 검색 당시 저장된 청크를 읽기 전용 상세창에서 확인한다. 현재 owner 권한·이력 범위·등록 참조를 서버에서 확인하고 원본 삭제/접근 불가 시 과거 청크도 숨긴다. 당시/현재 버전과 정리된 청크를 구분하며 참조 선택 URL·닫기·검색 상태를 유지한다. 기존 RAG 자료/READ 검사를 재사용하고 키·저장소 경로·임베딩·개인 대화를 노출하지 않는다. DB 변경 없음. [작업 기록](docs/work/2026-11-24/의도분류-검색참조-ID-상세링크.md).

@@ -21,6 +21,20 @@ import {
 import { firstQuestionTitle } from "@/lib/ai/conversation-title";
 import type { AiChangeReview } from "@/lib/ai-review-types";
 import { randomUUID } from "node:crypto";
+import {
+  executionContext,
+  executionHash,
+  journalStep,
+  runExecution,
+} from "@/lib/ai/execution-journal";
+import { approvalEligible } from "@/lib/ai/guardrail-rule-catalog";
+import {
+  assertNoGuardrailWait,
+  chatScopeHash,
+  createApprovalChallenge,
+  finishApproval,
+} from "@/lib/ai/guardrail-approvals";
+import type { User } from "@/lib/types";
 import type { Client } from "@libsql/client";
 import {
   body,
@@ -64,7 +78,12 @@ import {
   conversationChats,
   conversationHistory,
   temporaryHistory,
+  validateFrozenHistory,
 } from "@/lib/ai/conversations";
+import {
+  startConversationTurn,
+  finishConversationTurn,
+} from "@/lib/ai/conversation-turns";
 export const maxDuration = 180;
 export async function GET(request: Request) {
   try {
@@ -73,7 +92,7 @@ export async function GET(request: Request) {
     const params = new URL(request.url).searchParams;
     const convId = conversationId(params.get("convId"));
     const before = params.get("before") || undefined;
-    if (before && !/^\d{1,18}$/.test(before))
+    if (before && !/^(?:t2:)?\d{1,18}$/.test(before))
       throw new HttpError(400, "Invalid cursor");
     const conversation = await requireConversation(user, projectId, convId);
     const page = await conversationChats(user, projectId, convId, before);
@@ -104,11 +123,31 @@ export async function GET(request: Request) {
   }
 }
 export async function POST(request: Request) {
+  return runExecution(() => executeChat(request));
+}
+async function executeChat(request: Request) {
   let lease: { convId: string; requestId: string } | undefined;
   let generationId: string | undefined;
+  let turnId: string | undefined;
   let outcome = "failed";
   let actions: AiAction[] = [];
-  const requestDeadline = Date.now() + 140000;
+  let approvalScope:
+    | {
+        user: User;
+        requestId: string;
+        convId: string;
+        projectId: string;
+        targetPage: string;
+        targetVersion: number;
+        policyVersion: number;
+        sourceHash: string;
+        requestInput: Record<string, unknown>;
+      }
+    | undefined;
+  let pendingCount = () => 0;
+  const requestDeadline =
+    Date.now() +
+    Math.max(0, 140000 - (executionContext()?.journal.elapsed ?? 0));
   try {
     checkOrigin(request);
     const user = await requireUser(),
@@ -139,6 +178,7 @@ export async function POST(request: Request) {
     const convId = conversationId(input.convId);
     let conversation = await requireConversation(user, projectId, convId);
     await assertNoPendingReview(user, convId);
+    await assertNoGuardrailWait(user, convId);
     const settingsAtStart = await aiUserSettings(user);
     if (
       !plan.historyEnabled &&
@@ -199,7 +239,7 @@ export async function POST(request: Request) {
     if (!(await aiModels()).includes(model))
       throw new HttpError(400, "사용 가능한 AI 모델을 선택해 주세요.");
     await rateLimit(`ai:${user.workspaceId}:${user.id}`, 20);
-    const id = randomUUID();
+    const id = executionContext()?.journal.turn?.id ?? randomUUID();
     // 생성 요청 전에 암호화 키/이미지를 검증하여 저장 불가 상태의 유료 호출을 방지합니다.
     const encrypted = plan.historyEnabled
       ? encryptAiImages(images, {
@@ -226,6 +266,48 @@ export async function POST(request: Request) {
         : generationRequestId(input.requestId);
     await registerGeneration(user, convId, requestId);
     generationId = requestId;
+    if (executionContext())
+      executionContext()!.journal.logicalRequestId ??= requestId;
+    if (plan.historyEnabled && ["team", "business"].includes(plan.code))
+      approvalScope = {
+        user,
+        requestId,
+        convId,
+        projectId,
+        targetPage: executionTarget,
+        targetVersion: executionVersion,
+        policyVersion: guardrail.version,
+        sourceHash: await chatScopeHash(
+          user,
+          projectId,
+          convId,
+          db(),
+          !!executionContext()?.approvalId &&
+            !executionContext()?.journal.historyContext,
+        ),
+        requestInput: {
+          ...input,
+          prompt,
+          targetPage: executionTarget,
+          expectedTargetVersion: executionVersion,
+        },
+      };
+    const execution = executionContext();
+    if (
+      execution?.approvalId &&
+      (!approvalScope ||
+        execution.journal.sourceHash !== approvalScope.sourceHash ||
+        execution.journal.policyVersion !== guardrail.version)
+    )
+      throw new HttpError(
+        409,
+        "승인 이후 실행 조건이 변경되었습니다. 새 요청이 필요합니다.",
+        { code: "GUARDRAIL_APPROVAL_INVALIDATED" },
+      );
+    if (approvalScope && execution) {
+      execution.journal.sourceHash ??= approvalScope.sourceHash;
+      execution.journal.policyVersion ??= guardrail.version;
+    }
     const generationCheck = generationCheckpoint(requestId, request.signal);
     const checkpoint = async (executor?: Pick<Client, "execute">) => {
       await generationCheck(executor);
@@ -240,7 +322,7 @@ export async function POST(request: Request) {
     await checkpoint();
     const locked = plan.historyEnabled
       ? await db().execute({
-          sql: "UPDATE ai_conversations SET request_id=?,busy_until=? WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND (request_id IS NULL OR busy_until < ?) AND target_page=? AND target_version=? RETURNING conv_id",
+          sql: "UPDATE ai_conversations SET request_id=?,busy_until=? WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ? AND (request_id IS NULL OR busy_until < ? OR request_id=?) AND target_page=? AND target_version=? RETURNING conv_id",
           args: [
             requestId,
             new Date(Date.now() + 240000).toISOString(),
@@ -249,6 +331,7 @@ export async function POST(request: Request) {
             user.id,
             projectId || null,
             new Date().toISOString(),
+            execution?.approvalId ? requestId : "",
             executionTarget,
             executionVersion,
           ],
@@ -259,6 +342,46 @@ export async function POST(request: Request) {
         await requireConversation(user, projectId, convId),
       );
     lease = plan.historyEnabled ? { convId, requestId } : undefined;
+    // Another request may have entered approval-wait while this request waited for the conversation lease.
+    await assertNoGuardrailWait(user, convId);
+    let history: Record<string, unknown>[];
+    if (plan.historyEnabled && execution) {
+      if (!execution.journal.turn)
+        execution.journal.turn = await startConversationTurn(
+          user,
+          projectId,
+          convId,
+          id,
+          requestId,
+        );
+      turnId = execution.journal.turn.id;
+      if (execution.journal.historyContext) {
+        await validateFrozenHistory(
+          user,
+          projectId,
+          convId,
+          execution.journal.historyContext,
+        );
+        history = execution.journal.historyContext.messages;
+      } else {
+        let ids: string[] = [];
+        history = await conversationHistory(user, projectId, convId, {
+          beforeSeq: execution.approvalId
+            ? undefined
+            : execution.journal.turn.seq,
+          captureIds: (selected) => {
+            ids = selected;
+          },
+        });
+        // Keep old checkpoints on their original all-room hash/wait contract.
+        if (!execution.approvalId)
+          execution.journal.historyContext = {
+            ids,
+            messages: history,
+            hash: executionHash(history),
+          };
+      }
+    } else history = temporaryHistory(input.history);
     const track = createTokenTracker({
       workspaceId: user.workspaceId,
       userId: user.id,
@@ -282,9 +405,6 @@ export async function POST(request: Request) {
       deadline: requestDeadline,
     });
     await guard.inspect("input", prompt, images);
-    const history = plan.historyEnabled
-      ? await conversationHistory(user, projectId, convId)
-      : temporaryHistory(input.history);
     const historyImages: { dataUrl: string }[] = [];
     const historyText = history.map((message) => ({
       ...message,
@@ -375,20 +495,31 @@ export async function POST(request: Request) {
       prompt,
       history.length > 0 || images.length > 0,
     );
-    const orchestration = await orchestrateChat({
-      user,
-      projectId,
-      prompt,
-      model,
-      history: historyText,
-      checkpoint,
-      track,
-      deadline: requestDeadline,
-      requestId,
-      signal: request.signal,
-      targetPage: executionTarget,
-      skipRetrieval: !!sharedAnswer,
-    });
+    const { value: orchestration } = await journalStep(
+      "chat-plan",
+      {
+        projectId,
+        prompt,
+        model,
+        history: historyText,
+        targetPage: executionTarget,
+      },
+      () =>
+        orchestrateChat({
+          user,
+          projectId,
+          prompt,
+          model,
+          history: historyText,
+          checkpoint,
+          track,
+          deadline: requestDeadline,
+          requestId,
+          signal: request.signal,
+          targetPage: executionTarget,
+          skipRetrieval: !!sharedAnswer,
+        }),
+    );
     canWrite =
       !sharedAnswer &&
       canWrite &&
@@ -450,12 +581,23 @@ export async function POST(request: Request) {
     const trackedAgent = {
       ...baseAgent,
       execute: async (name: string, toolInput: Record<string, unknown>) => {
-        const output = await baseAgent.execute(name, toolInput);
+        const step = await journalStep(
+          "preview-tool",
+          { name, toolInput },
+          async () => {
+            const output = await baseAgent.execute(name, toolInput);
+            return { output, changes: baseAgent.exportChanges() };
+          },
+        );
+        if (step.replayed && "restoreChanges" in baseAgent)
+          baseAgent.restoreChanges(step.value.changes as never);
+        const output = step.value.output;
         provenanceTracker.observe(name, toolInput, output);
         return output;
       },
     };
     const agent = restrictAgent(trackedAgent, canWrite);
+    pendingCount = agent.pendingCount;
     actions = agent.actions;
     let result: string;
     try {
@@ -547,6 +689,31 @@ export async function POST(request: Request) {
       orchestration.plan.needsExecution || agent.pendingCount() > 0,
     );
     try {
+      if (
+        execution?.approvalId &&
+        ((await activeGuardrailPolicy(user.workspaceId, saveTx)).version !==
+          execution.journal.policyVersion ||
+          (await chatScopeHash(
+            user,
+            projectId,
+            convId,
+            saveTx,
+            !execution.journal.historyContext,
+          )) !== execution.journal.sourceHash)
+      )
+        throw new HttpError(
+          409,
+          "재개 중 실행 조건이 변경되었습니다. 새 요청이 필요합니다.",
+          { code: "GUARDRAIL_APPROVAL_INVALIDATED" },
+        );
+      if (execution?.approvalId && execution.journal.historyContext)
+        await validateFrozenHistory(
+          user,
+          projectId,
+          convId,
+          execution.journal.historyContext,
+          saveTx,
+        );
       if (sharedAnswer) {
         if (
           (await activeGuardrailPolicy(user.workspaceId, saveTx)).version !==
@@ -659,6 +826,13 @@ export async function POST(request: Request) {
           changes: agent.exportChanges(),
         });
       await checkpoint(saveTx);
+      if (executionContext()?.approvalId)
+        await finishApproval(
+          user,
+          executionContext()!.approvalId!,
+          "completed",
+          saveTx,
+        );
       await saveTx.commit();
       agent.actions.push(...committed);
     } catch (error) {
@@ -682,6 +856,8 @@ export async function POST(request: Request) {
         kind: "answered",
         chat: {
           id,
+          turnId: execution?.journal.turn?.id,
+          turnSeq: execution?.journal.turn?.seq,
           convId,
           createdAt,
           screenTitle,
@@ -697,10 +873,9 @@ export async function POST(request: Request) {
               }
             : undefined,
           shareEligibility: {
-            eligible:
-              !sharedAnswer,
-              // 공유를 위해 검증된 답변이 아니고, 현재 근거가 변경되지 않은 경우에만 공유 가능
-              // !sharedAnswer, && plan.historyEnabled && provenance.complete,
+            eligible: !sharedAnswer,
+            // 공유를 위해 검증된 답변이 아니고, 현재 근거가 변경되지 않은 경우에만 공유 가능
+            // !sharedAnswer, && plan.historyEnabled && provenance.complete,
             reason: sharedAnswer
               ? "이미 등록된 공유 답변입니다."
               : provenance.reason,
@@ -724,11 +899,41 @@ export async function POST(request: Request) {
         { error: error.message, conversation: error.conversation },
         { status: 409, headers: { "Cache-Control": "no-store" } },
       );
-    if (error instanceof GuardrailBlocked)
+    if (error instanceof GuardrailBlocked) {
+      if (
+        approvalScope &&
+        error.block &&
+        approvalEligible(error.block.findings)
+      ) {
+        try {
+          const challenge = await createApprovalChallenge({
+            ...approvalScope,
+            ...error.block,
+            pendingCount: pendingCount(),
+          });
+          outcome = "paused";
+          return Response.json(
+            {
+              error: error.message,
+              requestId: error.requestId,
+              code: "GUARDRAIL_APPROVAL_REQUIRED",
+              details: challenge,
+            },
+            { status: 422, headers: { "Cache-Control": "private, no-store" } },
+          );
+        } catch (saveError) {
+          return errorResponse(saveError);
+        }
+      }
       return Response.json(
-        { error: error.message, requestId: error.requestId },
+        {
+          error: error.message,
+          requestId: error.requestId,
+          code: "GUARDRAIL_HARD_BLOCKED",
+        },
         { status: 422, headers: { "Cache-Control": "no-store" } },
       );
+    }
     if (error instanceof GenerationStopFailed)
       return Response.json(
         { error: error.message, stopUnconfirmed: true, actions },
@@ -743,6 +948,7 @@ export async function POST(request: Request) {
     }
     return errorResponse(error);
   } finally {
+    if (turnId) await finishConversationTurn(turnId, outcome);
     if (generationId)
       await db().execute({
         sql: "UPDATE ai_generation_requests SET status=?,actions_json=?,finished_at=? WHERE request_id=?",

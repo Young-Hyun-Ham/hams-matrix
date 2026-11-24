@@ -62,7 +62,7 @@ export function generationCheckpoint(requestId: string, signal: AbortSignal) {
         args: [requestId],
       })
     ).rows[0];
-    if (!row || row.status === "stop_requested" || row.status === "cancelled")
+    if (!row || !["running", "finalizing"].includes(String(row.status)))
       throw new GenerationCancelled();
   };
 }

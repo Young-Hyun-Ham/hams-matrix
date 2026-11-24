@@ -19,56 +19,67 @@ import { AiConversationRoom } from "./ai-conversation-room";
 import { AiConversationDialog } from "./ai-conversation-dialog";
 import "@/styles/ai-chatbot.css";
 import { NavigationTooltip } from "@/components/shared/navigation-tooltip";
+import { toast } from "@/stores/toast";
 import { targetFromLocation } from "@/lib/ai-target-pages";
 
 export function AiChatbotToggle({
   collapsed = false,
-  onExpand,
   tooltipResetKey = "",
   label = "AI Chatbot",
 }: {
   collapsed?: boolean;
-  onExpand?: () => void;
   tooltipResetKey?: string;
   label?: string;
 }) {
   const { aiMenuOpen, setAiMenuOpen, aiContext, user, aiConversationVersion } =
     useWorkspace();
   return (
-    <div className="matrix-ai-navigation">
-      <NavigationTooltip label={label} resetKey={tooltipResetKey}>
-        <button
-          type="button"
-          className={`nav-item ${aiMenuOpen ? "active" : ""}`}
-          aria-label={label}
-          aria-expanded={aiMenuOpen && !collapsed}
-          aria-controls="matrix-ai-conversations"
-          onClick={() => {
-            if (collapsed) {
-              onExpand?.();
-              setAiMenuOpen(true);
-            } else setAiMenuOpen(!aiMenuOpen);
-          }}
-        >
-          <Icon name="chatbot" size={19} />
-          <span className="nav-label">{label}</span>
-          <Icon
-            name={aiMenuOpen ? "down" : "chevron"}
-            size={14}
-            className="matrix-ai-chevron"
-          />
-        </button>
-      </NavigationTooltip>
-      {aiMenuOpen && !collapsed && (
-        <ConversationList
-          key={`${user?.id}:${user?.workspaceId}:${aiContext.projectId}:${aiContext.pathname}`}
-          version={aiConversationVersion}
-        />
+    <ConversationList
+      key={`${user?.id}:${user?.workspaceId}:${aiContext.projectId}:${aiContext.pathname}`}
+      version={aiConversationVersion}
+      visible={aiMenuOpen && !collapsed}
+      Toggle={({ create, creating, ready }) => (
+        <div>
+          <NavigationTooltip label={label} resetKey={tooltipResetKey}>
+            <button
+              type="button"
+              className={`nav-item ${aiMenuOpen ? "active" : ""}`}
+              aria-label={label}
+              aria-expanded={aiMenuOpen && !collapsed}
+              aria-controls="matrix-ai-conversations"
+              disabled={collapsed && (!ready || creating)}
+              onClick={() => {
+                if (collapsed) void create();
+                else setAiMenuOpen(!aiMenuOpen);
+              }}
+            >
+              <Icon name="chatbot" size={19} />
+              <span className="nav-label">{label}</span>
+              <Icon
+                name={aiMenuOpen ? "down" : "chevron"}
+                size={14}
+                className="matrix-ai-chevron"
+              />
+            </button>
+          </NavigationTooltip>
+        </div>
       )}
-    </div>
+    />
   );
 }
-function ConversationList({ version }: { version: number }) {
+function ConversationList({
+  version,
+  visible,
+  Toggle,
+}: {
+  version: number;
+  visible: boolean;
+  Toggle: React.ComponentType<{
+    create: () => Promise<void>;
+    creating: boolean;
+    ready: boolean;
+  }>;
+}) {
   const { aiContext, aiProject, aiConversation, selectAiConversation, user } =
     useWorkspace();
   const projectId = aiContext.projectId || aiProject.id;
@@ -107,7 +118,7 @@ function ConversationList({ version }: { version: number }) {
         { signal },
       ),
     ...policy,
-    enabled: ready,
+    enabled: ready && visible,
   });
   const rooms = listing.data?.conversations ?? [];
   const setRooms = (action: SetStateAction<AiConversation[]>) =>
@@ -149,7 +160,7 @@ function ConversationList({ version }: { version: number }) {
   const error =
     localError || resolveWorkspaceError(listing.error, settings.errorMessages);
   useEffect(() => {
-    if (ready)
+    if (ready && visible)
       void client.invalidateQueries({
         queryKey: [
           ...matrixKeys.scope(scope),
@@ -158,7 +169,7 @@ function ConversationList({ version }: { version: number }) {
           "conversations",
         ],
       });
-  }, [client, scope, ready, projectId, version, retry]);
+  }, [client, scope, ready, projectId, version, retry, visible]);
   async function create() {
     if (!ready || creatingRef.current) return;
     creatingRef.current = true;
@@ -189,9 +200,11 @@ function ConversationList({ version }: { version: number }) {
         sourceContext: { pathname: aiContext.pathname, tab: aiContext.tab },
       });
       void client.invalidateQueries({ queryKey });
-      // A project switch or collapsed menu must not open a stale conversation.
+      // Do not open a response for a previous user, project, or page.
       if (
         active.current &&
+        useWorkspace.getState().aiContext.pathname === aiContext.pathname &&
+        useWorkspace.getState().aiContext.tab === aiContext.tab &&
         (useWorkspace.getState().aiContext.projectId ||
           useWorkspace.getState().aiProject.id) === projectId &&
         useWorkspace.getState().user?.id === scope.userId &&
@@ -201,7 +214,11 @@ function ConversationList({ version }: { version: number }) {
         useWorkspace.getState().refreshAiConversations();
       }
     } catch (error) {
-      if (active.current) setError(error);
+      if (active.current) {
+        setError(error);
+        if (!visible)
+          toast(resolveWorkspaceError(error, settings.errorMessages), true);
+      }
     } finally {
       creatingRef.current = false;
       if (active.current) setCreating(false);
@@ -233,83 +250,92 @@ function ConversationList({ version }: { version: number }) {
     });
   }
   return (
-    <div id="matrix-ai-conversations" className="matrix-ai-conversations">
-      <AiProjectPicker />
-      <button
-        type="button"
-        className="matrix-ai-project-toggle"
-        aria-expanded={expanded}
-        aria-controls="matrix-ai-project-chats"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <span
-          title={aiContext.projectName || aiProject.name || "공통 작업 공간"}
-        >
-          {aiContext.projectName ||
-            aiProject.name ||
-            (requiresProject ? "프로젝트 선택" : "공통 작업 공간")}
-        </span>
-        <Icon name={expanded ? "down" : "chevron"} size={15} />
-      </button>
-      {expanded && (
-        <div id="matrix-ai-project-chats">
+    <div className="matrix-ai-navigation">
+      <Toggle create={create} creating={creating} ready={ready} />
+      {visible && (
+        <div id="matrix-ai-conversations" className="matrix-ai-conversations">
+          <AiProjectPicker />
           <button
             type="button"
-            className="matrix-ai-new-chat"
-            disabled={!ready || creating}
-            onClick={() => void create()}
+            className="matrix-ai-project-toggle"
+            aria-expanded={expanded}
+            aria-controls="matrix-ai-project-chats"
+            onClick={() => setExpanded(!expanded)}
           >
-            {creating ? "생성 중…" : "+ 새 채팅"}
+            <span
+              title={
+                aiContext.projectName || aiProject.name || "공통 작업 공간"
+              }
+            >
+              {aiContext.projectName ||
+                aiProject.name ||
+                (requiresProject ? "프로젝트 선택" : "공통 작업 공간")}
+            </span>
+            <Icon name={expanded ? "down" : "chevron"} size={15} />
           </button>
-          {error && (
-            <p role="alert">
-              {error}
-              <button type="button" onClick={() => setRetry((v) => v + 1)}>
-                다시 시도
+          {expanded && (
+            <div id="matrix-ai-project-chats">
+              <button
+                type="button"
+                className="matrix-ai-new-chat"
+                disabled={!ready || creating}
+                onClick={() => void create()}
+              >
+                {creating ? "생성 중…" : "+ 새 채팅"}
               </button>
-            </p>
+              {error && (
+                <p role="alert">
+                  {error}
+                  <button type="button" onClick={() => setRetry((v) => v + 1)}>
+                    다시 시도
+                  </button>
+                </p>
+              )}
+              {!ready ? (
+                <p>
+                  프로젝트를 선택하거나 불러오기가 끝난 뒤 채팅을 시작해 주세요.
+                </p>
+              ) : loading ? (
+                <p role="status">채팅방을 불러오는 중입니다.</p>
+              ) : !rooms.length ? (
+                <p style={{ marginTop: 5, textAlign: "center" }}>
+                  새 채팅을 만들어 대화를 시작하세요.
+                </p>
+              ) : (
+                <ul aria-label="채팅방 목록">
+                  {rooms.map((room) => (
+                    <AiConversationRoom
+                      key={room.convId}
+                      room={room}
+                      selected={aiConversation?.convId === room.convId}
+                      onSelect={() => selectAiConversation(room)}
+                      onEdit={(kind) => setAction({ room, kind })}
+                      onUpdate={(changed) => {
+                        updateRoom(changed);
+                        useWorkspace.getState().updateAiConversation(changed);
+                      }}
+                      onError={setError}
+                    />
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
-          {!ready ? (
-            <p>
-              프로젝트를 선택하거나 불러오기가 끝난 뒤 채팅을 시작해 주세요.
-            </p>
-          ) : loading ? (
-            <p role="status">채팅방을 불러오는 중입니다.</p>
-          ) : !rooms.length ? (
-            <p style={{ marginTop: 5, textAlign: "center" }}>
-              새 채팅을 만들어 대화를 시작하세요.
-            </p>
-          ) : (
-            <ul aria-label="채팅방 목록">
-              {rooms.map((room) => (
-                <AiConversationRoom
-                  key={room.convId}
-                  room={room}
-                  selected={aiConversation?.convId === room.convId}
-                  onSelect={() => selectAiConversation(room)}
-                  onEdit={(kind) => setAction({ room, kind })}
-                  onUpdate={(changed) => {
-                    updateRoom(changed);
-                    useWorkspace.getState().updateAiConversation(changed);
-                  }}
-                  onError={setError}
-                />
-              ))}
-            </ul>
+          {action && (
+            <AiConversationDialog
+              key={`${action.kind}:${action.room.convId}`}
+              room={action.room}
+              kind={action.kind}
+              onClose={closeAction}
+              onUpdate={updateRoom}
+              onRemove={(id) =>
+                setRooms((current) =>
+                  current.filter((room) => room.convId !== id),
+                )
+              }
+            />
           )}
         </div>
-      )}
-      {action && (
-        <AiConversationDialog
-          key={`${action.kind}:${action.room.convId}`}
-          room={action.room}
-          kind={action.kind}
-          onClose={closeAction}
-          onUpdate={updateRoom}
-          onRemove={(id) =>
-            setRooms((current) => current.filter((room) => room.convId !== id))
-          }
-        />
       )}
     </div>
   );

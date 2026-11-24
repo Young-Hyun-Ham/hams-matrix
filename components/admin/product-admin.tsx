@@ -234,6 +234,8 @@ export function ProductAdmin({
           {selectedWorkspace ? (
             <GuardrailAdmin
               key={selectedWorkspace}
+              workspaceId={selectedWorkspace}
+              superMode={superMode}
               workspaceName={
                 overview?.workspaces.find((w) => w.id === selectedWorkspace)
                   ?.name ?? ""

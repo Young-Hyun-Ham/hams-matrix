@@ -8,6 +8,7 @@ import type { AiAction } from "./page-tools";
 import type { GuardrailPolicy, GuardrailStage } from "./guardrail-types";
 import { GenerationCancelled } from "./generation-control";
 import { GuardrailBlocked } from "./guardrails";
+import { journalStep } from "./execution-journal";
 import { mutateRfp, readRfp, emptyRfp } from "../rfp-server";
 import { requireProjectPermission } from "../project-permissions";
 export function createRfpAgent(
@@ -64,7 +65,11 @@ export function createRfpAgent(
       if (name === "read_page") {
         if (Object.keys(input).length)
           throw new HttpError(400, "조회 인자는 비워 주세요.");
-        const data = await readRfp(db(), user, context.projectId);
+        const { value: data } = await journalStep(
+          "tool-read",
+          { name, input },
+          () => readRfp(db(), user, context.projectId),
+        );
         await guard?.inspect("tool-result", data);
         return { success: true, data };
       }

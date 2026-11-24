@@ -217,6 +217,24 @@
 .matrix-dashboard .dashboard-project:hover {
   border-color: var(--primary);
 }
+.matrix-dashboard .dashboard-project .project-rag-actions {
+  width: 100%;
+}
+.matrix-dashboard
+  .dashboard-project
+  .project-rag-actions
+  > .console-window-entry {
+  margin-left: auto;
+  justify-items: end;
+  text-align: right;
+}
+.matrix-dashboard
+  .dashboard-project
+  .project-rag-actions
+  > .console-window-entry
+  > .button {
+  justify-self: end;
+}
 .matrix-dashboard .dashboard-project-top {
   display: flex;
   justify-content: space-between;

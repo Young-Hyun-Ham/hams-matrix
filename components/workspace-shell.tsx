@@ -266,7 +266,6 @@ export function WorkspaceShell({
         <AiChatbotToggle
           key={`${m.key}:${activeUser.id}:${activeUser.workspaceId}`}
           collapsed={collapsed}
-          onExpand={() => setDesktopSidebarOpen(true)}
           tooltipResetKey={tooltipResetKey}
           label={m.label}
         />

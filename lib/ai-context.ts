@@ -12,6 +12,8 @@ export type AiContext = {
   projectName: string;
 };
 export type AiChat = {
+  turnId?: string;
+  turnSeq?: number;
   responseSource?: "generated" | "shared_answer";
   sharedAnswer?: import("./ai/shared-answer-types").SharedAnswerOrigin;
   shareEligibility?: { eligible: boolean; reason: string | null };
@@ -27,6 +29,16 @@ export type AiChat = {
   images?: AiImageInfo[];
   targetPage?: AiTargetPage | null;
   targetVersion?: number | null;
+};
+export type AiConversationTurn = {
+  id: string;
+  seq: number;
+  version: number;
+  status: string;
+  promptExcerpt: string;
+  createdAt: string;
+  chatId: string | null;
+  approvalId: string | null;
 };
 export type AiConversation = {
   convId: string;

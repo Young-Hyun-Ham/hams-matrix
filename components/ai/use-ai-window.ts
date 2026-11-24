@@ -31,9 +31,9 @@ export function useAiWindow(
   panel: RefObject<HTMLElement | null>,
   open: boolean,
 ) {
-  const [floating, setFloating] = useState(false),
+  const [floating, setFloating] = useState(true),
     [stackedExpanded, setStackExpanded] = useState(false),
-    [split, setSplit] = useState(false),
+    [split, setSplit] = useState(true),
     [splitExpanded, setSplitExpanded] = useState(true),
     [customWidths, setCustomWidths] = useState<{
       stacked: number | null;
@@ -46,6 +46,7 @@ export function useAiWindow(
     [position, setPosition] = useState<Position>({ x: 24, y: 88 }),
     [interaction, setInteraction] = useState<Operation["kind"] | null>(null);
   const operation = useRef<Operation | null>(null);
+  const positioned = useRef(false);
   const expanded = split ? splitExpanded : stackedExpanded;
   const widthGrowth = expanded || split ? 100 : 0;
   const popupBaseWidth = expanded ? 760 : 460;
@@ -97,10 +98,15 @@ export function useAiWindow(
     const frame = requestAnimationFrame(() => {
       const rect = panel.current?.getBoundingClientRect();
       if (!rect) return;
+      const initialX = !positioned.current
+        ? (document.querySelector(".workspace-body")?.getBoundingClientRect()
+            .left ?? MARGIN)
+        : null;
+      positioned.current = true;
       setPosition((current) => {
         const next = {
           x: Math.min(
-            Math.max(MARGIN, current.x),
+            Math.max(MARGIN, initialX ?? current.x),
             Math.max(MARGIN, window.innerWidth - rect.width - MARGIN),
           ),
           y: Math.min(

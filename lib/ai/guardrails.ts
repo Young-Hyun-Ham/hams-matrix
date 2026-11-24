@@ -15,9 +15,24 @@ import type {
   GuardrailStage,
 } from "./guardrail-types";
 import { inspectGlobalCompliance } from "./global-compliance";
+import {
+  countInspection,
+  executionContext,
+  journalStep,
+} from "./execution-journal";
+import { inspectionExcerpt } from "./guardrail-rule-catalog";
 
 export class GuardrailBlocked extends HttpError {
-  constructor(public requestId: string) {
+  constructor(
+    public requestId: string,
+    public block?: {
+      eventId: string;
+      stage: GuardrailStage;
+      findings: GuardrailFinding[];
+      operationKey: string;
+      excerpt: string;
+    },
+  ) {
     super(
       422,
       `AI 보안 정책으로 요청을 처리하지 못했습니다. 요청 ID: ${requestId}`,
@@ -133,14 +148,15 @@ export function createGuardrailSession(scope: {
 }) {
   let classifierCall = 0;
   let checks = 0;
-  async function inspect(
+  async function inspectCore(
     stage: GuardrailStage,
     value: unknown,
     images: { dataUrl: string }[] = [],
     test = false,
-  ): Promise<GuardrailResult> {
+  ): Promise<GuardrailResult & { eventId: string }> {
     const started = Date.now();
     await scope.checkpoint();
+    countInspection();
     if (++checks > 40)
       throw new HttpError(422, "가드레일 검사 횟수를 초과했습니다.");
     const text =
@@ -265,10 +281,11 @@ export function createGuardrailSession(scope: {
       }
     }
     const decision = guardrailDecision(scope.policy, findings);
+    const eventId = randomUUID();
     await db().execute({
       sql: "INSERT INTO ai_guardrail_events(id,workspace_id,user_id,request_id,policy_version,stage,decision,rules_json,duration_ms,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
       args: [
-        randomUUID(),
+        eventId,
         scope.workspaceId,
         scope.userId,
         scope.requestId,
@@ -280,9 +297,33 @@ export function createGuardrailSession(scope: {
         new Date().toISOString(),
       ],
     });
-    if (!test && decision === "block")
-      throw new GuardrailBlocked(scope.requestId);
-    return { stage, decision, findings, imageInspection };
+    return { stage, decision, findings, imageInspection, eventId };
+  }
+  async function inspect(
+    stage: GuardrailStage,
+    value: unknown,
+    images: { dataUrl: string }[] = [],
+    test = false,
+  ): Promise<GuardrailResult> {
+    await scope.checkpoint();
+    const step = await journalStep(
+      "inspection",
+      { stage, value, images, version: scope.version, test },
+      () => inspectCore(stage, value, images, test),
+    );
+    if (
+      !test &&
+      step.value.decision === "block" &&
+      !executionContext()?.journal.grants.includes(step.key)
+    )
+      throw new GuardrailBlocked(scope.requestId, {
+        eventId: step.value.eventId,
+        stage,
+        findings: step.value.findings,
+        operationKey: step.key,
+        excerpt: inspectionExcerpt(value, scope.policy.blockedTerms),
+      });
+    return step.value;
   }
   return { inspect };
 }

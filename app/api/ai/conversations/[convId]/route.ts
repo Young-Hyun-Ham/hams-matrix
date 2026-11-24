@@ -1,4 +1,5 @@
 import { assertNoPendingReview } from "@/lib/ai/change-reviews";
+import { cancelConversationApprovals } from "@/lib/ai/guardrail-approvals";
 import {
   body,
   checkOrigin,
@@ -128,12 +129,21 @@ export async function DELETE(
           "답변을 생성 중인 채팅방입니다. 생성이 끝난 뒤 삭제해 주세요.",
         );
       // Delete explicitly so cleanup also works when a connection has foreign keys disabled.
+      await cancelConversationApprovals(user, convId, tx);
       await tx.execute({
         sql: "DELETE FROM ai_chat_images WHERE workspace_id=? AND user_id=? AND chat_id IN (SELECT id FROM ai_prompt_chats WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?)",
         args: [user.workspaceId, user.id, ...args],
       });
       await tx.execute({
         sql: "DELETE FROM ai_prompt_chats WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?",
+        args,
+      });
+      await tx.execute({
+        sql: "UPDATE ai_guardrail_approvals SET turn_id=NULL WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?",
+        args,
+      });
+      await tx.execute({
+        sql: "DELETE FROM ai_conversation_turns WHERE conv_id=? AND workspace_id=? AND user_id=? AND project_id IS ?",
         args,
       });
       await tx.execute({

@@ -32,6 +32,8 @@ import { useSubscription } from "@/components/query/use-subscription";
 import { useAiModels } from "@/components/query/use-ai-models";
 import { matrixKeys } from "@/lib/query/keys";
 import { requestJson } from "@/lib/query/browser-fetch";
+import { useGuardrailApproval } from "./ai-guardrail-approval";
+import type { GuardrailApproval } from "@/lib/ai/guardrail-approval-types";
 import {
   RequestError,
   resolveWorkspaceError,
@@ -111,10 +113,15 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       )
     : context;
   const { title, placeholder } = aiPresentation(targetContext);
-  const [prompt, setPrompt] = useState(
+  const draftGeneration = useRef(0);
+  const [prompt, setPromptValue] = useState(
       useWorkspace.getState().aiDrafts[conversation.convId]?.prompt ?? "",
     ),
     [selectedModel, setModel] = useState("");
+  const setPrompt = (value: string) => {
+    draftGeneration.current += 1;
+    setPromptValue(value);
+  };
   const {
     scope: queryScope,
     policy,
@@ -188,6 +195,34 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
   const activeRequest = useRef<string | null>(null);
   const stopBusy = useRef(false);
   const conversationState = useAiConversation(conversation, aiOpen);
+  const guardrailApproval = useGuardrailApproval(
+    conversation.convId,
+    aiOpen,
+    conversationState.turns.map((turn) => turn.id),
+  );
+  const approvalVersion = guardrailApproval.requests
+    .map((item) => `${item.id}:${item.version}`)
+    .join("|");
+  useEffect(() => {
+    if (approvalVersion) {
+      void client.invalidateQueries({
+        queryKey: [
+          ...matrixKeys.scope(queryScope),
+          "project",
+          conversation.projectId,
+          "conversation",
+          conversation.convId,
+          "chats",
+        ],
+      });
+    }
+  }, [
+    approvalVersion,
+    client,
+    queryScope,
+    conversation.projectId,
+    conversation.convId,
+  ]);
   const target = useAiTarget(
     conversation,
     context,
@@ -210,8 +245,9 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     removeImage,
     restoreImages,
     clearImages,
+    getRevision,
   } = useAiImages(
-    generating || attachmentLimit === 0,
+    attachmentLimit === 0,
     attachmentLimit,
     useWorkspace.getState().aiDrafts[conversation.convId]?.images ?? [],
   );
@@ -237,6 +273,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     else dialog.current?.close();
   }, [resultId, aiOpen]);
   const ready =
+    !guardrailApproval.requests.some((item) => item.status === "resuming") &&
     !conversationState.loading &&
     !conversationState.error &&
     target.ready &&
@@ -253,14 +290,16 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     resultSession.current += 1;
     dialog.current?.close();
     setResultId(null);
-    setPrompt("");
-    clearImages();
     setError("");
     setCopyError("");
     requestAnimationFrame(() => promptInput.current?.focus());
   }
-  async function stopGeneration() {
-    const requestId = activeRequest.current ?? stopRetry;
+  async function stopGeneration(approval?: GuardrailApproval) {
+    const requestId =
+      (approval?.status === "resuming" ? approval.attemptRequestId : null) ??
+      activeRequest.current ??
+      stopRetry ??
+      null;
     if (
       !requestId ||
       stopBusy.current ||
@@ -304,8 +343,11 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       stopBusy.current = false;
     }
   }
-  async function generate(sharedMode = "prefer_shared") {
-    if (!ready || busyRef.current) return;
+  async function generate(
+    sharedMode = "prefer_shared",
+    resumeApproval?: GuardrailApproval,
+  ) {
+    if ((!ready && !resumeApproval?.canResume) || busyRef.current) return;
     busyRef.current = true;
     setGenerating(true);
     setError("");
@@ -314,6 +356,18 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     setStopping(false);
     setStopRetry(null);
     const requestId = crypto.randomUUID();
+    const submittedDraft = draftGeneration.current,
+      submittedImages = getRevision();
+    const clearSubmitted = () => {
+      if (
+        !resumeApproval &&
+        draftGeneration.current === submittedDraft &&
+        getRevision() === submittedImages
+      ) {
+        setPrompt("");
+        clearImages();
+      }
+    };
     const updateUsage = async () => {
       await client
         .query({
@@ -337,40 +391,60 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
     generation.current = controller;
     let submitted = false;
     try {
-      await target.verify(controller.signal);
+      if (!resumeApproval) await target.verify(controller.signal);
       if (activeScope.current !== requestScope || controller.signal.aborted)
         return;
       activeRequest.current = requestId;
       setUsageRequest(requestId);
       submitted = true;
-      const response = await fetch("/api/ai/chats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requestId,
-          sharedMode,
-          convId: conversation.convId,
-          ...(conversation.convId.startsWith("temporary-")
-            ? {
-                history: conversationState.chats.slice(-5).flatMap((chat) => [
-                  { role: "user", content: chat.prompt.slice(0, 2000) },
-                  { role: "assistant", content: chat.result.slice(0, 8000) },
-                ]),
-              }
-            : {}),
-          prompt: prompt.trim(),
-          images: images.map((image) => ({ dataUrl: image.dataUrl })),
-          model,
-          pathname: context.pathname,
-          projectId: conversation.projectId,
-          temporaryTitle: conversation.title,
-          tab: context.tab,
-          sourceContext: { pathname: context.pathname, tab: context.tab },
-          targetPage: conversation.targetPage,
-          expectedTargetVersion: conversation.targetVersion,
-        }),
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        resumeApproval
+          ? `/api/ai/guardrail-approvals/${resumeApproval.id}/resume`
+          : "/api/ai/chats",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            resumeApproval
+              ? { requestId, expectedVersion: resumeApproval.version }
+              : {
+                  requestId,
+                  sharedMode,
+                  convId: conversation.convId,
+                  ...(conversation.convId.startsWith("temporary-")
+                    ? {
+                        history: conversationState.chats
+                          .slice(-5)
+                          .flatMap((chat) => [
+                            {
+                              role: "user",
+                              content: chat.prompt.slice(0, 2000),
+                            },
+                            {
+                              role: "assistant",
+                              content: chat.result.slice(0, 8000),
+                            },
+                          ]),
+                      }
+                    : {}),
+                  prompt: prompt.trim(),
+                  images: images.map((image) => ({ dataUrl: image.dataUrl })),
+                  model,
+                  pathname: context.pathname,
+                  projectId: conversation.projectId,
+                  temporaryTitle: conversation.title,
+                  tab: context.tab,
+                  sourceContext: {
+                    pathname: context.pathname,
+                    tab: context.tab,
+                  },
+                  targetPage: conversation.targetPage,
+                  expectedTargetVersion: conversation.targetVersion,
+                },
+          ),
+          signal: controller.signal,
+        },
+      );
       const data = await response.json();
       if (activeScope.current !== requestScope || controller.signal.aborted)
         return;
@@ -405,6 +479,12 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       }
       if (data.stopUnconfirmed) setStopRetry(requestId);
       if (data.actions?.length) useWorkspace.getState().notifyAiChange();
+      if (data.code === "GUARDRAIL_APPROVAL_REQUIRED" && data.details?.id) {
+        guardrailApproval.receive(data.details);
+        clearSubmitted();
+        setError("");
+        return;
+      }
       if (!response.ok)
         throw new RequestError(
           response.status,
@@ -433,9 +513,9 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       if (activeScope.current === requestScope) {
         setSharedCandidates(null);
         conversationState.append(data.chat);
-        setPrompt("");
-        clearImages();
-        requestAnimationFrame(() => promptInput.current?.focus());
+        clearSubmitted();
+        if (!resumeApproval)
+          requestAnimationFrame(() => promptInput.current?.focus());
       }
     } catch (e) {
       if (!controller.signal.aborted && activeScope.current === requestScope)
@@ -453,6 +533,7 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
       setGenerating(false);
       setStopping(false);
       generation.current = null;
+      void guardrailApproval.refresh();
       void client.invalidateQueries({
         queryKey: [
           ...matrixKeys.scope(queryScope),
@@ -486,6 +567,17 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             projectId={conversation.projectId}
             conversation={conversationState}
             generating={generating}
+            approvals={guardrailApproval.requests}
+            approvalError={guardrailApproval.isError}
+            onApprovalChanged={() => {
+              void guardrailApproval.refresh();
+            }}
+            onResume={(approval) => {
+              void generate("prefer_shared", approval);
+            }}
+            onStop={(approval) => {
+              void stopGeneration(approval);
+            }}
             showResult={(chat) => {
               setCopyError("");
               resultSession.current += 1;
@@ -652,7 +744,6 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
             onChange={(e) => setPrompt(e.target.value)}
             placeholder={placeholder}
             maxLength={2000}
-            disabled={generating}
             onKeyDown={(e) => {
               if (
                 !e.nativeEvent.isComposing &&
@@ -686,7 +777,6 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
                   </figcaption>
                   <button
                     type="button"
-                    disabled={generating}
                     className="matrix-ai-remove-image"
                     aria-label={`첨부 이미지 ${index + 1} 삭제`}
                     onClick={() => removeImage(image.id)}
@@ -742,6 +832,14 @@ function AiPanel({ conversation }: { conversation: AiConversation }) {
           <p className="matrix-ai-hint">
             선택한 AI 대상을 조회하고, 요청한 문서 변경을 처리합니다.
           </p>
+          {guardrailApproval.isError && (
+            <p role="alert">
+              가드레일 승인 상태를 조회하지 못했습니다.{" "}
+              <button onClick={() => void guardrailApproval.refetch()}>
+                다시 조회
+              </button>
+            </p>
+          )}
           {error && (
             <p className="matrix-ai-error" role="alert">
               {error}

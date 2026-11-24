@@ -8,6 +8,7 @@ import {
 import { MAX_GUARDRAIL_CHANGES } from "./ai/guardrail-types";
 import { MAX_TOOL_ROUNDS } from "./ai/guardrail-types";
 import { createHash } from "node:crypto";
+import { journalStep } from "./ai/execution-journal";
 
 export async function aiModels() {
   if (!process.env.OPENAI_API_KEY)
@@ -144,121 +145,146 @@ export async function generateAi(
       JSON.stringify(messages).match(/"type":"input_image"/g) ?? []
     ).length;
     const resumeId = turn === 0 ? options?.resumeResponseId : undefined;
-    if (!resumeId)
-      await track?.({
+    const { value: metadata } = await journalStep(
+      "model-response",
+      {
+        model,
+        instructions: roundInstructions,
+        messages,
+        tools: agent?.tools,
+        responseFormat: options?.responseFormat,
+        maxOutputTokens,
         turn,
-        status: "started",
-        reservedTokens:
-          Buffer.byteLength(budgetText, "utf8") +
-          maxOutputTokens +
-          4096 +
-          imageCount * 65536,
-      });
-    let response: Response;
-    if (resumeId) {
-      response = Response.json(await retrieveResponse(resumeId));
-    } else
-      try {
-        response = await fetch("https://api.openai.com/v1/responses", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        resumeId,
+      },
+      async () => {
+        if (!resumeId)
+          await track?.({
+            turn,
+            status: "started",
+            reservedTokens:
+              Buffer.byteLength(budgetText, "utf8") +
+              maxOutputTokens +
+              4096 +
+              imageCount * 65536,
+          });
+        let response: Response;
+        if (resumeId) {
+          response = Response.json(await retrieveResponse(resumeId));
+        } else
+          try {
+            response = await fetch("https://api.openai.com/v1/responses", {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                instructions: roundInstructions,
+                input:
+                  agent || images.length || history.length ? messages : input,
+                store: false,
+                background: true,
+                max_output_tokens: maxOutputTokens,
+                ...(options?.responseFormat
+                  ? { text: { format: options.responseFormat } }
+                  : {}),
+                ...(agent
+                  ? {
+                      tools: agent.tools,
+                      parallel_tool_calls: false,
+                      ...(finalRound ? { tool_choice: "none" } : {}),
+                      include: ["reasoning.encrypted_content"],
+                    }
+                  : {}),
+              }),
+              signal: AbortSignal.timeout(
+                Math.min(30000, Math.max(1, deadline - Date.now())),
+              ),
+            });
+          } catch {
+            await track?.({
+              turn,
+              status: "failed",
+              durationMs: Date.now() - started,
+            });
+            throw new HttpError(
+              504,
+              "AI 응답을 기다리지 못했습니다. 잠시 후 다시 시도해 주세요.",
+            );
+          }
+        let raw: unknown;
+        try {
+          raw = await response.json();
+        } catch {
+          await track?.({
+            turn,
+            status: "invalid_response",
+            httpStatus: response.status,
+            durationMs: Date.now() - started,
+          });
+          throw new HttpError(
+            502,
+            "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
+          );
+        }
+        let metadata =
+          raw && typeof raw === "object"
+            ? (raw as Record<string, unknown>)
+            : {};
+        if (
+          response.ok &&
+          typeof metadata.id === "string" &&
+          options?.onResponse
+        ) {
+          await track?.({
+            turn,
+            status: String(metadata.status ?? "unknown"),
+            responseId: metadata.id,
             model,
-            instructions: roundInstructions,
-            input: agent || images.length || history.length ? messages : input,
-            store: false,
-            background: true,
-            max_output_tokens: maxOutputTokens,
-            ...(options?.responseFormat
-              ? { text: { format: options.responseFormat } }
-              : {}),
-            ...(agent
-              ? {
-                  tools: agent.tools,
-                  parallel_tool_calls: false,
-                  ...(finalRound ? { tool_choice: "none" } : {}),
-                  include: ["reasoning.encrypted_content"],
-                }
-              : {}),
-          }),
-          signal: AbortSignal.timeout(
-            Math.min(30000, Math.max(1, deadline - Date.now())),
-          ),
-        });
-      } catch {
+            httpStatus: 200,
+          });
+          await options.onResponse(metadata.id);
+        }
+        if (response.ok)
+          metadata = await finishBackgroundResponse(
+            metadata,
+            turn,
+            started,
+            deadline,
+            track,
+            checkpoint,
+          );
         await track?.({
           turn,
-          status: "failed",
+          status: response.ok
+            ? typeof metadata.status === "string"
+              ? metadata.status.slice(0, 80)
+              : "unknown"
+            : "failed",
+          httpStatus: response.status,
+          responseId:
+            typeof metadata.id === "string"
+              ? metadata.id.slice(0, 200)
+              : undefined,
+          model:
+            typeof metadata.model === "string"
+              ? metadata.model.slice(0, 200)
+              : model,
+          usage: metadata.usage,
           durationMs: Date.now() - started,
         });
-        throw new HttpError(
-          504,
-          "AI 응답을 기다리지 못했습니다. 잠시 후 다시 시도해 주세요.",
-        );
-      }
-    let raw: unknown;
-    try {
-      raw = await response.json();
-    } catch {
-      await track?.({
-        turn,
-        status: "invalid_response",
-        httpStatus: response.status,
-        durationMs: Date.now() - started,
-      });
-      throw new HttpError(
-        502,
-        "AI 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-      );
-    }
-    let metadata =
-      raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-    if (response.ok && typeof metadata.id === "string" && options?.onResponse) {
-      await track?.({
-        turn,
-        status: String(metadata.status ?? "unknown"),
-        responseId: metadata.id,
-        model,
-        httpStatus: 200,
-      });
-      await options.onResponse(metadata.id);
-    }
-    if (response.ok)
-      metadata = await finishBackgroundResponse(
-        metadata,
-        turn,
-        started,
-        deadline,
-        track,
-        checkpoint,
-      );
-    await track?.({
-      turn,
-      status: response.ok
-        ? typeof metadata.status === "string"
-          ? metadata.status.slice(0, 80)
-          : "unknown"
-        : "failed",
-      httpStatus: response.status,
-      responseId:
-        typeof metadata.id === "string" ? metadata.id.slice(0, 200) : undefined,
-      model:
-        typeof metadata.model === "string"
-          ? metadata.model.slice(0, 200)
-          : model,
-      usage: metadata.usage,
-      durationMs: Date.now() - started,
-    });
-    if (!response.ok)
-      throw new HttpError(
-        response.status === 429 ? 429 : 502,
-        response.status === 429
-          ? "AI 사용 한도 또는 요청 한도를 확인해 주세요."
-          : "AI 요청에 실패했습니다. 선택한 모델의 Responses API 지원 및 API 키 권한을 확인해 주세요.",
-      );
+        if (!response.ok)
+          throw new HttpError(
+            response.status === 429 ? 429 : 502,
+            response.status === 429
+              ? "AI 사용 한도 또는 요청 한도를 확인해 주세요."
+              : "AI 요청에 실패했습니다. 선택한 모델의 Responses API 지원 및 API 키 권한을 확인해 주세요.",
+          );
+        return metadata;
+      },
+    );
     const data = metadata as {
       status?: string;
       output?: (Record<string, unknown> & {

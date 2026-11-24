@@ -118,8 +118,9 @@ try {
       assert.ok(page.chats.every((chat) => chat.convId === room));
       seen.unshift(...page.chats);
       if (page.nextCursor) {
-        assert.match(page.nextCursor, /^\d+$/);
-        if (cursor) assert.ok(BigInt(page.nextCursor) < BigInt(cursor));
+        assert.match(page.nextCursor, /^t2:\d+$/);
+        if (cursor)
+          assert.ok(BigInt(page.nextCursor.slice(3)) < BigInt(cursor.slice(3)));
       }
       cursor = page.nextCursor;
       requests++;

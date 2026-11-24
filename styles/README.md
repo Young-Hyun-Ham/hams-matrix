@@ -46,6 +46,7 @@
 | admin/ai-guardrails | admin/settings의 guardrails 탭으로 redirect. 해당 컴포넌트 CSS 재사용 |
 | admin/plans | super-admin/settings의 plans 탭으로 redirect. 별도 CSS 생성 없음 |
 | admin/settings | `admin/settings/guardrail-admin.css`, styles/admin-settings.css 공유 |
+| admin/guardrail-control-tower·super-admin/guardrail-control-tower | `admin/guardrail-control-tower/guardrail-control-tower.css`, 독립 창 전용 셸·관제 대시보드·승인 대기열 미리보기·카드형 상세·반응형 배치, 공통 테마 토큰 사용 |
 | dashboard | `dashboard/`의 create-project-dialog·dashboard-page CSS |
 | settings | `settings/`의 settings·AI 토큰 통계·plans-toggle module |
 | settings/subscription | `settings/subscription/subscription-plans.module.css`, 부모의 토글 module 공유 |
@@ -111,3 +112,11 @@ CSS 내부는 해당 파일 기준의 상대 경로를 사용합니다. 예를 �
 DB 변경은 없습니다. 구현 범위와 실제 검증 결과는 [작업 기록](../docs/work/2026-11-12/CSS-화면주소별-스타일경로-정리.md)에 정리합니다.
 
 2026-11-12 대시보드 개편: `dashboard/dashboard-page.css`를 `.matrix-dashboard` 범위의 문서 흐름 화면 스타일로 정리하고 `DashboardPage`에서 명시 import합니다. 기존 미import welcome 스타일을 그대로 활성화하지 않습니다. 그리드는 viewport 대신 본문 container 폭에도 반응하여 AI 패널 열림 상태에 대응합니다. 기존 개인 테마 토큰을 사용하며 공통 panel/table 스타일을 전역 덮어쓰지 않습니다. [작업 기록](../docs/work/2026-11-12/대시보드-퍼플화면-개편.md).
+
+## 의도분류 독립 조회 (2026-11-23)
+
+`/projects/[projectId]/intent-classifications`의 전용 스타일은 `pages/projects/intent-classifications/intent-classifications.css`에서 관리한다. 모달 footer는 기존 `ai-project-rag.css`의 `.project-rag-dialog` 범위에 두고 가드레일 진입 프로젝트 선택은 기존 설정/관제 CSS에서 관리한다.
+
+## 의도분류 콘솔·카드 버튼 (2026-11-24)
+
+의도분류의 탐색·헤더·필터·목록/상세 카드는 기존 `pages/projects/intent-classifications/intent-classifications.css`의 `.intent-classifications` 범위에서 관리한다. 관제센터의 1439/1100/1023/640px 반응형 규격을 따르되 가드레일 전용 CSS 전체를 import하지 않는다. 공통 RAG 버튼 행과 요약 분리는 `ai-project-rag.css`, 대시보드 카드의 양끝 정렬은 `pages/dashboard/dashboard-page.css`가 소유한다. 모달 footer와 작업 화면에 카드 전용 배치를 전파하지 않는다. [작업 기록](../docs/work/2026-11-24/대시보드-의도분류-버튼배치와-조회화면-스타일-구현.md).

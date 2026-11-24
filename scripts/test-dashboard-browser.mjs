@@ -467,6 +467,20 @@ try {
   assert.ok(
     await evaluate("document.documentElement.scrollWidth <= innerWidth+1"),
   );
+  // New conversations may start in an expanded floating layout.
+  // Verify the dashboard's actual panel width changes from either initial mode.
+  if (
+    await evaluate(
+      "!!document.querySelector('[aria-label=\"AI 채팅 패널로 전환\"]')",
+    )
+  ) {
+    await click('[aria-label="AI 채팅 패널로 전환"]');
+  }
+  if (
+    await evaluate("!!document.querySelector('[aria-label=\"AI 채팅 축소\"]')")
+  ) {
+    await click('[aria-label="AI 채팅 축소"]');
+  }
   await click('[aria-label="AI 채팅 확대"]');
   await pause(400);
   assert.ok(
@@ -522,13 +536,16 @@ try {
       'document.querySelector(".matrix-dashboard").textContent.includes("참여 중인 프로젝트가 없습니다")',
     ),
   );
-  await evaluate(
-    'document.querySelectorAll(".dashboard-actions button")[1].click()',
-  );
-  await waitFor(
-    () => evaluate('!!document.querySelector(".create-project-dialog[open]")'),
-    "empty RFP creation dialog",
-  );
+  await waitFor(async () => {
+    if (
+      await evaluate('!!document.querySelector(".create-project-dialog[open]")')
+    )
+      return true;
+    await evaluate(
+      'document.querySelectorAll(".dashboard-actions button")[1].click()',
+    );
+    return false;
+  }, "empty RFP creation dialog");
   // Use native setters so React receives actual controlled-input changes.
   await evaluate(
     `(()=>{const input=document.querySelector('#project-name');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'대시보드 RFP 시작 검증');input.dispatchEvent(new Event('input',{bubbles:true}));})()`,

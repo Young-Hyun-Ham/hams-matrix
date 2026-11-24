@@ -244,7 +244,7 @@
   display: none;
 }
 .ai-is-floating .matrix-ai-drawer {
-  --ai-floating-composer-width: 301px;
+  --ai-floating-composer-width: 336px;
   --ai-popup-width: min(
     var(
       --ai-popup-custom-width,

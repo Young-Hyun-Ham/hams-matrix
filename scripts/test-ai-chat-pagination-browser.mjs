@@ -71,7 +71,10 @@ function bundle(file, override) {
         production[name] ??
         (name.startsWith(".") || name.startsWith("@/")
           ? [base, base + ".ts", base + ".tsx"].find(existsSync)
-          : require.resolve(name));
+          : (file.includes(":") || file.startsWith("/")
+              ? createRequire(file)
+              : require
+            ).resolve(name));
       if (!target) throw new Error(name);
       item.dependencies[name] = bundle(target);
     }
@@ -82,11 +85,15 @@ const fixture = String.raw`
 const React=require('react'),{createRoot}=require('react-dom/client');
 const {useAiConversation}=require('@/components/ai/use-ai-conversation');
 const {AiConversationMessages}=require('@/components/ai/ai-conversation-messages');
+const {QueryClient,QueryClientProvider}=require('@tanstack/react-query');
+const {WorkspaceQueryRuntime}=require('@/components/query/workspace-query-runtime');
+const {defaultSettings}=require('@/lib/system-settings/defaults');
 const h=React.createElement,pause=ms=>new Promise(r=>setTimeout(r,ms));
-const rows={a:Array.from({length:25},(_,i)=>chat('a',i+1)),b:Array.from({length:5},(_,i)=>chat('b',i+1)),empty:[]};
+const rows={a:Array.from({length:25},(_,i)=>chat('a',i+1)),b:Array.from({length:5},(_,i)=>chat('b',i+1)),c:Array.from({length:25},(_,i)=>chat('c',i+1)),empty:[]};
 function chat(room,n){return {id:room+'-'+n,convId:room,prompt:'Question '+n,result:('Answer '+n+' ').repeat(35),model:'test',screenTitle:'Test',createdAt:'2026-11-10T00:00:00Z',index:n}}
 window.calls=[];window.failOlder=false;window.delay=80;
 window.fetch=async url=>{
+ if(String(url).includes('/api/me/system-settings'))return Response.json({...defaultSettings('test-workspace'),retryCount:0});
  const query=new URL(url,'http://test.local').searchParams,id=query.get('convId'),before=query.get('before');
  window.calls.push({id,before});
  if(before)await pause(window.delay); // Deliberately ignores AbortSignal to test stale-response guards.
@@ -108,7 +115,8 @@ const count=()=>document.querySelectorAll('[data-chat-id]').length;
 const atBottom=()=>list().scrollHeight-list().clientHeight-list().scrollTop<=2;
 const top=element=>element.getBoundingClientRect().top-list().getBoundingClientRect().top;
 function upward(){list().scrollTop=0;list().dispatchEvent(new Event('scroll'));list().dispatchEvent(new WheelEvent('wheel',{deltaY:-40,bubbles:true}))}
-createRoot(document.getElementById('root')).render(h(App));
+const settings={...defaultSettings('test-workspace'),retryCount:0};
+createRoot(document.getElementById('root')).render(h(QueryClientProvider,{client:new QueryClient()},h(WorkspaceQueryRuntime,{scope:{userId:'test-user',workspaceId:'test-workspace'},initialSettings:settings},h(App))));
 (async()=>{
  await waitFor(()=>window.session&&!window.session.state.loading&&count()===10,'latest ten');
  check(atBottom(),'Initial position must be the bottom');
@@ -132,9 +140,9 @@ createRoot(document.getElementById('root')).render(h(App));
  check(new Set([...document.querySelectorAll('[data-chat-id]')].map(e=>e.dataset.chatId)).size===25,'No repeated messages');
  const exhausted=window.calls.length;upward();await pause(120);check(window.calls.length===exhausted,'Do not request after exhaustion');
  window.session.append();await waitFor(()=>count()===26&&atBottom(),'new answer at bottom');
- const loaded=window.session.state.loadedVersion;window.session.setOpen(false);await pause(40);window.session.setOpen(true);
- await waitFor(()=>window.session.state.loadedVersion>loaded&&count()===10,'reopen latest page');
- check(atBottom(),'Reopening must return to the bottom');
+ window.session.setOpen(false);await pause(40);window.session.setOpen(true);await pause(80);
+ check(count()===26,'Reopening preserves loaded history without duplicated local answers');
+ window.changeRoom('c');await waitFor(()=>window.session.id==='c'&&count()===10,'another full room');
  window.delay=200;upward();await waitFor(()=>window.session.state.loadingOlder,'pending old room');
  window.changeRoom('b');await waitFor(()=>window.session.id==='b'&&count()===5,'different room');await pause(250);
  check([...document.querySelectorAll('[data-chat-id]')].every(e=>e.dataset.chatId.startsWith('b-')),'Late response must not mix rooms');
