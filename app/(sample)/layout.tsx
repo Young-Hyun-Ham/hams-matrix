@@ -1,7 +1,7 @@
-import { Suspense, type ReactNode } from 'react';
+import { Suspense, type ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
-import './sample/sample-content.css';
+import "./sample/sample-content.css";
 
 export default function SampleLayout({ children }: { children: ReactNode }) {
   return (
@@ -21,7 +21,5 @@ async function AuthenticatedDatabase({ children }: { children: ReactNode }) {
   const user = await currentUser();
   console.log("AuthenticatedDatabase user:", user);
   if (!user || user.accountRole !== "master") redirect("/login");
-  return (
-    <>{children}</>
-  );
+  return <>{children}</>;
 }

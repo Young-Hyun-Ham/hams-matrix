@@ -46,6 +46,10 @@
   padding: 12px;
   color: inherit;
   border-radius: 6px;
+  background: transparent;
+}
+.intent-classifications .intent-console-nav nav a[aria-current="page"],
+.intent-classifications .intent-console-nav nav a:hover {
   background: color-mix(in srgb, var(--primary) 28%, transparent);
 }
 .intent-classifications .intent-nav-scope {
@@ -281,6 +285,58 @@
   .intent-classifications .intent-console-content {
     padding: 16px;
   }
+}
+.intent-classifications td small {
+  display: block;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.intent-classifications .intent-knowledge-cell {
+  min-width: 190px;
+  white-space: normal;
+}
+.intent-classifications .intent-knowledge-cell > div + div {
+  margin-top: 10px;
+}
+.intent-classifications .intent-knowledge-list {
+  list-style: none;
+  padding: 0;
+}
+.intent-classifications .intent-knowledge-list > li {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 12px 0;
+}
+.intent-classifications .intent-knowledge-list h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+}
+.intent-classifications .intent-knowledge-meta {
+  color: var(--muted);
+  font-size: 11px;
+}
+.intent-classifications .intent-knowledge-list blockquote {
+  margin: 12px 0;
+  border-left: 3px solid var(--primary);
+  padding: 10px 12px;
+  background: var(--canvas);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.intent-classifications .intent-technical {
+  margin: 12px 0;
+  color: var(--muted);
+  font-size: 11px;
+}
+.intent-classifications .intent-technical summary {
+  cursor: pointer;
+}
+.intent-classifications .intent-knowledge-change {
+  color: var(--primary);
+}
+.intent-classifications .intent-result-summary {
+  line-height: 1.8;
 }
 @media (max-width: 1100px) {
   .intent-classifications .intent-columns {

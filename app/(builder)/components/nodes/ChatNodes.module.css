@@ -1,0 +1,1098 @@
+/* app/(siderbar-header)/admin/builder/components/nodes/ChatNodes.module.css */
+
+.bodyToggleButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.bodyToggleButton:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.bodyToggleButton:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.nodeWrapper {
+  position: relative;
+  overflow: visible;
+  width: 250px;
+  background-color: var(--builder-surface);
+  border: 1px solid #c5c5c5;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  color: black;
+  transition:
+    border-color 0.2s ease-in-out,
+    box-shadow 0.2s ease-in-out; /* 부드러운 전환 효과 */
+}
+
+:global(.react-flow__node.selected) .nodeWrapper {
+  box-shadow:
+    0 0 0 2px rgba(59, 130, 246, 0.35),
+    0 12px 28px rgba(59, 130, 246, 0.22);
+}
+
+.groupNodeWrapper {
+  width: 100%;
+  height: 100%;
+  min-width: 420px;
+  min-height: 260px;
+  background-color: rgba(226, 232, 240, 0.45);
+  border: 1px dashed rgba(100, 116, 139, 0.55);
+  box-sizing: border-box;
+  transition:
+    border-color 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.groupNodeWrapper:hover {
+  border-color: rgba(71, 85, 105, 0.75);
+  background-color: rgba(226, 232, 240, 0.58);
+}
+
+/* Keep the group hovered while the pointer crosses the gap to Add Node. */
+.groupNodeWrapper::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: -10px;
+  left: 0;
+  height: 12px;
+}
+
+.groupNodeWrapperCollapsed {
+  min-width: 250px;
+  min-height: 50px;
+  width: 250px;
+  height: 50px;
+}
+
+.groupNodeWrapper .nodeBody {
+  height: calc(100% - 42px);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+}
+
+.groupNodeDescription {
+  margin: 0;
+  line-height: 24px;
+  font-size: 0.8rem;
+  color: #475569;
+  font-style: italic;
+}
+
+.groupAddNodeButton {
+  position: absolute;
+  left: 8px;
+  bottom: -38px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: calc(100% - 16px);
+  height: 30px;
+  padding: 0 12px;
+  border: 1px dashed rgba(148, 163, 184, 0.55);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-3px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease,
+    background-color 0.16s ease,
+    border-color 0.16s ease;
+}
+
+.groupNodeWrapper:hover .groupAddNodeButton,
+.groupAddNodeButton:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.groupAddNodeButton:hover {
+  background: var(--builder-surface);
+  border-color: rgba(100, 116, 139, 0.45);
+}
+
+/* <<< [추가] 시작 노드 스타일 >>> */
+.nodeWrapper.startNode {
+  border: 2px solid #2ecc71; /* 초록색 테두리 */
+  box-shadow: 0 4px 12px rgba(46, 204, 113, 0.4); /* 초록색 그림자 */
+}
+/* <<< [추가 끝] >>> */
+
+.formNodeWrapper {
+  width: 520px;
+}
+
+.formBuilderPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  background-color: #f5f5f5;
+}
+
+/* --- 💡 추가된 부분 시작 --- */
+.scenarioNodeWrapper {
+  background-color: #f0f2f5;
+  border: 1px solid #bdc3c7;
+}
+
+.scenarioDescription {
+  padding: 10px;
+  font-style: italic;
+  color: #555;
+  text-align: center;
+  margin: 0;
+  font-size: 0.85rem;
+}
+/* --- 💡 추가된 부분 끝 --- */
+
+.nodeHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: var(--builder-surface);
+  color: #334155;
+  box-sizing: border-box;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerIcon {
+  display: inline-flex;
+  flex: 0 0 28px;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+}
+
+.headerIcon > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.headerColorIndicator {
+  display: inline-block;
+  flex: 0 0 5px;
+  width: 5px;
+  height: 20px;
+  border-radius: 999px;
+}
+
+.headerTextContent {
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.headerButtons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.anchorButton {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc;
+  font-size: 1rem;
+  line-height: 1;
+}
+.anchorButton.active,
+.anchorButton:hover {
+  color: #e74c3c;
+}
+.nodeWrapper.anchored {
+  border: 2px solid #e74c3c;
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.4);
+}
+
+/* <<< [추가] 시작 노드 설정 버튼 스타일 >>> */
+.startNodeButton {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ccc; /* 기본 색상 */
+  font-size: 1rem;
+  line-height: 1;
+}
+.startNodeButton.active,
+.startNodeButton:hover {
+  color: #2ecc71; /* 활성/호버 시 초록색 */
+}
+/* <<< [추가 끝] >>> */
+
+.playButton {
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+}
+.playButton:hover {
+  opacity: 0.8;
+}
+.playButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.loadingButton {
+  pointer-events: none;
+}
+
+.buttonSpinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  display: inline-block;
+  animation: buttonSpin 0.8s linear infinite;
+}
+
+@keyframes buttonSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.testApiButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.deleteButton {
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  /* font-size: 0.7rem;
+  margin-right: -10px; */
+  /* 수정 */
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteButton:hover {
+  opacity: 1;
+  color: #e74c3c !important;
+}
+
+.nodeBody {
+  padding: 12px;
+  font-size: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionTitle {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #777;
+  text-align: center;
+}
+
+.textInput {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #b4b4b4;
+  border-radius: 4px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.formTitleInput {
+  font-size: 1rem;
+  font-weight: bold;
+  text-align: center;
+  border: none;
+  border-bottom: 1px solid #ddd;
+  border-radius: 0;
+}
+.formTitleInput:focus {
+  outline: none;
+  border-bottom-color: #9b59b6;
+}
+
+.quickReply {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+}
+
+.quickReplyInput {
+  flex-grow: 1;
+  width: 0;
+  border: none;
+  background: none;
+  outline: none;
+  border-bottom: 1px solid transparent;
+}
+
+.quickReplyInput:focus {
+  border-bottom: 1px solid #3498db;
+}
+
+.addReplyButton {
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  background-color: #fafafa;
+  cursor: pointer;
+  color: #555;
+}
+.addReplyButton:hover {
+  background-color: #f0f0f0;
+}
+
+.deleteReplyButton {
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: bold;
+  padding: 0 4px;
+}
+.deleteReplyButton:hover {
+  color: #e74c3c;
+}
+
+.formElementsPlaceholder {
+  padding: 10px;
+  background-color: #f5f5f5;
+  border-radius: 4px;
+  text-align: center;
+  color: #777;
+  font-style: italic;
+  font-size: 0.8rem;
+}
+
+.formPreview {
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background-color: #dddddd;
+}
+
+.previewElement {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.previewLabel {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #555;
+  text-align: center;
+}
+
+.previewInput,
+.previewBox {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: var(--builder-surface);
+  font-size: 0.85rem;
+  color: var(--builder-text);
+}
+
+.previewInput:disabled {
+  background-color: #f8f9fa;
+  cursor: not-allowed;
+  color: #777;
+}
+
+.previewBox {
+  color: #777;
+}
+
+.previewOptionsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 8px;
+  background-color: var(--builder-surface);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.previewCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.previewCheckbox input {
+  margin: 0;
+  accent-color: #9b59b6;
+}
+
+.previewCheckbox label {
+  color: var(--builder-text);
+}
+
+.previewGridTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.previewGridTable td {
+  border: 1px solid #ddd;
+  padding: 6px;
+  font-size: 0.8rem;
+  text-align: center;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.branchOptionsContainer {
+  background-color: #d3d3d3;
+  border-radius: 6px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.branchOption {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-right: 15px;
+}
+
+.branchOptionButton {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  background-color: var(--builder-surface);
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  text-align: left;
+  font-size: 0.85rem;
+  color: var(--builder-text);
+  box-sizing: border-box;
+}
+
+.slotBindingInfo {
+  font-size: 0.7rem;
+  color: #007aff;
+  text-align: center;
+  font-style: italic;
+  margin-top: -2px;
+  margin-bottom: 2px;
+}
+
+/* <<< [수정] 엑셀 기능 표시기 스타일 >>> */
+.formFeatureIndicator {
+  font-size: 0.7rem;
+  color: #27ae60; /* Green color for "enabled" */
+  text-align: center;
+  font-style: italic;
+  margin-top: 4px; /* Add some space from the title */
+}
+/* <<< [수정 끝] >>> */
+
+/* 플레이 추가 */
+.nodeWrapper {
+  position: relative;
+  overflow: visible;
+}
+
+.executionBadge {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  z-index: 30;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--builder-surface);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
+}
+
+.executionBadgeRunning {
+  color: #6366f1;
+}
+
+.executionBadgeDone {
+  color: #10b981;
+}
+
+.executionSpinner {
+  animation: executionSpin 0.9s linear infinite;
+}
+
+@keyframes executionSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+.nodeEditFooter {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  border-top: 1px solid #eeeeef;
+  background: var(--builder-surface);
+  border-radius: 0 0 8px 8px;
+}
+
+.nodeWrapper:not(.groupNodeWrapper):has(> .nodeEditFooter),
+.groupNodeWrapperCollapsed:has(> .nodeEditFooter) {
+  min-height: 72px;
+}
+
+.nodeEditButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #dedee2;
+  border-radius: 4px;
+  background: var(--builder-surface);
+  color: #626267;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.nodeEditButton:hover {
+  color: #ff6900;
+  border-color: #ff6900;
+  background: #fff7f0;
+}
+
+.nodeEditButton:focus-visible {
+  outline: 2px solid #ff6900;
+  outline-offset: 2px;
+}
+
+.nodeEditFloating {
+  position: absolute;
+  top: calc(100% + 20px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+}
+
+.groupNodeWrapper > .nodeEditFooter {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+}
+.headerMoreButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #73737b;
+  cursor: pointer;
+}
+
+.headerMoreButton:hover,
+.headerMoreButton[aria-expanded="true"] {
+  color: #ff6900;
+  background: #fff4ea;
+}
+
+.headerMoreButton:focus-visible {
+  outline: 2px solid #ff6900;
+  outline-offset: 2px;
+}
+
+.nodeHeader:has(.headerMoreButton) .headerLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.nodeHeader:has(.headerMoreButton) .headerTextContent {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nodeHeader:has(.headerMoreButton) > .headerButtons {
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.headerActionsPaper:global(.MuiPaper-root) {
+  margin-top: 4px;
+  border: 1px solid #e4e4e7;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px #0000001a;
+}
+
+.headerActionsPalette {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--builder-surface);
+}
+
+.headerActionsPalette button {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 4px;
+}
+
+.headerActionsPalette button:hover:not(:disabled) {
+  background: #f4f4f5;
+}
+
+.headerActionsPalette button:focus-visible {
+  outline: 2px solid #ff6900;
+  outline-offset: 1px;
+}
+.nodeTitleEditor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+  color: inherit;
+}
+
+.nodeTitleText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nodeTitleEditButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  color: #94949c;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nodeTitleEditButton:hover {
+  color: #ff6900;
+  background: #fff4ea;
+}
+.nodeTitleEditButton:focus-visible {
+  outline: 2px solid #ff6900;
+}
+.nodeTitleInput {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  padding: 2px 5px;
+  box-sizing: border-box;
+  border: 1px solid #ff6900;
+  border-radius: 3px;
+  background: var(--builder-surface);
+  color: #38383d;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.nodeTypeLabel {
+  max-width: 74px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #a1a1aa;
+  font-size: 9px;
+  font-weight: 400;
+}
+
+.compactNodeTitle {
+  position: absolute;
+  top: calc(100% + 50px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  padding: 2px 6px;
+  border: 1px solid #e4e4e7;
+  border-radius: 4px;
+  background: var(--builder-surface);
+  color: #38383d;
+}
+
+.groupNodeWrapper .nodeBody > .nodeEditFooter {
+  min-height: 24px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+/* Keep invisible sequence handles measurable for React Flow's stored edges. */
+.groupChildNode :global(.react-flow__handle) {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.groupChildNode[data-node-type="api"]
+  :global(.react-flow__handle.source[data-handleid="onError"]),
+.groupChildNode[data-node-type="branch"] :global(.react-flow__handle.source),
+.groupChildNode[data-node-type="ynBranch"] :global(.react-flow__handle.source) {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* Opt-in detail canvas chrome. Dimensions stay aligned with the existing
+   measured-node layout; no graph or group membership is changed by styling. */
+.publishingNode.nodeWrapper {
+  border: 1px solid
+    color-mix(in srgb, var(--node-accent) 45%, var(--builder-border));
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--node-accent) 3%, var(--builder-surface));
+  color: var(--builder-text);
+  box-shadow: var(--builder-shadow);
+}
+
+.publishingNode .nodeHeader {
+  min-height: 32px;
+  padding: 0 6px;
+  gap: 5px;
+  border-radius: 4px;
+  border-bottom: 0;
+  background: transparent;
+  color: var(--builder-text);
+}
+
+.publishingNode .headerLeft {
+  min-width: 0;
+  gap: 5px;
+}
+.publishingNode .headerButtons {
+  gap: 2px;
+}
+.publishingNode .headerIcon {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
+  color: var(--node-accent);
+  background: color-mix(
+    in srgb,
+    var(--node-accent) 12%,
+    var(--builder-surface)
+  );
+}
+.publishingNode .headerIcon > svg {
+  width: 15px;
+  height: 15px;
+}
+.publishingNode .nodeTitleText {
+  font-size: 11px;
+  font-weight: 500;
+}
+.publishingNode .nodeTypeLabel {
+  color: var(--builder-muted);
+}
+.publishingNode .nodeTitleInput {
+  border-color: var(--builder-accent);
+  background: var(--builder-input);
+  color: var(--builder-text);
+}
+.publishingNode .bodyToggleButton,
+.publishingNode .headerMoreButton,
+.publishingNode .nodeTitleEditButton {
+  color: var(--builder-muted);
+}
+.publishingNode .bodyToggleButton {
+  width: 18px;
+  padding: 0;
+}
+.publishingNode button:hover,
+.publishingNode .headerMoreButton[aria-expanded="true"] {
+  color: var(--builder-accent);
+  background: var(--builder-accent-soft);
+}
+.publishingNode button:focus-visible,
+.publishingActions button:focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+.publishingNode:hover {
+  border-color: var(--node-accent);
+}
+:global(.react-flow__node.selected) .publishingNode.nodeWrapper {
+  border-color: var(--builder-accent);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--builder-accent) 30%, transparent);
+}
+.publishingNode.nodeWrapper.startNode {
+  border-color: var(--builder-accent);
+  box-shadow: 0 0 0 1px var(--builder-accent);
+}
+.publishingNode.nodeWrapper.anchored {
+  border-color: var(--builder-danger);
+  box-shadow: 0 0 0 1px var(--builder-danger);
+}
+.publishingNode .nodeBody {
+  padding: 10px;
+  gap: 10px;
+  font-size: 12px;
+}
+.publishingNode .nodeBody :is(input, textarea, select) {
+  background: var(--builder-input);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.publishingNode
+  :is(
+    .formBuilderPreview,
+    .formPreview,
+    .formElementsPlaceholder,
+    .quickReply,
+    .previewOptionsContainer,
+    .previewBox
+  ) {
+  background: var(--builder-muted-surface);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.publishingNode :is(.previewLabel, .formFeatureIndicator) {
+  color: var(--builder-muted);
+}
+.publishingNode .nodeBody :is(input, textarea)[readonly] {
+  color: var(--builder-muted);
+}
+.publishingNode .nodeBody :global(.MuiTypography-root),
+.publishingNode .nodeBody :global(.MuiInputBase-root),
+.publishingNode .nodeBody :global(.MuiFormLabel-root) {
+  color: var(--builder-text);
+}
+.publishingNode .nodeBody :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: var(--builder-border);
+}
+.publishingNode
+  :is(.sectionTitle, .scenarioDescription, .groupNodeDescription) {
+  color: var(--builder-muted);
+}
+.publishingNode .nodeEditFooter {
+  justify-content: flex-end;
+  border-color: var(--builder-border);
+  background: transparent;
+}
+.publishingNode .nodeEditButton {
+  height: 23px;
+  border-color: var(--builder-border);
+  background: var(--builder-surface);
+  color: var(--builder-text);
+}
+.publishingNode :global(.react-flow__handle) {
+  background: var(--node-accent) !important;
+  border-color: var(--builder-surface) !important;
+}
+.publishingNode.groupNodeWrapper {
+  --node-accent: var(--builder-group) !important;
+  border-style: solid;
+  border-radius: 9px;
+  background: color-mix(
+    in srgb,
+    var(--builder-group) 7%,
+    var(--builder-surface)
+  );
+}
+.publishingNode.groupNodeWrapper > .nodeHeader {
+  margin: 5px;
+  min-height: 32px;
+  border: 1px solid var(--builder-border);
+  border-radius: 6px;
+  background: var(--builder-surface);
+}
+.publishingNode.groupNodeWrapper .nodeBody {
+  padding: 8px 12px;
+  height: calc(100% - 44px);
+}
+.publishingNode .groupNodeDescription {
+  font-size: 10px;
+  line-height: 20px;
+}
+.groupCount {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--builder-border);
+  border-radius: 9px;
+  background: var(--builder-muted-surface);
+  color: var(--builder-muted);
+  font-size: 9px;
+  white-space: nowrap;
+}
+.publishingNode .groupAddNodeButton {
+  left: 50%;
+  bottom: 14px;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 1px solid var(--builder-surface);
+  border-radius: 50%;
+  color: #fff;
+  background: var(--builder-group);
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: var(--builder-shadow);
+}
+.publishingNode .groupAddNodeButton span {
+  display: none;
+}
+.publishingNode.groupNodeWrapper:hover .groupAddNodeButton,
+.publishingNode .groupAddNodeButton:focus-visible {
+  transform: translateX(-50%);
+}
+.publishingActions.headerActionsPalette {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 165px;
+  gap: 2px;
+  padding: 4px;
+  background: var(--builder-surface);
+  color: var(--builder-text);
+}
+.publishingActions button {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--builder-text);
+  font-size: 11px;
+  cursor: pointer;
+}
+.publishingActions button svg {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.publishingActions button:hover:not(:disabled) {
+  background: var(--builder-accent-soft);
+}
+.publishingActions button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.publishingActions .active {
+  color: var(--builder-accent);
+}
+.publishingActions .deleteButton {
+  color: var(--builder-danger);
+}
+
+.publishingCompact:global(.MuiBox-root) {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  box-shadow: var(--builder-shadow);
+}
+.publishingCompact :global(.MuiTypography-root) {
+  color: var(--builder-text);
+}

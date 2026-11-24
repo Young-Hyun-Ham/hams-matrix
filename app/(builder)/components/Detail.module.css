@@ -1,0 +1,531 @@
+.flowContainer {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  width: 100%;
+  background-color: #f0f2f5;
+  overflow: hidden;
+}
+
+.leftSidebar {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 15px;
+  background-color: #e7e7e7;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sidebarHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.sidebarHeader h3 {
+  margin: 0;
+  color: var(--builder-text);
+  font-size: 1.1rem;
+}
+
+.globalColorSettingButton {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.globalColorSettingButton:hover {
+  background-color: #e0e0e0;
+}
+
+.colorSettingsPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  background-color: var(--builder-surface);
+}
+
+.colorSettingItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.colorInputs {
+  display: flex;
+  gap: 5px;
+}
+
+.colorSettingItem input[type="color"] {
+  width: 30px;
+  height: 24px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 2px;
+  cursor: pointer;
+  background-color: transparent;
+}
+
+.sidebarButton {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.sidebarButton:hover {
+  opacity: 0.9;
+}
+
+.duplicateButton {
+  background-color: #7f8c8d;
+  width: 100%;
+}
+
+.separator {
+  border-bottom: 1px solid #e0e0e0;
+  margin: 10px 0;
+}
+
+.mainContent {
+  flex-grow: 1;
+  position: relative;
+  min-width: 300px;
+  display: flex;
+  min-height: 0;
+  /* height: 100%; */
+  overflow: hidden;
+}
+
+/* ReactFlow 전용 래퍼 추가 */
+.rfWrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 400px; /* 초기 로딩 시도 보장용(선택) */
+}
+
+.topRightControls {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 10;
+  display: flex;
+}
+
+.controlButton {
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  background-color: #aaaaaa;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.saveButton {
+  bottom: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+}
+
+.controllerPanel {
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out;
+  background-color: #f8f9fa;
+  flex-shrink: 0;
+  height: 100%;
+  min-height: 0;
+  border-right: 1px solid transparent;
+}
+
+.controllerPanel.visible {
+  width: 380px;
+  border-right-color: #e0e0e0;
+}
+
+.rightContainer {
+  flex-shrink: 0;
+  display: flex;
+  width: 0;
+  overflow: hidden;
+  transition: width 0.3s ease-in-out;
+  min-height: 0;
+}
+
+.rightContainer.visible {
+  /* The width is now controlled by inline styles in Flow.jsx */
+}
+
+.resizerV {
+  background-color: #e0e0e0;
+  flex-shrink: 0;
+  transition: width 0.3s ease-in-out;
+  width: 0;
+  cursor: col-resize;
+}
+
+.resizerV.visible {
+  width: 5px;
+}
+
+.resizerV:hover {
+  background-color: #3498db;
+}
+
+.panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.botButton {
+  bottom: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  /* border-radius: 50%;
+  background-color: var(--builder-surface);
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1.5rem;
+  transition: background-color 0.2s, transform 0.2s;
+  border : 1px solid #ccc; */
+}
+
+.botButtonHidden {
+  bottom: 15px;
+  right: 15px;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  /* border-radius: 50%;
+  background-color: #919191;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 1.0rem;
+  transition: background-color 0.2s, transform 0.2s; */
+}
+
+/* ================================================================== */
+.searchPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: max-content;
+  max-width: calc(100vw - 60px);
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--builder-surface);
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease,
+    gap 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.searchViewPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 1000px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--builder-surface);
+  border: 1px solid #d1d5db;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease,
+    gap 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.searchPanelCollapsed {
+  width: fit-content;
+  padding: 8px;
+  gap: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.searchPanelCollapsed .toolRow {
+  display: none;
+}
+
+.searchPanelCollapsed .searchRow {
+  display: none;
+}
+
+.searchTopRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.toolRow {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolButton {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #d1d5db;
+  background: var(--builder-surface);
+  color: #475569;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.toolButton:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #111827;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.toolButton:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.searchRow {
+  display: flex;
+  gap: 6px;
+  flex: 1;
+}
+
+.searchSelect {
+  width: 120px;
+  height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: var(--builder-surface);
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 250px;
+  height: 40px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: var(--builder-surface);
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.searchResultCard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.searchResultCard:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.searchResultHeader {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.searchResultType {
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+}
+
+.searchResultId {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.searchResultText {
+  font-size: 12px;
+  color: #111827;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* 노드 상세 정보 패널 스타일 */
+.toolButtonActive {
+  background: #e0f2fe;
+  border-color: #0284c7;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(2, 132, 199, 0.15);
+}
+
+/* 캔버스 커서 스타일 */
+.panCanvas :global(.react-flow__pane) {
+  cursor: grab;
+}
+
+.panCanvas :global(.react-flow__pane.dragging) {
+  cursor: grabbing;
+}
+
+.selectCanvas :global(.react-flow__pane) {
+  cursor: default;
+}
+
+/* 노드 패널 접기/펼치기 스타일 */
+.leftSidebar {
+  width: 220px;
+  flex-shrink: 0;
+  padding: 15px;
+  background-color: #e7e7e7;
+  border-right: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition:
+    width 0.2s ease,
+    padding 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.leftSidebarCollapsed {
+  width: 0;
+  padding: 0;
+  border-right-color: transparent;
+  overflow: hidden;
+}
+
+/* SlotDisplay wrapper 스타일 추가 - SlotDisplay.module.css에 slotDisplayContainer 스타일 수정  */
+.slotDisplayAnchor {
+  position: absolute;
+  left: 15px;
+  z-index: 10;
+}
+
+/* 마우스 우클릭 */
+.layerMenu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: var(--builder-surface);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+}
+
+.layerMenuItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #334155;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.layerMenuItem:hover {
+  background: #f8fafc;
+}
+
+.layerMenuIcon {
+  flex-shrink: 0;
+  color: #64748b;
+}
+
+.layerMenu button {
+  display: flex;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  border-radius: 8px;
+}
+
+.layerMenu button:hover {
+  background: #f8fafc;
+}
+
+.layerMenuDivider {
+  height: 1px;
+  margin: 6px 4px;
+  background: #e5e7eb;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
+.layerMenuItemDisabled {
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.layerMenuItemDisabled:hover {
+  background: transparent;
+}

@@ -1,0 +1,512 @@
+/* --- 💡 Modified part --- */
+.controllerContainer {
+  padding: 0;
+  background-color: #f8f9fa;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 자식 요소의 overflow를 제어하기 위해 추가 */
+  border-left: 1px solid #e0e0e0;
+}
+
+.publishingController.controllerContainer {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  border-left-color: var(--builder-border);
+}
+.publishingHeader {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 39px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--builder-border);
+  font-size: 12px;
+  font-weight: 500;
+}
+.publishingHeader > svg {
+  width: 16px;
+  height: 16px;
+  color: var(--builder-accent);
+}
+.publishingHeader button {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--builder-muted);
+  cursor: pointer;
+}
+.publishingController .mainControls {
+  padding: 14px 12px;
+  min-height: 0;
+}
+.sectionHeading {
+  margin: 0 0 14px;
+  color: var(--builder-accent);
+  font-size: 10px;
+  font-weight: 600;
+}
+.publishingController .form {
+  gap: 14px;
+}
+.publishingController .formGroup label {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--builder-text);
+}
+.publishingController
+  :is(input, textarea, select):not([type="checkbox"]):not([type="radio"]) {
+  background: var(--builder-input);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+  font-size: 12px;
+  border-radius: 4px;
+  padding: 7px;
+}
+.publishingController :is(input, textarea, select):disabled,
+.publishingController :is(input, textarea)[readonly] {
+  background: var(--builder-muted-surface);
+  color: var(--builder-muted);
+}
+.publishingController :is(input, textarea)::placeholder {
+  color: var(--builder-muted);
+  opacity: 1;
+}
+.publishingController input[type="checkbox"] {
+  accent-color: var(--builder-accent);
+}
+.publishingController
+  :is(.repliesContainer, .elementsContainer, .elementEditor, .elementItem) {
+  background: var(--builder-input);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.publishingController
+  :is(
+    .elementTabs button,
+    .addReplyButton,
+    .deleteReplyButton,
+    .elementDeleteButton
+  ) {
+  background: var(--builder-input);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.publishingController .elementItem.selected {
+  border-color: var(--builder-accent);
+  background: var(--builder-accent-soft);
+}
+.publishingController :is(.placeholder, .elementType) {
+  color: var(--builder-muted);
+}
+.publishingController :is(.mainControls, .advancedControls) h3 {
+  color: var(--builder-text);
+}
+.publishingController .controllerActions {
+  padding: 10px 12px;
+  border-top: 1px solid var(--builder-border);
+  background: var(--builder-surface);
+}
+.publishingController .saveNodeButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 7px 10px;
+  border-radius: 4px;
+  background: var(--builder-accent);
+  color: var(--builder-on-accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+.publishingController .saveNodeButton:hover:not(:disabled) {
+  background: var(--builder-accent-hover);
+}
+.publishingController .saveNodeButton:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.publishingController :is(button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+.publishingController .behaviourSection {
+  border-top: 1px solid var(--builder-border);
+  margin-top: 5px;
+}
+.publishingController :global(.MuiInputBase-root),
+.publishingController :global(.MuiFormLabel-root),
+.publishingController :global(.MuiTypography-root),
+.publishingController :global(.MuiSelect-icon) {
+  color: var(--builder-text);
+}
+.publishingController :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: var(--builder-border);
+}
+.publishingController :global(.MuiPaper-root) {
+  background: var(--builder-input);
+  color: var(--builder-text);
+}
+
+.mainControls {
+  padding: 15px;
+  flex-grow: 1; /* 남은 공간을 모두 차지하도록 설정 */
+  overflow-y: auto; /* 내용이 길어지면 스크롤 생성 */
+}
+
+.mainControls h3,
+.advancedControls h3 {
+  margin: 0 0 15px 0;
+  color: var(--builder-text);
+  font-size: 1.1rem;
+}
+
+.separator {
+  border-bottom: 2px solid #e9ecef;
+  /* margin: 15px 0; */
+  flex-shrink: 0;
+}
+
+.advancedControls {
+  flex-shrink: 0;
+}
+
+.placeholder {
+  color: #888;
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.formGroup label {
+  font-size: 0.8rem;
+  font-weight: bold;
+  color: #555;
+}
+
+.formGroup input,
+.formGroup textarea,
+.formGroup select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  background-color: var(--builder-surface);
+}
+
+.formGroup input:disabled {
+  background-color: #eee;
+  cursor: not-allowed;
+}
+
+.repliesContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background-color: var(--builder-surface);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.quickReply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.quickReplyInput {
+  flex-grow: 1;
+  width: 0;
+}
+
+.deleteReplyButton {
+  background: none;
+  border: 1px solid #ddd;
+  color: #999;
+  cursor: pointer;
+  font-size: 1.2rem;
+  font-weight: bold;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.deleteReplyButton:hover {
+  color: #e74c3c;
+  border-color: #e74c3c;
+}
+
+.addReplyButton {
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  background-color: #fafafa;
+  cursor: pointer;
+  color: #555;
+  margin-top: 5px;
+}
+
+.addReplyButton:hover {
+  background-color: #f0f0f0;
+}
+
+.elementTabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.elementTabs button {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+  background-color: var(--builder-surface);
+  color: #555;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+
+.elementTabs button:hover {
+  background-color: #e9ecef;
+  border-color: #aaa;
+}
+
+.elementsContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background-color: var(--builder-surface);
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  min-height: 100px;
+}
+
+.elementItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--builder-text);
+  transition:
+    background-color 0.2s,
+    border-color 0.2s;
+}
+
+.elementItemContent {
+  display: flex;
+  flex-direction: row;
+  flex-grow: 1;
+  gap: 10px;
+}
+
+.elementType {
+  font-size: 0.8rem;
+  color: #777;
+}
+
+.elementItem:hover {
+  background-color: #f8f9fa;
+}
+
+.elementItem.selected {
+  background-color: #e9ecef;
+  border-color: #3498db;
+  font-weight: bold;
+}
+
+.elementItem.dragOver {
+  border-top: 2px solid #3498db;
+}
+
+.elementEditor {
+  padding: 15px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: var(--builder-surface);
+}
+
+.elementEditor h4 {
+  margin: 0 0 15px 0;
+  text-transform: capitalize;
+}
+
+.editorActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.deleteElementButton {
+  background-color: #e74c3c;
+  color: white;
+  border-color: #e74c3c;
+}
+
+.elementDeleteButton {
+  background: none;
+  border: none;
+  color: #aaa;
+  cursor: pointer;
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 0 5px;
+  margin-left: 10px;
+  line-height: 1;
+}
+
+.elementDeleteButton:hover {
+  color: #e74c3c;
+}
+
+.gridControls {
+  display: flex;
+  gap: 10px;
+}
+
+.gridControls .formGroup {
+  flex: 1;
+}
+
+.gridContentEditor {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+}
+
+.gridCellEditor {
+  width: 100%;
+  min-height: 50px;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+  font-size: 0.9rem;
+  background-color: var(--builder-surface);
+  box-sizing: border-box;
+}
+
+.controllerActions {
+  padding: 15px;
+  border-top: 2px solid #e9ecef;
+  background-color: #f8f9fa;
+  flex-shrink: 0;
+}
+
+.saveToTemplateButton {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  background-color: #39e14f;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.saveNodeButton {
+  width: 100%;
+  padding: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.saveNodeButton:hover {
+  background-color: #2980b9;
+}
+
+/* --- 💡 수정된 부분 시작 --- */
+.templateActions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.templateActions button {
+  flex-grow: 1;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.templateActions button:first-child {
+  background-color: #2ecc71;
+  border: 1px solid #2ecc71;
+  color: white;
+}
+
+.templateActions button:last-child {
+  background-color: #e67e22;
+  border: 1px solid #e67e22;
+  color: white;
+}
+/* --- 💡 수정된 부분 끝 --- */
+
+.routerModalPopup {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.routerModalPopup button {
+  flex-grow: 1;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.routerModalPopup button:first-child {
+  background-color: #2ecc71;
+  border: 1px solid #2ecc71;
+  color: white;
+}
+
+.routerModalPopup button:last-child {
+  background-color: #e03b3b;
+  border: 1px solid #e03b3b;
+  color: white;
+}

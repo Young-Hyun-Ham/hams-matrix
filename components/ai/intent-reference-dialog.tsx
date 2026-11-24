@@ -6,6 +6,7 @@ import { useConsoleGuard } from "@/components/shared/console-access";
 import { requestJson } from "@/lib/query/browser-fetch";
 import { matrixKeys } from "@/lib/query/keys";
 import type { IntentReferenceDetail } from "@/lib/ai/intent-classification-types";
+import { displayVersion } from "@/lib/ai/intent-classification-types";
 
 const readable = (text: string) => {
   try {
@@ -84,9 +85,11 @@ export function IntentReferenceDialog({
         {data && (
           <>
             <p>
-              {data.reference.sourceType} · {data.reference.sourceId}
+              <strong>
+                {data.source?.title ?? "원본 삭제 또는 열람 불가"}
+              </strong>
               <br />
-              기록 당시 버전: {data.reference.version || "기록 없음"}
+              기록 당시 버전: {displayVersion(data.reference.version)}
             </p>
             <section
               ref={part === "source" ? section : undefined}
@@ -97,7 +100,8 @@ export function IntentReferenceDialog({
               {data.source ? (
                 <>
                   <p>
-                    {data.source.title} · 현재 버전: {data.source.version}
+                    {data.source.title} · 현재 버전:{" "}
+                    {displayVersion(data.source.version)}
                   </p>
                   {data.source.changed && (
                     <p role="status">
@@ -112,7 +116,10 @@ export function IntentReferenceDialog({
                   >
                     원본 작업 화면 열기 ↗
                   </a>
-                  <pre>{readable(data.source.content)}</pre>
+                  <details className="intent-technical">
+                    <summary>현재 원본 데이터 보기</summary>
+                    <pre>{readable(data.source.content)}</pre>
+                  </details>
                 </>
               ) : (
                 <p role="status">
@@ -126,7 +133,6 @@ export function IntentReferenceDialog({
               aria-label="검색 당시 청크"
             >
               <h3>검색 당시 청크</h3>
-              <p>청크 ID: {data.reference.chunkId || "기록 없음"}</p>
               {data.chunk ? (
                 <>
                   <p>{data.chunk.section}</p>
@@ -142,6 +148,18 @@ export function IntentReferenceDialog({
                 </p>
               )}
             </section>
+            <details className="intent-technical">
+              <summary>참조 기술 정보</summary>
+              <p>
+                자료 유형: {data.reference.sourceType}
+                <br />
+                자료 ID: {data.reference.sourceId || "기록 없음"}
+                <br />
+                청크 ID: {data.reference.chunkId || "기록 없음"}
+                <br />
+                원본 버전 값: {data.reference.version || "기록 없음"}
+              </p>
+            </details>
           </>
         )}
       </div>

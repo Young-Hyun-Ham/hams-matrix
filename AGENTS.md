@@ -203,3 +203,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 ## 의도분류 검색 참조 ID 링크 (2026-11-24)
 
 검색 참조의 자료 ID·청크 ID를 누르면 현재 원본 정보와 검색 당시 저장된 청크를 읽기 전용 상세창에서 확인한다. 현재 owner 권한·이력 범위·등록 참조를 서버에서 확인하고 원본 삭제/접근 불가 시 과거 청크도 숨긴다. 당시/현재 버전과 정리된 청크를 구분하며 참조 선택 URL·닫기·검색 상태를 유지한다. 기존 RAG 자료/READ 검사를 재사용하고 키·저장소 경로·임베딩·개인 대화를 노출하지 않는다. DB 변경 없음. [작업 기록](docs/work/2026-11-24/의도분류-검색참조-ID-상세링크.md).
+
+## 의도분류 참조 지식 표시 (2026-11-24)
+
+- 사용자 후속 요청으로 ID 중심 표시를 자료명·참조 업무·검색 내용 미리보기로 확장했다. [작업 기록](docs/work/2026-11-24/의도분류-참조지식-목록상세-개선.md)을 따른다. 업무 영역은 실제 참조 자료 기준이며 질문의 업무 의도로 추정하지 않는다.
+- 당시 자료명/내용은 검색본·자료·버전·청크 일치와 현재 원본/READ 검증 후에만 표시한다. 현재 제목으로 대체하면 이를 명시하고 원본 삭제/열람 불가 시 과거 제목/미리보기도 숨긴다. 개인 질문·대화 JOIN 금지와 기존 owner/이력 플랜/URL·필터/권한 이벤트 보호를 유지한다.
+
+## 빌더 Turso·Flow·테마 (2026-11-24)
+
+- 최신 기준은 [설계](docs/history/2026-11-24/빌더-이식오류-점검과-Matrix-연동-설계.md)와 [구현 기록](docs/work/2026-11-24/빌더-Turso-전환과-Matrix-연동-구현.md)이다. 후속 작업 전 최신 사용자 수정 사항을 다시 읽는다.
+- Orkes를 재연결하지 않는다. 일반 Flow에 필요한 연결선 생성은 빌더 utils에서 관리한다. Firebase/FastAPI 저장과 BAPS 토큰을 복원하지 않는다.
+- BAPS 복사 UI·유틸·Provider·시뮬레이터·전용 CSS는 사용자 지정에 따라 app/(builder) 내부에 둔다. 빌더 CSS는 기존 전역 styles/pages 규칙의 명시적 예외다. 기존 Matrix 인증·DB·Query·테마는 복제하지 않는다.
+- API는 app/api/builder의 개별 route, 서버 전용 쿼리는 app/(builder)/server에 둔다. 기존 lib/db.ts를 재사용하고 workspace·현재 관리자 권한·revision·Origin·트랜잭션·감사 기록을 유지한다.
+- 053은 신규 6개 테이블을 생성한다. 발행/배포 이력은 불변이며 작업본은 논리 삭제한다. 구성 DB에는 053을 선택 적용했다. 기존 DB에서 회귀 자료를 생성하지 않는다.
+- 새로고침·사용자 범위 전환·초안·실행 상태 보존과 전체 빌더 light/dark·MUI portal을 함께 검증한다. route config는 서버 page wrapper에 둔다.
+- 의존성 설치 금지를 유지한다. 전체 빌드의 기존 react-markdown 누락과 빌더 검증 결과를 구분하고 `node scripts/test-builder.mjs`, `node scripts/test-builder-browser.mjs`를 사용한다.

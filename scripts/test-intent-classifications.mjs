@@ -82,6 +82,9 @@ const refContext = (
   params: Promise.resolve({ projectId, eventId, referenceIndex }),
 });
 const root = "/api/projects/dash-p1/intent-classifications";
+const failures = handler(
+  "projects/[projectId]/intent-classifications/failures",
+);
 const range = "?from=2026-11-23&to=2026-11-23";
 try {
   for (let i = 0; i < 25; i++)
@@ -166,6 +169,91 @@ try {
     INSERT INTO project_rag_chunks(id,workspace_id,project_id,generation_id,source_record_id,chunk_no,section,content,content_hash,token_count,embedding,dimensions,created_at)
     VALUES ('reference-chunk','dash-ws','dash-p1','reference-generation','reference-source',0,'검색 구간 1','검색 당시 요구사항 본문','synthetic',10,X'00000000',1,'2026-11-23T00:00:00.000Z');
   `);
+  for (let i = 0; i < 24; i++) {
+    await db.execute({
+      sql: "INSERT INTO project_rag_jobs(id,workspace_id,project_id,generation_id,requested_by,idempotency_key,input_hash,config_version,credential_id,credential_version,status,error_code,created_at,finished_at) VALUES (?,'dash-ws','dash-p1','reference-generation','dash-owner',?,'synthetic',2,'reference-key',1,?,'SYNTHETIC_FAILURE','2026-11-22T15:00:00.000Z','2026-11-22T15:01:00.000Z')",
+      args: [
+        `failed-job-${String(i).padStart(2, "0")}`,
+        `failure-key-${i}`,
+        i === 23 ? "completed" : "failed",
+      ],
+    });
+  }
+  const failedPage = await json(
+    await failures(req(root + "/failures" + range), ctx()),
+  );
+  assert.equal(failedPage.failures.length, 20);
+  assert.equal(failedPage.failures[0].configVersion, 2);
+  assert.equal(failedPage.failures[0].errorCode, "SYNTHETIC_FAILURE");
+  assert.equal(failedPage.failures[0].generationId, "reference-generation");
+  assert.equal(JSON.stringify(failedPage).includes("reference-key"), false);
+  const failedNext = await json(
+    await failures(
+      req(root + "/failures" + range + "&cursor=" + failedPage.nextCursor),
+      ctx(),
+    ),
+  );
+  assert.equal(failedNext.failures.length, 3);
+  assert.equal(failedNext.nextCursor, null);
+  assert.equal(
+    new Set(
+      [...failedPage.failures, ...failedNext.failures].map((r) => r.jobId),
+    ).size,
+    23,
+  );
+  assert.equal(
+    (await json(await failures(req(root + "/failures?from=2026-11-24"), ctx())))
+      .failures.length,
+    0,
+  );
+  await json(
+    await failures(req(root + "/failures?cursor=invalid"), ctx()),
+    400,
+  );
+  await json(
+    await failures(
+      req(root + "/failures?from=2026-11-24&to=2026-11-23"),
+      ctx(),
+    ),
+    400,
+  );
+  await json(
+    await failures(req(root + "/failures"), ctx("dash-foreign-p")),
+    404,
+  );
+  assert.equal(
+    (await json(await failures(req(root + "/failures"), ctx("dash-p2"))))
+      .failures.length,
+    0,
+  );
+  token = "dash-viewer-session";
+  await json(await failures(req(root + "/failures"), ctx()), 403);
+  token = "dash-owner-session";
+  await db.execute(
+    "UPDATE ai_orchestration_events SET generation_id='reference-generation' WHERE id='event-00'",
+  );
+  await db.execute(
+    "UPDATE project_rag_generations SET status='failed' WHERE id='reference-generation'",
+  );
+  const regularPage = await json(await list(req(root + range), ctx()));
+  const regularNext = await json(
+    await list(req(root + range + "&cursor=" + regularPage.nextCursor), ctx()),
+  );
+  assert.equal(
+    [...regularPage.events, ...regularNext.events].some(
+      (r) => r.eventId === "event-00",
+    ),
+    false,
+  );
+  await db.execute(
+    "UPDATE project_rag_generations SET status='retired' WHERE id='reference-generation'",
+  );
+  // A later successful resume must not erase previous failed attempts.
+  assert.equal(
+    (await json(await failures(req(root + "/failures"), ctx()))).failures
+      .length,
+    20,
+  );
   const validReference = {
     sourceType: "artifact",
     sourceId: "dash-req",
@@ -173,6 +261,23 @@ try {
     chunkId: "reference-chunk",
     href: "javascript:alert(1)",
   };
+  await db.execute({
+    sql: "INSERT INTO project_rag_sources(id,workspace_id,project_id,generation_id,source_type,source_id,source_version,content_hash,permission_tab,title,locator_json,extraction_status) VALUES ('reference-wbs-source','dash-ws','dash-p1','reference-generation','artifact','dash-wbs','1','synthetic','wbs','WBS-001 결제 연동 일정','{}','ready')",
+    args: [],
+  });
+  await db.execute({
+    sql: "INSERT INTO project_rag_chunks(id,workspace_id,project_id,generation_id,source_record_id,chunk_no,section,content,content_hash,token_count,embedding,dimensions,created_at) VALUES ('reference-wbs-chunk','dash-ws','dash-p1','reference-generation','reference-wbs-source',0,'WBS 작업 범위',?,'synthetic',10,X'00000000',1,'2026-11-23T00:00:00.000Z')",
+    args: [
+      "WBS-001 결제 연동 일정\n" +
+        JSON.stringify({
+          kind: "wbs",
+          fields_json: JSON.stringify({
+            definition: "결제 API 연동 완료",
+            progress: "50",
+          }),
+        }),
+    ],
+  });
   await db.execute({
     sql: "UPDATE ai_orchestration_events SET generation_id='reference-generation',source_refs_json=? WHERE id='event-00'",
     args: [
@@ -182,10 +287,44 @@ try {
         { ...validReference, sourceId: "dash-screen" },
         { ...validReference, sourceType: "unknown" },
         { ...validReference, version: "999" },
+        {
+          ...validReference,
+          sourceId: "dash-wbs",
+          chunkId: "reference-wbs-chunk",
+        },
       ]),
     ],
   });
   const refData = await json(await referenceDetail(req(root), refContext()));
+  const enriched = await json(await detail(req(root + "/event-00"), ctx()));
+  assert.equal(enriched.references[1].title, "Saved requirement");
+  assert.equal(enriched.references[1].titleOrigin, "indexed");
+  assert.equal(enriched.references[1].category, "요구사항");
+  assert.equal(enriched.references[1].excerpt, "검색 당시 요구사항 본문");
+  assert.equal(enriched.references[1].changed, true);
+  assert.equal(enriched.references[0].titleOrigin, "unavailable");
+  assert.equal(enriched.references[0].excerpt, null);
+  assert.equal(enriched.references[2].excerpt, null);
+  assert.equal(enriched.references[4].excerpt, null);
+  assert.equal(enriched.references[4].titleOrigin, "current");
+  assert.equal(enriched.references[5].category, "WBS 일정");
+  assert.equal(enriched.references[5].title, "WBS-001 결제 연동 일정");
+  assert.ok(
+    enriched.references[5].excerpt.includes(
+      "작업 범위 / 완료 기준: 결제 API 연동 완료",
+    ),
+  );
+  assert.equal(enriched.references[5].excerpt.includes("fields_json"), false);
+  const enrichedList = await json(
+    await list(req(root + range + "&intent=rag&fallback=true"), ctx()),
+  );
+  assert.equal(enrichedList.events[0].knowledge[1].title, "Saved requirement");
+  assert.equal(
+    enrichedList.events[0].knowledge[1].excerpt,
+    "검색 당시 요구사항 본문",
+  );
+  assert.equal(JSON.stringify(enriched).includes("javascript:"), false);
+  assert.equal(JSON.stringify(enrichedList).includes("object_key"), false);
   assert.equal(refData.source.changed, true);
   assert.equal(refData.source.href, "/projects/dash-p1?tab=requirement");
   assert.ok(refData.source.content.includes("DASH-REQ"));
@@ -225,6 +364,18 @@ try {
   const removed = await json(await referenceDetail(req(root), refContext()));
   assert.equal(removed.source, null);
   assert.equal(removed.chunk, null);
+  const removedDetail = await json(
+    await detail(req(root + "/event-00"), ctx()),
+  );
+  assert.equal(removedDetail.references[1].titleOrigin, "unavailable");
+  assert.equal(
+    JSON.stringify(removedDetail).includes("검색 당시 요구사항 본문"),
+    false,
+  );
+  assert.equal(
+    JSON.stringify(removedDetail).includes("Saved requirement"),
+    false,
+  );
   await db.execute(
     "UPDATE project_artifacts SET deleted_at=NULL WHERE id='dash-req'",
   );

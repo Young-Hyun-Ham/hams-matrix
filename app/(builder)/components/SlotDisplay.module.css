@@ -1,0 +1,97 @@
+.slotDisplayContainer {
+  position: relative;
+  top: 0;
+  left: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px;
+  width: 280px;
+  max-height: 250px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  color: var(--builder-text);
+  transition: all 0.3s ease-in-out;
+}
+
+.slotDisplayContainer.collapsed {
+  width: 200px;
+  max-height: 45px;
+  padding: 12px;
+}
+
+.title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 10px 0;
+  font-size: 1rem;
+  font-weight: 600;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.slotDisplayContainer.collapsed .title {
+  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.toggleIcon {
+  font-size: 0.8rem;
+}
+
+.slotList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* --- 💡 수정된 부분 시작 --- */
+.slotItem {
+  display: flex;
+  flex-direction: column; /* 세로 정렬로 변경 */
+  align-items: flex-start; /* 왼쪽 정렬 */
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.slotKey {
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 4px; /* 값과의 간격 추가 */
+}
+
+.slotValue {
+  color: #1a1a1a;
+  word-break: break-all;
+  text-align: left; /* 왼쪽 정렬 */
+  width: 100%; /* 너비 전체 사용 */
+}
+
+/* JSON을 예쁘게 보여주기 위한 스타일 */
+.prettyJson {
+  background-color: #f0f2f5;
+  border-radius: 4px;
+  padding: 8px;
+  margin: 0;
+  text-align: left;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  border: 1px solid #e0e0e0;
+}
+/* --- 💡 수정된 부분 끝 --- */
+
+.placeholder {
+  font-style: italic;
+  color: #888;
+  font-size: 0.9rem;
+  text-align: center;
+  margin: 10px 0 0 0;
+}

@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import ChatMessage from '../ChatMessage';
+import { useState } from "react";
+import ChatMessage from "../ChatMessage";
 
 interface Message {
   id: string;
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
 }
 
 export default function SkeletonChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
-  
+  const [input, setInput] = useState("");
+
   // 상태 관리 핵심 플래그
-  const [isLoading, setIsLoading] = useState(false);     // 생각 중 (첫 토큰 대기)
+  const [isLoading, setIsLoading] = useState(false); // 생각 중 (첫 토큰 대기)
   const [isStreaming, setIsStreaming] = useState(false); // 스트리밍 진행 중
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,34 +22,42 @@ export default function SkeletonChatPage() {
     if (!input.trim() || isLoading || isStreaming) return;
 
     const userMessageText = input;
-    setInput('');
+    setInput("");
 
     // 1. 유저 메시지 추가
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: userMessageText };
-    
+    const userMsg: Message = {
+      id: Date.now().toString(),
+      role: "user",
+      content: userMessageText,
+    };
+
     // 2. 빈 어시스턴트 메시지 슬롯 미리 생성
     const assistantMsgId = (Date.now() + 1).toString();
-    const assistantMsg: Message = { id: assistantMsgId, role: 'assistant', content: '' };
+    const assistantMsg: Message = {
+      id: assistantMsgId,
+      role: "assistant",
+      content: "",
+    };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
-    
+
     // 3. 네트워크 요청 전 '생각 중' 상태 진입
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/chatbot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/chatbot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessageText }),
       });
       // 예시: 2초 지연
       await new Promise((resolve) => setTimeout(resolve, 3000));
 
-      if (!response.body) throw new Error('ReadableStream not supported.');
+      if (!response.body) throw new Error("ReadableStream not supported.");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let accumulatedContent = '';
+      let accumulatedContent = "";
 
       let isFirstChunk = true;
 
@@ -70,12 +78,14 @@ export default function SkeletonChatPage() {
         // 실시간으로 메시지 상태 업데이트
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === assistantMsgId ? { ...msg, content: accumulatedContent } : msg
-          )
+            msg.id === assistantMsgId
+              ? { ...msg, content: accumulatedContent }
+              : msg,
+          ),
         );
       }
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error("Chat error:", error);
     } finally {
       // 모든 과정 종료
       setIsLoading(false);
@@ -95,8 +105,10 @@ export default function SkeletonChatPage() {
               role={msg.role}
               content={msg.content}
               // 마지막 어시스턴트 메시지에만 현재 로딩/스트리밍 상태 적용
-              isLoading={isLastMessage && msg.role === 'assistant' && isLoading}
-              isStreaming={isLastMessage && msg.role === 'assistant' && isStreaming}
+              isLoading={isLastMessage && msg.role === "assistant" && isLoading}
+              isStreaming={
+                isLastMessage && msg.role === "assistant" && isStreaming
+              }
             />
           );
         })}

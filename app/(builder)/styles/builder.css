@@ -1,0 +1,193 @@
+.builder-root,
+[data-builder-theme] {
+  --builder-surface: var(--surface);
+  --builder-canvas: var(--canvas);
+  --builder-muted-surface: var(--primary-soft);
+  --builder-input: var(--surface);
+  --builder-border: var(--line);
+  --builder-text: var(--ink);
+  --builder-muted: var(--muted);
+  --builder-accent: var(--primary);
+  --builder-accent-hover: var(--primary);
+  --builder-accent-soft: var(--primary-soft);
+  --builder-on-accent: #fff;
+  --builder-dot: var(--line);
+  --builder-edge: var(--muted);
+  --builder-group: #8e98b6;
+  --builder-danger: #c93646;
+  --builder-shadow: 0 2px 8px #0002;
+}
+.builder-root {
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--builder-canvas);
+  color: var(--builder-text);
+}
+.builder-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 36px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--builder-border);
+  background: var(--builder-surface);
+  flex-shrink: 0;
+}
+.builder-nav span {
+  margin-left: auto;
+}
+.builder-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.builder-root input,
+.builder-root textarea,
+.builder-root select {
+  background: var(--builder-input);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.builder-root pre,
+.builder-root code {
+  color: var(--builder-text);
+  background: var(--builder-muted-surface);
+}
+.builder-root .react-flow__controls-button {
+  background: var(--builder-surface);
+  fill: var(--builder-text);
+  border-color: var(--builder-border);
+}
+[data-builder-theme="dark"] {
+  --builder-danger: #ff8b96;
+  color-scheme: dark;
+}
+[data-builder-theme="light"] {
+  color-scheme: light;
+}
+.builder-root [role="dialog"] {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  border-color: var(--builder-border);
+}
+.builder-root [role="alert"] {
+  color: var(--builder-danger);
+  padding: 12px;
+}
+.builder-emulator,
+.builder-emulator * {
+  box-sizing: border-box;
+}
+.builder-emulator {
+  min-height: 0;
+  background: var(--builder-surface);
+  color: var(--builder-text);
+}
+.builder-emulator [class~="flex"],
+.builder-emulator.flex {
+  display: flex;
+}
+.builder-emulator [class~="flex-col"],
+.builder-emulator.flex-col {
+  flex-direction: column;
+}
+.builder-emulator [class~="flex-1"] {
+  flex: 1;
+  min-height: 0;
+}
+.builder-emulator [class~="h-full"],
+.builder-emulator.h-full {
+  height: 100%;
+}
+.builder-emulator [class~="w-full"] {
+  width: 100%;
+}
+.builder-emulator [class~="items-center"] {
+  align-items: center;
+}
+.builder-emulator [class~="justify-between"] {
+  justify-content: space-between;
+}
+.builder-emulator [class~="justify-center"] {
+  justify-content: center;
+}
+.builder-emulator [class~="justify-end"] {
+  justify-content: flex-end;
+}
+.builder-emulator [class~="justify-start"] {
+  justify-content: flex-start;
+}
+.builder-emulator [class~="overflow-y-auto"] {
+  overflow-y: auto;
+}
+.builder-emulator [class~="overflow-x-hidden"] {
+  overflow-x: hidden;
+}
+.builder-emulator [class~="whitespace-pre-wrap"] {
+  white-space: pre-wrap;
+}
+.builder-emulator [class~="break-words"] {
+  overflow-wrap: anywhere;
+}
+.builder-emulator [class~="text-xs"] {
+  font-size: 12px;
+}
+.builder-emulator [class~="text-sm"] {
+  font-size: 14px;
+}
+.builder-emulator [class~="font-semibold"] {
+  font-weight: 600;
+}
+.builder-emulator [class~="border"],
+.builder-emulator.border {
+  border: 1px solid var(--builder-border);
+}
+.builder-emulator [class*="rounded-"],
+.builder-emulator {
+  border-radius: 8px;
+}
+.builder-emulator [class~="gap-1"] {
+  gap: 4px;
+}
+.builder-emulator [class~="gap-2"] {
+  gap: 8px;
+}
+.builder-emulator [class~="p-2"] {
+  padding: 8px;
+}
+.builder-emulator.p-3 {
+  padding: 12px;
+}
+.builder-emulator [class~="px-2"] {
+  padding-inline: 8px;
+}
+.builder-emulator [class~="py-1"] {
+  padding-block: 4px;
+}
+.builder-emulator [class~="mb-2"] {
+  margin-bottom: 8px;
+}
+.builder-emulator [class~="space-y-2"] > * + * {
+  margin-top: 8px;
+}
+.builder-emulator [class*="max-w-"] {
+  max-width: 80%;
+}
+.builder-emulator [class*="bg-white"],
+.builder-emulator [class*="bg-emerald-50"] {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+}
+.builder-emulator [class*="bg-emerald-600"] {
+  background: var(--builder-accent);
+  color: var(--builder-on-accent);
+}
+.builder-emulator [class*="text-gray-"],
+.builder-emulator [class*="text-emerald-"] {
+  color: var(--builder-muted);
+}

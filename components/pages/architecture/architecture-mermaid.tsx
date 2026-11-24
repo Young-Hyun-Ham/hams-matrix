@@ -132,33 +132,39 @@ export function ArchitectureMermaid({
         if (error) throw new Error(error);
         if (!active) return;
         const palette = architectureTheme(theme, accentColor);
-        const rendered = await renderMermaid(`architecture${id}${requestId}`, code, {
-          startOnLoad: false,
-          securityLevel: "strict",
-          theme: "base",
-          htmlLabels: false,
-          themeVariables: {
-            darkMode: theme === "dark",
-            background: palette.background,
-            primaryColor: palette.node,
-            primaryTextColor: palette.text,
-            primaryBorderColor: palette.border,
-            secondaryColor: palette.group,
-            tertiaryColor: palette.infrastructure,
-            lineColor: palette.line,
-            textColor: palette.text,
-            nodeTextColor: palette.text,
-            titleColor: palette.text,
-            clusterBkg: palette.group,
-            clusterBorder: palette.border,
-            edgeLabelBackground: palette.background,
-            fontSize: "16px",
-            fontFamily: "Arial, 'Malgun Gothic', sans-serif",
+        const rendered = await renderMermaid(
+          `architecture${id}${requestId}`,
+          code,
+          {
+            startOnLoad: false,
+            securityLevel: "strict",
+            theme: "base",
+            htmlLabels: false,
+            themeVariables: {
+              darkMode: theme === "dark",
+              background: palette.background,
+              primaryColor: palette.node,
+              primaryTextColor: palette.text,
+              primaryBorderColor: palette.border,
+              secondaryColor: palette.group,
+              tertiaryColor: palette.infrastructure,
+              lineColor: palette.line,
+              textColor: palette.text,
+              nodeTextColor: palette.text,
+              titleColor: palette.text,
+              clusterBkg: palette.group,
+              clusterBorder: palette.border,
+              edgeLabelBackground: palette.background,
+              fontSize: "16px",
+              fontFamily: "Arial, 'Malgun Gothic', sans-serif",
+            },
+            maxTextSize: 150000,
+            flowchart: { htmlLabels: false, useMaxWidth: false, padding: 20 },
+            suppressErrorRendering: true,
           },
-          maxTextSize: 150000,
-          flowchart: { htmlLabels: false, useMaxWidth: false, padding: 20 },
-          suppressErrorRendering: true,
-        }, container, () => active);
+          container,
+          () => active,
+        );
         if (!active || !rendered) return;
         container.innerHTML = safeMermaidSvg(rendered.svg);
         const svg = container.querySelector("svg")!;

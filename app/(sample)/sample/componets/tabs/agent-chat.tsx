@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
+import { useState } from "react";
 
 export default function HitlChatPage() {
   const [input, setInput] = useState(`사용자 ID 'user_123' 데이터를 삭제해줘`);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
-  const [answer, setAnswer] = useState('');
-  
+  const [answer, setAnswer] = useState("");
+
   // Human-in-the-Loop 대기 상태 관리용
   const [hitlData, setHitlData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -15,41 +15,41 @@ export default function HitlChatPage() {
   // 공통 API 호출 함수 (최초 요청 및 승인 후 재개용)
   const runAgent = async (payload: object) => {
     setIsProcessing(true);
-    setAnswer('');
+    setAnswer("");
     try {
-      // Fetch 기반 ReadableStream 방식 
+      // Fetch 기반 ReadableStream 방식
       // 브라우저의 기본 fetch API를 POST 메서드로 호출하고, 서버가 내려주는 ReadableStream을 바이트 단위로 직접 읽어서 파싱하는 방식
-      const response = await fetch('/api/agent-stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/agent-stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       if (!response.body) return;
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
-      let buffer = '';
+      let buffer = "";
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n\n');
-        buffer = lines.pop() || '';
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() || "";
 
         for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const event = JSON.parse(line.replace('data: ', ''));
+          if (line.startsWith("data: ")) {
+            const event = JSON.parse(line.replace("data: ", ""));
 
-            if (event.type === 'status') {
+            if (event.type === "status") {
               setLogs((prev) => [...prev, event.message]);
-            } else if (event.type === 'hitl_request') {
+            } else if (event.type === "hitl_request") {
               // 멈춰 서서 사용자 승인 대기
               setHitlData(event);
               setIsProcessing(false);
               return;
-            } else if (event.type === 'token') {
+            } else if (event.type === "token") {
               setAnswer((prev) => prev + event.content);
             }
           }
@@ -69,13 +69,13 @@ export default function HitlChatPage() {
     setHitlData(null);
     runAgent({ prompt: input });
     setInputText(input);
-    setInput('');
+    setInput("");
   };
 
   // 사용자가 [승인] 버튼을 눌렀을 때
   const handleApprove = () => {
     if (!hitlData) return;
-    setLogs((prev) => [...prev, '사용자가 실행을 승인했습니다.']);
+    setLogs((prev) => [...prev, "사용자가 실행을 승인했습니다."]);
     const currentHitl = hitlData;
     setHitlData(null);
 
@@ -90,8 +90,8 @@ export default function HitlChatPage() {
   // 사용자가 [거절] 버튼을 눌렀을 때
   const handleReject = () => {
     setHitlData(null);
-    setLogs((prev) => [...prev, '사용자가 작업을 거절했습니다.']);
-    setAnswer('요청하신 작업이 사용자에 의해 취소되었습니다.');
+    setLogs((prev) => [...prev, "사용자가 작업을 거절했습니다."]);
+    setAnswer("요청하신 작업이 사용자에 의해 취소되었습니다.");
     setIsProcessing(false);
   };
 
@@ -108,7 +108,11 @@ export default function HitlChatPage() {
           className="flex-1 border rounded-lg px-4 py-2"
           disabled={isProcessing || hitlData !== null}
         />
-        <button type="submit" disabled={isProcessing || hitlData !== null} className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:opacity-50">
+        <button
+          type="submit"
+          disabled={isProcessing || hitlData !== null}
+          className="bg-blue-600 text-white px-5 py-2 rounded-lg disabled:opacity-50"
+        >
           실행
         </button>
       </form>
@@ -117,7 +121,9 @@ export default function HitlChatPage() {
       {logs.length > 0 && (
         <div className="bg-gray-50 border rounded-xl p-4 text-sm space-y-1 text-gray-700">
           <p>{inputText}</p>
-          {logs.map((log, i) => <div key={i}>• {log}</div>)}
+          {logs.map((log, i) => (
+            <div key={i}>• {log}</div>
+          ))}
         </div>
       )}
 
@@ -130,10 +136,16 @@ export default function HitlChatPage() {
             전달 인자: {JSON.stringify(hitlData.args)}
           </div>
           <div className="flex gap-3 pt-2">
-            <button onClick={handleApprove} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700">
+            <button
+              onClick={handleApprove}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-green-700"
+            >
               승인 (Approve)
             </button>
-            <button onClick={handleReject} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">
+            <button
+              onClick={handleReject}
+              className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700"
+            >
               거절 (Reject)
             </button>
           </div>
@@ -143,7 +155,9 @@ export default function HitlChatPage() {
       {/* 3. 최종 답변 영역 */}
       {answer && (
         <div className="bg-white border rounded-xl p-4 shadow-sm">
-          <p className="text-xs font-semibold text-blue-600 mb-2">Final Output</p>
+          <p className="text-xs font-semibold text-blue-600 mb-2">
+            Final Output
+          </p>
           <div className="text-gray-900 whitespace-pre-wrap">{answer}</div>
         </div>
       )}

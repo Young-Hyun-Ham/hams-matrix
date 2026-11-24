@@ -1,0 +1,550 @@
+.editor {
+  min-width: 0;
+  gap: 0;
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  border: 1px solid var(--builder-border);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.editorHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 42px;
+  padding: 5px 12px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--builder-border);
+  background: var(--builder-surface);
+  z-index: 12;
+}
+
+.scenarioIdentity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.unitBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border: 1px solid var(--builder-border);
+  border-radius: 4px;
+  background: var(--builder-surface);
+  font-size: 11px;
+  color: var(--builder-text);
+  cursor: pointer;
+}
+
+.unitBadge span {
+  width: 8px;
+  height: 8px;
+  background: #666;
+  border-radius: 1px;
+}
+
+.scenarioTitle {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusBadge {
+  border-radius: 12px;
+  padding: 2px 6px;
+  background: var(--builder-muted-surface);
+  color: var(--builder-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.headerToolbar {
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.toolRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: max-content;
+}
+
+.toolGroup,
+.zoomTools {
+  box-sizing: border-box;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0;
+  padding: 1px;
+  border: 1px solid var(--builder-border);
+  border-radius: 4px;
+  background: var(--builder-surface);
+}
+
+.toolGroup > div > button {
+  padding: 3px 6px !important;
+  font-size: 10px !important;
+}
+
+.toolButton {
+  width: 27px;
+  height: 26px;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+  background: var(--builder-surface);
+  color: var(--builder-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.toolButton svg {
+  width: 14px;
+  height: 14px;
+}
+
+.toolButton:hover:not(:disabled) {
+  background: var(--builder-muted-surface);
+  color: var(--builder-text);
+}
+
+.toolButton:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.toolButtonActive {
+  color: var(--builder-accent);
+  background: var(--builder-accent-soft);
+}
+
+.zoomValue {
+  min-width: 34px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--builder-muted);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.headerSave,
+.headerPublish {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--builder-border);
+  border-radius: 4px;
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.headerPublish {
+  background: var(--builder-accent);
+  border-color: var(--builder-accent);
+  color: var(--builder-on-accent);
+}
+
+.headerSave:hover {
+  background: var(--builder-muted-surface);
+}
+.headerPublish:hover {
+  background: var(--builder-accent-hover);
+}
+
+.editorBody {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  min-width: 0;
+}
+
+.mainContent {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.mainContent :global(.react-flow__minimap) {
+  width: 166px;
+  height: 94px;
+  margin: 24px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--builder-muted-surface);
+  box-shadow: none;
+}
+
+.searchPanel {
+  width: min(420px, calc(100vw - 300px));
+  max-width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid var(--builder-border);
+  border-radius: 4px;
+  background: var(--builder-surface);
+  box-shadow: 0 3px 12px #0000000a;
+}
+
+.searchPanelCollapsed {
+  display: none;
+}
+.searchTopRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.searchRow {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+.searchFilter {
+  min-width: 0;
+}
+.searchSelect {
+  width: 100%;
+}
+.searchInput {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0 !important;
+  height: 40px;
+  padding: 0 8px;
+  border: 1px solid var(--builder-border);
+  border-radius: 4px;
+  font-size: 12px;
+}
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.searchResultCard {
+  padding: 10px 12px;
+  border: 1px solid var(--builder-border);
+  border-radius: 10px;
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  cursor: pointer;
+}
+.searchResultCard:hover,
+.searchResultCard:focus-visible {
+  background: var(--builder-muted-surface);
+  border-color: var(--builder-accent);
+}
+.searchResultType {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--builder-text);
+}
+.searchResultId {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--builder-muted);
+  font-size: 10px;
+}
+.searchResultText {
+  color: var(--builder-text);
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.palette {
+  padding: 14px 10px 0;
+}
+.paletteGroup {
+  margin-bottom: 20px;
+}
+.paletteGroup h3 {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--builder-muted);
+}
+.paletteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  height: 29px;
+  padding: 0 5px;
+  border: 1px solid
+    color-mix(in srgb, var(--node-accent) 40%, var(--builder-surface));
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--node-accent) 4%, var(--builder-surface));
+  color: color-mix(in srgb, var(--node-accent) 75%, var(--builder-text));
+  cursor: grab;
+  font-size: 11px;
+}
+.paletteItem svg {
+  flex-shrink: 0;
+  color: var(--node-accent);
+}
+.paletteItem span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.paletteItem:hover {
+  background: color-mix(
+    in srgb,
+    var(--node-accent) 12%,
+    var(--builder-surface)
+  );
+}
+.paletteItem:active {
+  cursor: grabbing;
+}
+.editor button:focus-visible:not(.unitBadge),
+.paletteItem:focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 1000px) {
+  .editorHeader {
+    flex-wrap: wrap;
+    gap: 6px 12px;
+  }
+  .headerToolbar {
+    order: 3;
+    flex-basis: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .editorHeader {
+    padding: 6px;
+  }
+  .scenarioIdentity {
+    flex-basis: 100px;
+    gap: 5px;
+  }
+  .statusBadge {
+    display: none;
+  }
+  .mainContent :global(.react-flow__minimap) {
+    width: 120px;
+    height: 70px;
+    margin: 12px;
+  }
+  .searchPanel {
+    width: calc(100vw - 285px);
+    min-width: 150px;
+  }
+  .searchRow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.interactionControl {
+  position: static;
+  margin: 0;
+  box-shadow: none;
+  display: flex;
+}
+.interactionControl :global(.react-flow__controls-button) {
+  box-sizing: border-box;
+  width: 27px;
+  height: 26px;
+  padding: 6px;
+  border: 0;
+  background: var(--builder-surface);
+  color: var(--builder-muted);
+}
+.tabMenuPaper:global(.MuiPaper-root) {
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: min(420px, calc(100vh - 80px));
+  margin-top: 5px;
+  border: 1px solid var(--builder-border);
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px #00000014;
+}
+
+.tabMenuPaper :global(.MuiMenu-list) {
+  padding: 4px;
+}
+.tabMenuItem:global(.MuiMenuItem-root) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+.tabMenuPaper .tabMenuItem:global(.Mui-selected),
+.tabMenuPaper .tabMenuItem:global(.Mui-selected:hover) {
+  background: var(--builder-accent-soft);
+  color: var(--builder-text);
+}
+.tabKindIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--builder-muted);
+}
+.tabMenuItem:global(.Mui-selected) .tabKindIcon {
+  color: var(--builder-accent);
+}
+.tabMenuTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tabMenuVersion {
+  flex-shrink: 0;
+  color: var(--builder-muted);
+  font-size: 10px;
+}
+.tabCloseButton:global(.MuiIconButton-root) {
+  padding: 3px;
+  color: var(--builder-muted);
+}
+.tabBackButton:global(.MuiMenuItem-root) {
+  gap: 8px;
+  padding: 8px;
+  min-height: 34px;
+  border-radius: 4px;
+  color: var(--builder-muted);
+  font-size: 12px;
+}
+
+.canvasContextMenu {
+  box-sizing: border-box;
+  min-width: min(200px, calc(100vw - 16px));
+  max-width: calc(100vw - 16px);
+  max-height: calc(100dvh - 16px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.unitBadge:focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+.controllerPanel {
+  width: 0;
+  min-height: 0;
+  flex-shrink: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--builder-surface);
+  transition: width 0.2s ease;
+}
+.controllerPanel.visible {
+  width: 340px;
+}
+.viewSwitch {
+  display: inline-flex;
+  margin-left: 4px;
+  padding: 1px;
+  border: 1px solid var(--builder-border);
+  border-radius: 3px;
+  background: var(--builder-muted-surface);
+}
+.viewSwitch button {
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  color: var(--builder-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+.viewSwitch button[aria-pressed="true"] {
+  background: var(--builder-surface);
+  color: var(--builder-accent);
+}
+.mainContent :global(.react-flow__minimap-mask) {
+  stroke: var(--builder-accent);
+}
+.canvas {
+  background: var(--builder-canvas);
+}
+.canvas :global(.react-flow__edge-path) {
+  stroke: var(--builder-edge);
+}
+.canvas :global(.react-flow__edge.selected .react-flow__edge-path) {
+  stroke: var(--builder-accent);
+}
+.canvas :global(.react-flow__connection-path) {
+  stroke: var(--builder-accent);
+}
+.canvas :global(.react-flow__selection),
+.canvas :global(.react-flow__nodesselection-rect) {
+  background: color-mix(in srgb, var(--builder-accent) 7%, transparent);
+  border: 1px dashed var(--builder-accent);
+}
+.searchPanel :global(.MuiInputBase-root),
+.searchPanel :global(.MuiFormLabel-root),
+.searchPanel :global(.MuiSelect-icon) {
+  color: var(--builder-text);
+}
+.searchPanel :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: var(--builder-border);
+}
+.editor[data-builder-theme="dark"] :global([aria-label="Nodes Tree"]) img {
+  filter: invert(1);
+}
+@media (max-width: 1000px) {
+  .controllerPanel.visible {
+    width: min(310px, 40vw);
+  }
+}
+@media (max-width: 700px) {
+  .controllerPanel.visible {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 15;
+    width: min(340px, calc(100% - 40px));
+    box-shadow: -3px 0 15px #0000001a;
+  }
+}

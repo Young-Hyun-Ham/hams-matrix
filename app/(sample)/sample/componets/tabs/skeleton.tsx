@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import ProfileSkeleton from '../ProfileSkeleton';
+import { useEffect, useState } from "react";
+import ProfileSkeleton from "../ProfileSkeleton";
 
 // 지연 시간을模拟하는 비동기 컴포넌트 (실제 데이터 패칭 영역)
 export default function SkeletonPageBody() {

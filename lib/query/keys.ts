@@ -1,5 +1,7 @@
 export type QueryScope = { userId: string; workspaceId: string };
 export const matrixKeys = {
+  builder: (s: QueryScope, path?: string) =>
+    [...matrixKeys.scope(s), "builder", ...(path ? [path] : [])] as const,
   consoleAccess: (s: QueryScope, endpoint: string) =>
     [...matrixKeys.scope(s), "console-access", endpoint] as const,
   intentClassifications: (s: QueryScope, projectId: string) =>

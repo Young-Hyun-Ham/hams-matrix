@@ -283,3 +283,11 @@ Mermaid 코드 블록은 기본 ‘텍스트’ 탭에서 원문을 보여 주�
 ## 의도분류 검색 참조 ID 링크 (2026-11-24)
 
 검색 참조의 자료 ID·청크 ID를 누르면 현재 원본 정보와 검색 당시 저장된 청크를 읽기 전용 상세창에서 확인한다. 현재 owner 권한·이력 범위·등록 참조를 서버에서 확인하고 원본 삭제/접근 불가 시 과거 청크도 숨긴다. 당시/현재 버전과 정리된 청크를 구분하며 참조 선택 URL·닫기·검색 상태를 유지한다. 기존 RAG 자료/READ 검사를 재사용하고 키·저장소 경로·임베딩·개인 대화를 노출하지 않는다. DB 변경 없음. [작업 기록](docs/work/2026-11-24/의도분류-검색참조-ID-상세링크.md).
+
+## 빌더 Turso 전환 (2026-11-24)
+
+빌더는 `/react-flow/scenario-list`, `/react-flow/scenario-flow?scenarioId=...`, `/react-flow/scenario-view?scenarioId=...`, `/form-builder`에서 사용합니다. 현재 workspace의 owner/admin 멤버이며 관리자 계정(master/admin/biz_admin/team_admin)인 사용자만 접근합니다. Orkes와 Firebase/FastAPI 저장 연결은 사용하지 않습니다.
+
+저장은 기존 Turso 연결과 빌더 전용 6개 테이블을 사용합니다. 053 이전 환경은 후속 적용 시 `node --env-file=.env scripts/migrate.mjs --only 053_builder_storage.sql`로 신규 파일만 적용합니다. 이번 구성 DB에는 053을 적용했습니다. 기존 Firebase 자료 자동 이전은 포함하지 않습니다. 작업본 저장과 Publish(불변 버전 생성), 배포 버전 지정을 구분하며 실제 외부 런타임 배포는 수행하지 않습니다.
+
+라이트·다크는 기존 개인 설정과 연동됩니다. 필요한 BAPS 복사 코드는 app/(builder) 안에서 관리하고 SQL은 서버 경계를 지킵니다. 검증은 `node scripts/test-builder.mjs`, `node scripts/test-builder-browser.mjs`를 사용합니다. 실제 검증 결과·제한은 [구현 기록](docs/work/2026-11-24/빌더-Turso-전환과-Matrix-연동-구현.md)을 확인하세요.

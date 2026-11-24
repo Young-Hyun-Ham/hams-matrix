@@ -47,18 +47,26 @@ export function safeMermaidSvg(source: string) {
     // Inline SVG CSS belongs to the host document too. Parse and scope both
     // root and descendant selectors, keeping comma lists inside :is().
     if (element.localName === "style") {
-      if (!svgId) { element.remove(); continue; }
+      if (!svgId) {
+        element.remove();
+        continue;
+      }
       const sheet = new CSSStyleSheet();
       sheet.replaceSync(element.textContent ?? "");
       const scope = `#${CSS.escape(svgId)}`;
       const scopedCss = Array.from(sheet.cssRules)
         .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
-        .map((rule) => `${scope}:is(${rule.selectorText}), ${scope} :is(${rule.selectorText}) {${rule.style.cssText}}`)
+        .map(
+          (rule) =>
+            `${scope}:is(${rule.selectorText}), ${scope} :is(${rule.selectorText}) {${rule.style.cssText}}`,
+        )
         .join("\n");
       // XML serialization escapes CSS child combinators as &gt;, which an
       // inline SVG <style> does not decode. Foreign-content CDATA preserves
       // selectors without allowing </style> to escape into the HTML document.
-      element.replaceChildren(doc.createCDATASection(scopedCss.replaceAll("]]>", "]]\\3e ")));
+      element.replaceChildren(
+        doc.createCDATASection(scopedCss.replaceAll("]]>", "]]\\3e ")),
+      );
     }
     for (const attr of Array.from(element.attributes)) {
       if (

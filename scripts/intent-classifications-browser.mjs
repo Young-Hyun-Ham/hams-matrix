@@ -191,13 +191,50 @@ export async function intentClassificationsBrowser(fixture) {
       mobile: false,
     });
     await cookie("dash-owner-session");
+    await navigate("/projects/dash-p1/intent-classifications?view=failures");
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelectorAll('.intent-table tbody tr').length===20 && document.body.innerText.includes('SYNTHETIC_FAILURE')",
+        ),
+      "failed vectorization history",
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('nav a[aria-current=page]')?.textContent.trim()",
+      ),
+      "실패 이력",
+    );
+    assert.equal(
+      await evaluate("!!document.querySelector('.intent-detail')"),
+      false,
+    );
+    assert.equal(
+      await evaluate("document.body.innerText.includes('reference-key')"),
+      false,
+    );
+    await click(".intent-actions button:last-child");
+    await waitFor(
+      () =>
+        evaluate(
+          "document.querySelectorAll('.intent-table tbody tr').length===3 && location.search.includes('cursor=')",
+        ),
+      "failure pagination",
+    );
+    await resize(320);
+    assert.equal(
+      await evaluate("document.documentElement.scrollWidth <= innerWidth"),
+      true,
+    );
+    await screenshot("failure-history-mobile");
+    await resize(1440);
     await navigate(
       "/projects/dash-p1/intent-classifications?from=2026-11-23&to=2026-11-23&eventId=event-00",
     );
     await waitFor(
       () =>
         evaluate(
-          "document.querySelectorAll('.intent-table tbody tr').length===20 && document.querySelector('.intent-detail')?.innerText.includes('FUTURE_REASON')",
+          "document.querySelectorAll('.intent-table tbody tr').length===20 && document.querySelector('.intent-detail')?.innerText.includes('Saved requirement')",
         ),
       "classification list and detail",
     );
@@ -215,6 +252,24 @@ export async function intentClassificationsBrowser(fixture) {
     );
     const sourceLink =
       '.intent-detail a[href*="reference=1"][href*="referencePart=source"]';
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.intent-knowledge-list h4')?.textContent",
+      ),
+      "원본 삭제 또는 열람 불가",
+    );
+    assert.ok(
+      await evaluate(
+        "document.querySelector('.intent-knowledge-list')?.textContent.includes('Saved requirement') && document.querySelector('.intent-knowledge-list blockquote')?.textContent.includes('검색 당시 요구사항 본문')",
+      ),
+    );
+    assert.equal(
+      await evaluate(
+        "document.querySelector('.intent-detail > details')?.open ?? document.querySelector('.intent-technical')?.open",
+      ),
+      false,
+    );
+    await screenshot("knowledge-desktop");
     await click(sourceLink);
     await waitFor(
       () =>
@@ -267,8 +322,9 @@ export async function intentClassificationsBrowser(fixture) {
         evaluate("!document.querySelector('.intent-reference-dialog[open]')"),
       "reference closes with Escape",
     );
-    await click(
-      '.intent-detail a[href*="reference=0"][href*="referencePart=source"]',
+    // A deleted source has no clickable name; direct links still show the notice.
+    await navigate(
+      "/projects/dash-p1/intent-classifications?from=2026-11-23&to=2026-11-23&eventId=event-00&reference=0&referencePart=source",
     );
     await waitFor(
       () =>

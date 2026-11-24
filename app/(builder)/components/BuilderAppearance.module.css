@@ -1,0 +1,67 @@
+.surface {
+  --builder-surface: #fff;
+  --builder-canvas: #fafafa;
+  --builder-muted-surface: #f3f3f5;
+  --builder-input: #fff;
+  --builder-border: #dedee3;
+  --builder-text: #38383d;
+  --builder-muted: #73737d;
+  --builder-accent: #008767;
+  --builder-accent-hover: #006e55;
+  --builder-accent-soft: #e9f6f1;
+  --builder-on-accent: #fff;
+  --builder-dot: #c7c7cc;
+  --builder-edge: #959ca8;
+  --builder-group: #8e98b6;
+  --builder-danger: #c93646;
+  --builder-shadow: 0 2px 5px #0000000d;
+  color-scheme: light;
+}
+
+.surface[data-builder-theme="dark"] {
+  --builder-surface: #0e0f13;
+  --builder-canvas: #262626;
+  --builder-muted-surface: #2e3034;
+  --builder-input: #15161b;
+  --builder-border: #44464e;
+  --builder-text: #e6e6eb;
+  --builder-muted: #a2a3ac;
+  --builder-accent: #27cba3;
+  --builder-accent-hover: #32dfb3;
+  --builder-accent-soft: #17362d;
+  --builder-on-accent: #08271e;
+  --builder-dot: #55565d;
+  --builder-edge: #a0a4b0;
+  --builder-group: #8e98b6;
+  --builder-danger: #ff8b96;
+  --builder-shadow: 0 2px 5px #00000033;
+  color-scheme: dark;
+}
+
+/* Portaled papers opt in explicitly with the surface class and current theme. */
+.popover:global(.MuiPaper-root) {
+  background: var(--builder-surface);
+  color: var(--builder-text);
+  border: 1px solid var(--builder-border);
+  box-shadow: var(--builder-shadow);
+}
+
+.popover :global(.MuiTypography-root),
+.popover :global(.MuiInputBase-root),
+.popover :global(.MuiInputLabel-root),
+.popover :global(.MuiSelect-icon) {
+  color: var(--builder-text);
+}
+
+.popover :global(.MuiOutlinedInput-notchedOutline) {
+  border-color: var(--builder-border);
+}
+
+.popover :global(.MuiButton-root) {
+  color: var(--builder-accent);
+}
+
+.popover :global(.MuiButton-contained) {
+  background: var(--builder-accent);
+  color: var(--builder-on-accent);
+}

@@ -1,22 +1,29 @@
-import { useState } from 'react';
+import { useState } from "react";
 
 interface MessageProps {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   isStreaming?: boolean; // 현재 스트리밍이 진행 중인지 여부
-  isLoading?: boolean;   // 아직 첫 토큰도 안 와서 '생각 중'인지 여부
+  isLoading?: boolean; // 아직 첫 토큰도 안 와서 '생각 중'인지 여부
 }
 
-export default function ChatMessage({ role, content, isStreaming, isLoading }: MessageProps) {
-  const isUser = role === 'user';
+export default function ChatMessage({
+  role,
+  content,
+  isStreaming,
+  isLoading,
+}: MessageProps) {
+  const isUser = role === "user";
 
   return (
-    <div className={`flex w-full mb-4 ${isUser ? 'justify-end' : 'justify-start'}`}>
+    <div
+      className={`flex w-full mb-4 ${isUser ? "justify-end" : "justify-start"}`}
+    >
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? 'bg-blue-600 text-white rounded-br-none'
-            : 'bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200'
+            ? "bg-blue-600 text-white rounded-br-none"
+            : "bg-gray-100 text-gray-900 rounded-bl-none border border-gray-200"
         }`}
       >
         {/* 1. 아직 첫 토큰도 안 온 '생각 중' 상태 */}
