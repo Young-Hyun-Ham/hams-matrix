@@ -51,8 +51,8 @@ function BuilderNavigation({ name }: { name: string }) {
       {[
         ["/dashboard", "Matrix"],
         ["/react-flow/scenario-list", "시나리오"],
-        ["/form-builder", "폼 편집"],
-      ].map(([href, label]) => (
+        ["/form-builder", "폼"],
+      ].map(([href, label], index) => (
         <Link
           key={href}
           href={href}

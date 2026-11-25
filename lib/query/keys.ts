@@ -1,5 +1,7 @@
 export type QueryScope = { userId: string; workspaceId: string };
 export const matrixKeys = {
+  chatbot: (s: QueryScope, path: string) =>
+    [...matrixKeys.scope(s), "chatbot", path] as const,
   builder: (s: QueryScope, path?: string) =>
     [...matrixKeys.scope(s), "builder", ...(path ? [path] : [])] as const,
   consoleAccess: (s: QueryScope, endpoint: string) =>

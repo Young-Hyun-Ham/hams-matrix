@@ -100,7 +100,7 @@ export function SuperNotifications() {
   return (
     <div className="notification-wrap" ref={ref}>
       <button
-        className="button notification-trigger"
+        className="icon-button notification-trigger"
         aria-label="Business 계약 알림"
         title="계약 알림"
         aria-expanded={open}
@@ -108,7 +108,7 @@ export function SuperNotifications() {
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="file" size={19} />
-        <span className="notification-label">계약 알림</span>
+        {/* <span className="notification-label">계약 알림</span> */}
         {unread > 0 && (
           <span
             className="notification-badge"

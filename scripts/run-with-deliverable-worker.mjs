@@ -10,6 +10,16 @@ nextRequire("@next/env").loadEnvConfig(process.cwd(), mode === "dev");
 let ending = false,
   worker;
 let ragWorker;
+let chatbotWorker;
+const launchChatbotWorker = () => {
+  chatbotWorker = spawn(process.execPath, ["scripts/chatbot-worker.mjs"], {
+    stdio: "inherit",
+    windowsHide: true,
+  });
+  chatbotWorker.on("exit", () => {
+    if (!ending) setTimeout(launchChatbotWorker, 2000);
+  });
+};
 const launchRagWorker = () => {
   ragWorker = spawn(process.execPath, ["scripts/rag-worker.mjs"], {
     stdio: "inherit",
@@ -30,6 +40,7 @@ const launchWorker = () => {
 };
 launchWorker();
 launchRagWorker();
+launchChatbotWorker();
 const web = spawn(
   process.execPath,
   [require.resolve("next/dist/bin/next"), mode, ...process.argv.slice(3)],
@@ -41,9 +52,11 @@ const stop = () => {
   web.kill();
   worker?.kill();
   ragWorker?.kill();
+  chatbotWorker?.kill();
   // Persisted AI response IDs allow a replacement worker to recover after lease expiry.
   setTimeout(() => worker?.kill("SIGKILL"), 5000).unref();
   setTimeout(() => ragWorker?.kill("SIGKILL"), 5000).unref();
+  setTimeout(() => chatbotWorker?.kill("SIGKILL"), 5000).unref();
 };
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);

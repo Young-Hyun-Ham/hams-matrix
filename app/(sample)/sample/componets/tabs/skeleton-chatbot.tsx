@@ -45,7 +45,7 @@ export default function SkeletonChatPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chatbot", {
+      const response = await fetch("/api/sample/chatbot", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: userMessageText }),

@@ -468,7 +468,6 @@ export function WorkspaceShell({
               <span>⌕</span>
             </label>
             <span className="topbar-divider" />
-            <ThemeToggle />
             {activeUser.accountRole === "master" && <SuperNotifications />}
             <HeaderNotifications user={activeUser} />
             {/* <button
@@ -482,6 +481,7 @@ export function WorkspaceShell({
               {activeUser.name.charAt(0)}
             </button> */}
             <WorkspacePicker current={activeUser.workspaceId} />
+            <ThemeToggle />
           </div>
           {search && (
             <div className="search-results">

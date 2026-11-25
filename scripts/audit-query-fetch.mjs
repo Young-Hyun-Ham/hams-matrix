@@ -127,6 +127,24 @@ for (const path of paths) {
         reason =
           "Template query/mutation hook; builtin access and version checks preserved";
       }
+      if (
+        path === "components/chatbot/chatbot-host.tsx" &&
+        call === "requestJson"
+      ) {
+        category = "I";
+        reason =
+          "Explicit idempotent chatbot scenario start; no automatic replay";
+      }
+      if (path === "components/chatbot/runtime.tsx" && !category) {
+        category = "T";
+        reason =
+          "Chatbot command transport; scoped Query owns reads and retry is disabled";
+      }
+      if (path === "lib/chatbot/providers.ts") {
+        category = "S";
+        reason =
+          "Independent server-only provider with durable usage and quota reservation";
+      }
       const position = file.getLineAndCharacterOfPosition(node.getStart(file));
       entries.push({
         path,

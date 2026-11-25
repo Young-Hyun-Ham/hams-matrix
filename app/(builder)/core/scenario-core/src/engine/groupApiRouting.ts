@@ -1,4 +1,4 @@
-import { ScenarioData, ScenarioNode } from "../types/index";
+import type { ScenarioData, ScenarioNode } from "../types/index";
 
 // undefined means this rule does not apply; null means the group sequence ended.
 export function resolveGroupApiNextNode(

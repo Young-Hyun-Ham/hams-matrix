@@ -1,5 +1,6 @@
 import { createClient } from "@libsql/client";
 import { readFile, readdir } from "node:fs/promises";
+import { validateClarificationMigration } from "./chatbot-clarification-migration.mjs";
 if (!process.env.TURSO_DATABASE_URL)
   throw new Error("TURSO_DATABASE_URL is required");
 const argumentsList = process.argv.slice(2).filter((value) => value !== "--");
@@ -42,6 +43,14 @@ try {
   }
   if (selected && !migrations.includes(selected))
     throw new Error("Selected migration not found");
+  if (selected === "054_chatbot_storage.sql") {
+    const prerequisite = await db.execute({
+      sql: "SELECT name FROM schema_migrations WHERE name=?",
+      args: ["053_builder_storage.sql"],
+    });
+    if (!prerequisite.rows.length)
+      throw new Error("Migration 054 requires applied migration 053");
+  }
   if (selected === "046_ai_project_analysis_reviews.sql") {
     const prerequisite = await db.execute({
       sql: "SELECT name FROM schema_migrations WHERE name=?",
@@ -81,6 +90,15 @@ try {
       args: [name],
     });
     if (applied.rows.length) continue;
+    if (name === "055_chatbot_clarifications.sql") {
+      const prerequisite = await db.execute({
+        sql: "SELECT name FROM schema_migrations WHERE name=?",
+        args: ["054_chatbot_storage.sql"],
+      });
+      if (!prerequisite.rows.length)
+        throw Error("Migration 055 requires applied migration 054");
+      await validateClarificationMigration(db);
+    }
     const sql = (await readFile(new URL(name, directory), "utf8")).replace(
       /^\uFEFF/,
       "",

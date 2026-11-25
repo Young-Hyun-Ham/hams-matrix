@@ -84,7 +84,7 @@ import NodeController from "../../components/NodeController";
 import VersionTreeUI, {
   MOCK_UP_TREE_DATA,
 } from "../../components/VersionsTreeUI";
-import ChatbotSimulator from "../../components/ChatbotSimulator";
+import ScenarioSimulatorModal from "../../components/modals/ScenarioSimulatorModal";
 
 import "@reactflow/node-resizer/dist/style.css";
 import CustomOrthogonalEdge from "../../components/edges/CustomOrthogonalEdge";
@@ -216,9 +216,7 @@ const Flow = ({ scenario, scenarios }: any) => {
   const isPanMode = toolMode === "pan";
   const isSelectMode = toolMode === "select";
 
-  const [rightPanelWidth, setRightPanelWidth] = useState(400);
   const [isSimulatorVisible, setIsSimulatorVisible] = useState(false);
-  const [isSimulatorExpanded, setIsSimulatorExpanded] = useState(false);
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
 
   const [isLogVisible, setIsLogVisible] = useState(false);
@@ -685,27 +683,6 @@ const Flow = ({ scenario, scenarios }: any) => {
     closeContextMenu();
   };
 
-  const handleMainResize = (mouseDownEvent: any) => {
-    mouseDownEvent.preventDefault();
-    const startSize = rightPanelWidth;
-    const startPosition = mouseDownEvent.clientX;
-
-    const onMouseMove = (mouseMoveEvent: any) => {
-      const newSize = startSize - (mouseMoveEvent.clientX - startPosition);
-      if (newSize > 350 && newSize < 1000) {
-        setRightPanelWidth(newSize);
-      }
-    };
-
-    const onMouseUp = () => {
-      window.removeEventListener("mousemove", onMouseMove);
-      window.removeEventListener("mouseup", onMouseUp);
-    };
-
-    window.addEventListener("mousemove", onMouseMove);
-    window.addEventListener("mouseup", onMouseUp);
-  };
-
   const handleKeyDown = (event: any) => {
     if (event.key === "Backspace" || event.key === "Delete") {
       const isNodeSelected = nodes.some((node: any) => node.selected);
@@ -986,6 +963,14 @@ const Flow = ({ scenario, scenarios }: any) => {
           <ArrowLeft size={20} />
           {t("Back")}
         </button>
+        <Button
+          variant="outlined"
+          startIcon={<Play size={18} />}
+          title="시나리오 시뮬레이터"
+          onClick={() => setIsSimulatorVisible(true)}
+        >
+          시뮬레이터
+        </Button>
         <Button
           variant="outlined"
           size="medium"
@@ -1283,31 +1268,18 @@ const Flow = ({ scenario, scenarios }: any) => {
           <NodeController />
         </div>
 
-        <div
-          className={`${styles.resizerV} ${isSimulatorVisible && !isSimulatorExpanded ? styles.visible : ""}`}
-          onMouseDown={handleMainResize}
-        />
-
-        <div
-          className={`${styles.rightContainer} ${isSimulatorVisible ? styles.visible : ""}`}
-          style={{
-            width: isSimulatorExpanded
-              ? "max(600px, 50%)"
-              : isSimulatorVisible
-                ? `${rightPanelWidth}px`
-                : "0",
+        <ScenarioSimulatorModal
+          open={isSimulatorVisible}
+          onClose={() => setIsSimulatorVisible(false)}
+          scenarioKey={String(scenario?.id ?? "builder-preview")}
+          scenarioTitle={scenario?.name}
+          scenarioRunId="view-preview"
+          definitionOverride={{
+            nodes,
+            edges,
+            startNodeId: useBuilderStore.getState().startNodeId,
           }}
-        >
-          <div className={styles.panel}>
-            <ChatbotSimulator
-              nodes={nodes}
-              edges={edges}
-              isVisible={isSimulatorVisible}
-              isExpanded={isSimulatorExpanded}
-              setIsExpanded={setIsSimulatorExpanded}
-            />
-          </div>
-        </div>
+        />
       </Box>
 
       {/* 모달 팝업 ==================================================================== */}

@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "worker:chatbot": "node scripts/chatbot-worker.mjs",
+    "cleanup:chatbot": "node scripts/chatbot-worker.mjs --cleanup",
+    "test:chatbot": "node scripts/test-chatbot.mjs",
     "cleanup:guardrail-approvals": "node --env-file=.env scripts/cleanup-guardrail-approvals.mjs",
     "test:ai-guardrail-approvals": "node scripts/test-ai-guardrail-approvals.mjs",
     "test:ai-guardrail-approvals-browser": "node scripts/test-ai-guardrail-approvals.mjs --browser",
@@ -64,7 +67,10 @@
     "test:deliverable-background": "node scripts/test-deliverable-background.mjs",
     "test:ai-settings-reviews": "node scripts/test-ai-settings-reviews.mjs",
     "test:intent-classifications": "node scripts/test-intent-classifications.mjs",
-    "test:intent-classifications-browser": "node scripts/test-intent-classifications.mjs --browser"
+    "test:intent-classifications-browser": "node scripts/test-intent-classifications.mjs --browser",
+    "test:chatbot-browser": "node scripts/test-chatbot-browser.mjs",
+    "test:chatbot-document-formats": "node scripts/test-chatbot-document-formats.mjs",
+    "test:chatbot-clarification-migration": "node scripts/test-chatbot-clarification-migration.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1157.0",

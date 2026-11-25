@@ -1,3 +1,4 @@
+import { ChatbotHost } from "@/components/chatbot/chatbot-host";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth";
@@ -47,7 +48,7 @@ async function Authenticated({ children }: { children: React.ReactNode }) {
   return (
     <WorkspaceQueryBoundary user={user} preferences={initial}>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      {children}
+      <ChatbotHost user={user}>{children}</ChatbotHost>
     </WorkspaceQueryBoundary>
   );
 }

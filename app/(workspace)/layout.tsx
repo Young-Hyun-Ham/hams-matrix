@@ -1,3 +1,4 @@
+import { ChatbotHost } from "@/components/chatbot/chatbot-host";
 import { isThemePreset } from "@/lib/theme-presets";
 import { WorkspaceQueryBoundary } from "@/components/query/workspace-query-boundary";
 import { db } from "@/lib/db";
@@ -53,7 +54,9 @@ async function AuthenticatedWorkspace({
   return (
     <WorkspaceQueryBoundary user={user} preferences={initial} notifications>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      <WorkspaceShell user={user}>{children}</WorkspaceShell>
+      <ChatbotHost user={user}>
+        <WorkspaceShell user={user}>{children}</WorkspaceShell>
+      </ChatbotHost>
     </WorkspaceQueryBoundary>
   );
 }

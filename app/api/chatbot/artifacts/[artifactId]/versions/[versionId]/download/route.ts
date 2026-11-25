@@ -1,0 +1,21 @@
+import { chatbotUser } from "@/lib/chatbot/server";
+import { error } from "@/lib/chatbot/http";
+import { artifactVersion } from "@/lib/chatbot/storage";
+
+export async function GET(
+  request: Request,
+  context: { params: Promise<{ artifactId: string; versionId: string }> },
+) {
+  try {
+    const user = await chatbotUser();
+    const p = await context.params;
+    return (await artifactVersion(
+      user,
+      p.artifactId,
+      p.versionId,
+      true,
+    )) as Response;
+  } catch (e) {
+    return error(e);
+  }
+}

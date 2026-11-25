@@ -1,3 +1,4 @@
+import { ChatbotHost } from "@/components/chatbot/chatbot-host";
 import { isThemePreset } from "@/lib/theme-presets";
 import { WorkspaceQueryBoundary } from "@/components/query/workspace-query-boundary";
 import { WorkspacePlanGuard } from "@/components/workspace-plan-guard";
@@ -50,7 +51,9 @@ async function AuthenticatedDatabase({ children }: { children: ReactNode }) {
   return (
     <WorkspaceQueryBoundary user={user} preferences={initial}>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      <WorkspacePlanGuard user={user}>{children}</WorkspacePlanGuard>
+      <ChatbotHost user={user}>
+        <WorkspacePlanGuard user={user}>{children}</WorkspacePlanGuard>
+      </ChatbotHost>
     </WorkspaceQueryBoundary>
   );
 }

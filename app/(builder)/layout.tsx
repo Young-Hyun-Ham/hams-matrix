@@ -1,3 +1,4 @@
+import { ChatbotHost } from "@/components/chatbot/chatbot-host";
 // app/(siderbar-header)/admin/builder/layout.tsx
 
 import type { ReactNode } from "react";
@@ -77,9 +78,11 @@ async function AuthenticatedBuilder({ children }: { children: ReactNode }) {
   return (
     <WorkspaceQueryBoundary user={user} preferences={initial}>
       <PreferencesRuntime userId={user.id} initial={initial} />
-      <BuilderRuntime key={`${user.id}:${user.workspaceId}`} user={user}>
-        {children}
-      </BuilderRuntime>
+      <ChatbotHost user={user}>
+        <BuilderRuntime key={`${user.id}:${user.workspaceId}`} user={user}>
+          {children}
+        </BuilderRuntime>
+      </ChatbotHost>
     </WorkspaceQueryBoundary>
   );
 }
