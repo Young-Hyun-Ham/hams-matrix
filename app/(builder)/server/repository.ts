@@ -111,6 +111,7 @@ export function scenarioDto(r: Row, definition = true) {
     job: String(r.job),
     scenario_type: String(r.scenario_type),
     revision: Number(r.revision),
+    ...(definition ? { commandEnabled: Number(r.command_enabled) === 1 } : {}),
     latest_version: Number(r.latest_version),
     deployed_version:
       r.deployed_version === null ? null : Number(r.deployed_version),
@@ -333,6 +334,39 @@ export async function updateScenario(
     client,
   );
 }
+export async function setScenarioCommand(
+  request: Request,
+  u: User,
+  id: string,
+  p: Input,
+) {
+  if (typeof p.enabled !== "boolean")
+    throw new HttpError(400, "커맨드 등록 상태를 확인해 주세요.");
+  return write(request, u, async (tx) => {
+    const row = await scenario(tx, u, id);
+    const currentRevision = Number(row.revision);
+    if (currentRevision !== revision(p))
+      throw new HttpError(
+        409,
+        "다른 변경이 저장되었습니다. 다시 조회한 뒤 시도해 주세요.",
+      );
+    if ((Number(row.command_enabled) === 1) === p.enabled)
+      return { id, commandEnabled: p.enabled, revision: currentRevision };
+    await tx.execute({
+      sql: "UPDATE builder_scenarios SET command_enabled=?, revision=revision+1, updated_by=?, updated_at=? WHERE workspace_id=? AND id=? AND revision=?",
+      args: [
+        p.enabled ? 1 : 0,
+        u.id,
+        new Date().toISOString(),
+        u.workspaceId,
+        id,
+        currentRevision,
+      ],
+    });
+    await audit(tx, request, u, "UPDATE", "builder_scenario", id);
+    return { id, commandEnabled: p.enabled, revision: currentRevision + 1 };
+  });
+}
 export async function deleteScenarios(
   request: Request,
   u: User,
@@ -415,8 +449,12 @@ function snapshotDto(r: Row) {
 }
 export async function versions(u: User, id: string, client = db()) {
   assertBuilderAccess(u);
-  await scenario(client, u, id);
+  const current = await scenario(client, u, id);
   return {
+    deployed_version:
+      current.deployed_version === null
+        ? null
+        : Number(current.deployed_version),
     version_list: (
       await client.execute({
         sql: "SELECT * FROM builder_scenario_versions WHERE workspace_id=? AND scenario_id=? ORDER BY version_number DESC",

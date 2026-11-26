@@ -80,7 +80,7 @@ function IframeNode({ id, data }) {
         {data.url ? (
           <iframe
             src={encodeUrlParamsKeepingTemplates(data.url)}
-            width={isSelectionGroupChild ? "100%" : data.width || "100%"}
+            width="100%"
             height={data.height || "200"}
             style={{
               border: "1px solid #ccc",

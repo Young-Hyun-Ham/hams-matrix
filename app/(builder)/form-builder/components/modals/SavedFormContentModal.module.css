@@ -27,7 +27,7 @@
   position: absolute;
   top: 10px;
   right: 15px;
-  color: #888;
+  color: var(--builder-muted);
   cursor: pointer;
   background: none;
   border: none;
@@ -38,7 +38,7 @@
   padding-bottom: 15px;
   margin-top: 0;
   text-align: center;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--builder-border);
 }
 
 .loadSection {
@@ -55,23 +55,25 @@
   align-items: center;
   padding: 12px;
   margin-bottom: 12px;
-  background-color: #f8f9fb;
-  border: 1px solid #e5e7eb;
+  background-color: var(--builder-muted-surface);
+  border: 1px solid var(--builder-border);
   border-radius: 6px;
 }
 
 .searchLabel {
   flex-shrink: 0;
-  color: #444;
+  color: var(--builder-text);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .searchInput {
+  background: var(--builder-input);
+  color: var(--builder-text);
   flex: 1;
   min-width: 0;
   padding: 8px 10px;
-  border: 1px solid #cfd4dc;
+  border: 1px solid var(--builder-border);
   border-radius: 4px;
   font-size: 0.9rem;
 }
@@ -81,7 +83,7 @@
   min-height: 0;
   margin-top: 10px;
   overflow: auto;
-  border: 1px solid #ddd;
+  border: 1px solid var(--builder-border);
   border-radius: 4px;
 }
 
@@ -97,16 +99,16 @@
   padding: 10px 8px;
   text-align: left;
   vertical-align: middle;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--builder-border);
 }
 
 .formTable th {
   position: sticky;
   top: 0;
   z-index: 1;
-  color: #555;
+  color: var(--builder-muted);
   font-weight: 700;
-  background-color: #f8f9fb;
+  background-color: var(--builder-muted-surface);
 }
 
 .formRow {
@@ -114,7 +116,7 @@
 }
 
 .formRow:hover {
-  background-color: #f6f8ff;
+  background-color: var(--builder-accent-soft);
 }
 
 .monoCell,
@@ -131,7 +133,7 @@
 }
 
 .placeholder {
-  color: #888;
+  color: var(--builder-muted);
   font-style: italic;
   text-align: center;
 }
@@ -146,7 +148,7 @@
 }
 
 .pageInfo {
-  color: #555;
+  color: var(--builder-muted);
 }
 
 .pageButtons {
@@ -160,12 +162,31 @@
   color: var(--builder-text);
   cursor: pointer;
   background-color: var(--builder-surface);
-  border: 1px solid #cfd4dc;
+  border: 1px solid var(--builder-border);
   border-radius: 4px;
 }
 
 .pageButtons button:disabled {
-  color: #aaa;
+  color: var(--builder-muted);
   cursor: not-allowed;
-  background-color: #f3f4f6;
+  background-color: var(--builder-muted-surface);
+}
+
+.searchInput::placeholder {
+  color: var(--builder-muted);
+}
+.searchInput:focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+@media (max-width: 540px) {
+  .modalContent {
+    box-sizing: border-box;
+    padding: 16px;
+  }
+  .searchPanel,
+  .pagination,
+  .pageButtons {
+    flex-wrap: wrap;
+  }
 }

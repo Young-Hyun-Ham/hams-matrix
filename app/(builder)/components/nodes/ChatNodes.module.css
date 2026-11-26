@@ -1096,3 +1096,32 @@
 .publishingCompact :global(.MuiTypography-root) {
   color: var(--builder-text);
 }
+
+.nodeBody {
+  overflow-wrap: anywhere;
+}
+
+.formBuilderPreview {
+  overflow-x: auto;
+}
+
+.branchNode .nodeBody .textInput {
+  background: var(--builder-input);
+  border-color: var(--builder-border);
+  color: var(--builder-text);
+}
+
+.branchNode :is(.branchOptionsContainer, .formElementsPlaceholder) {
+  background: var(--builder-muted-surface);
+  color: var(--builder-text);
+}
+
+.branchNode .sectionTitle {
+  color: var(--builder-muted);
+}
+
+.branchNode .branchOptionButton {
+  min-width: 0;
+  border-color: var(--builder-border);
+  overflow-wrap: anywhere;
+}

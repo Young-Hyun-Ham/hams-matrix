@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, {
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   AppBar,
   Toolbar,
@@ -14,7 +21,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  ListItem,
   Paper,
   Dialog,
   DialogTitle,
@@ -22,6 +28,9 @@ import {
   DialogActions,
   Checkbox,
 } from "@mui/material";
+import { useRouter, useSearchParams } from "next/navigation";
+import { formDefinition, formListReturn, getForm } from "../services/forms";
+import { registerDraftGuard } from "../services/draftGuard";
 import { Layers as LayersIcon } from "@mui/icons-material";
 import {
   PointerSensor,
@@ -60,15 +69,12 @@ import {
   FORM_ELEMENT_TYPES,
 } from "./stores/elementRegistry";
 import { useFormEditorStore } from "./stores/useFormEditorStore";
-import { useNodeController } from "../components/controllers/hooks/useNodeController";
 import { toLocaleTimeValue } from "./utils/dateTimestamp";
 
 import type { NxMethod } from "./type/nxApis";
 
 import apiClient from "@/app/(builder)/services/apiClient";
 import { useModal } from "@/app/(builder)/providers/ModalProvider";
-
-import { useBuilderRuntime as useStore } from "@/app/(builder)/providers/runtime";
 
 const createId = (type: string) =>
   `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
@@ -568,6 +574,30 @@ const normalizeElement = (value: unknown): FormElement | null => {
 function ScenarioFormBuilder() {
   const { t } = useTranslation();
   const { showAlert, showConfirm } = useModal();
+  const router = useRouter();
+  const params = useSearchParams();
+  const target = params.get("formId");
+  const mode = params.get("mode");
+  const returnTo = formListReturn(params.get("returnTo"));
+  const invalid =
+    (params.has("formId") && !target?.trim()) ||
+    (mode !== null && (mode !== "new" || target !== null));
+  const entry = invalid
+    ? "invalid"
+    : target
+      ? "form:" + target
+      : mode === "new"
+        ? "new"
+        : "default";
+  const [loadedEntry, setLoadedEntry] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const savePending = useRef(false);
+  const appliedEntry = useRef<string | null>(null);
+  const baseline = useRef("");
+  const [originalDefinition, setOriginalDefinition] = useState<
+    Partial<FormDataJson>
+  >({});
   const [activeTab, setActiveTab] = useState(0);
   const [dataSource, setDataSource] = useState("");
   const [dataSourceType, setDataSourceType] = useState<"json" | "api">("json");
@@ -582,8 +612,6 @@ function ScenarioFormBuilder() {
   const [jsonText, setJsonText] = useState("");
   const [jsonError, setJsonError] = useState("");
 
-  const formId = useFormEditorStore((state) => state.formId);
-  const setFormId = useFormEditorStore((state) => state.setFormId);
   const formTitle = useFormEditorStore((state) => state.title);
   const elements = useFormEditorStore((state) => state.elements);
   const selectedId = useFormEditorStore((state) => state.selectedElementId);
@@ -634,6 +662,7 @@ function ScenarioFormBuilder() {
 
   const handleResetForm = () => {
     resetForm();
+    setOriginalDefinition({});
     setElementFormId(createFormId());
     setDataSource("");
     setDataSourceType("json");
@@ -644,8 +673,10 @@ function ScenarioFormBuilder() {
 
   const formJson = useMemo<FormDataJson>(
     () => ({
+      ...originalDefinition,
       id: elementFormId,
       data: {
+        ...originalDefinition.data,
         id: elementFormId,
         title: formTitle,
         elements,
@@ -666,6 +697,7 @@ function ScenarioFormBuilder() {
       enableExcelUpload,
       elementFormId,
       formTitle,
+      originalDefinition,
     ],
   );
 
@@ -687,7 +719,10 @@ function ScenarioFormBuilder() {
 
       const nextElements = Array.isArray(parsedData.elements)
         ? parsedData.elements
-            .map((element) => normalizeElement(element))
+            .map((element): FormElement | null => {
+              const normalized = normalizeElement(element);
+              return normalized ? { ...element, ...normalized } : null;
+            })
             .filter((element): element is FormElement => Boolean(element))
         : [];
 
@@ -698,6 +733,7 @@ function ScenarioFormBuilder() {
             ? parsed.id
             : elementFormId;
 
+      setOriginalDefinition(parsed);
       setElementFormId(nextFormId);
       replaceForm({
         id: nextFormId,
@@ -837,8 +873,9 @@ function ScenarioFormBuilder() {
 
     if (isFullFormData(nextFormJson)) {
       setElementFormId(nextFormJson.data.id);
-      setFormId(id);
+      setOriginalDefinition(nextFormJson);
       replaceForm({
+        formId: id,
         id: nextFormJson.data.id,
         revision: nextFormJson.revision ?? 0,
         title: nextFormJson.data.title,
@@ -853,8 +890,10 @@ function ScenarioFormBuilder() {
       setEnableExcelUpload(nextFormJson.data.enableExcelUpload ?? false);
     } else {
       setElementFormId(createFormId);
-      setFormId(null);
+      setOriginalDefinition({});
       replaceForm({
+        formId: null,
+        revision: 0,
         id: createFormId(),
         title: "new form",
         elements: [],
@@ -867,19 +906,147 @@ function ScenarioFormBuilder() {
     setJsonError("");
   };
 
-  async function saveFormBuilder() {
-    const confirmed = await showConfirm("Do you want to save the Form?");
-    if (!confirmed) return;
+  const snapshot = JSON.stringify(formJson);
+  const currentSnapshot = useRef(snapshot);
+  const captureBaseline = useRef(true);
+  useLayoutEffect(() => {
+    currentSnapshot.current = snapshot;
+    if (captureBaseline.current) {
+      baseline.current = snapshot;
+      captureBaseline.current = false;
+    }
+  });
 
+  const isDirty = () => baseline.current !== currentSnapshot.current;
+  useEffect(
+    () =>
+      registerDraftGuard(
+        () => baseline.current !== currentSnapshot.current,
+        () => savePending.current,
+      ),
+    [],
+  );
+
+  useEffect(() => {
+    const navigation = (
+      window as Window & { navigation?: { currentEntry?: { index: number } } }
+    ).navigation;
+    if (!navigation) return;
+    function checkHistory(event: PopStateEvent) {
+      const nextIndex = navigation?.currentEntry?.index;
+      if (
+        index === undefined ||
+        nextIndex === undefined ||
+        index < 0 ||
+        nextIndex < 0 ||
+        index === nextIndex
+      )
+        return;
+      if (
+        !savePending.current &&
+        (baseline.current === currentSnapshot.current ||
+          window.confirm("저장하지 않은 변경을 버리고 이동할까요?"))
+      ) {
+        index = nextIndex;
+        if (location.pathname !== "/form-builder")
+          useFormEditorStore.getState().resetForm();
+        return;
+      }
+      event.stopImmediatePropagation();
+      history.go(index - nextIndex);
+    }
+    let index = navigation.currentEntry?.index;
+    window.addEventListener("popstate", checkHistory, true);
+    return () => {
+      window.removeEventListener("popstate", checkHistory, true);
+    };
+  }, [params]);
+
+  const applyEntry = useEffectEvent(
+    (id: string | null, definition?: Partial<FormDataJson>) => {
+      captureBaseline.current = true;
+      if (id && definition) loadFormJson(id, definition);
+      else handleResetForm();
+    },
+  );
+
+  useEffect(() => {
+    if (invalid || appliedEntry.current === entry) return;
+    let active = true;
+    const request = target ? getForm(target) : Promise.resolve(null);
+    request.then(
+      (form) => {
+        if (!active) return;
+        if (form) applyEntry(form.id, formDefinition(form));
+        else applyEntry(null);
+        appliedEntry.current = entry;
+        setLoadError("");
+        setLoadedEntry(entry);
+      },
+      (error: unknown) => {
+        if (!active) return;
+        appliedEntry.current = null;
+        setLoadError(
+          error instanceof Error ? error.message : "폼을 불러오지 못했습니다.",
+        );
+        setLoadedEntry(entry);
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [entry, invalid, target]);
+
+  async function allowDiscard() {
+    return (
+      !savePending.current &&
+      (!isDirty() || (await showConfirm("저장하지 않은 변경을 버릴까요?")))
+    );
+  }
+
+  function editorUrl(id: string) {
+    return "/form-builder?" + new URLSearchParams({ formId: id, returnTo });
+  }
+
+  async function saveFormBuilder() {
+    if (savePending.current) return;
+    savePending.current = true;
     try {
-      await saveForm(formJson);
+      const confirmed = await showConfirm("Do you want to save the Form?");
+      if (!confirmed) return;
+      setSaving(true);
+      const saved = await saveForm(formJson);
+      baseline.current = snapshot;
+      if (target !== saved.id) {
+        appliedEntry.current = "form:" + saved.id;
+        setLoadedEntry(appliedEntry.current);
+        router.replace(editorUrl(saved.id));
+      }
       await showAlert("Saved.");
     } catch (error) {
       await showAlert(
-        error instanceof Error ? error.message : "Could not save the form.",
+        error instanceof Error
+          ? "status" in error && error.status === 409
+            ? error.message +
+              " 현재 초안을 보관한 뒤 저장된 폼을 다시 열어 확인해 주세요."
+            : error.message
+          : "Could not save the form.",
       );
+    } finally {
+      savePending.current = false;
+      setSaving(false);
     }
   }
+
+  if (!invalid && loadedEntry !== entry)
+    return <p role="status">폼을 불러오는 중입니다…</p>;
+  if (invalid || loadError)
+    return (
+      <div role="alert">
+        {invalid ? "폼 편집 주소를 확인해 주세요." : loadError}{" "}
+        <button onClick={() => router.push(returnTo)}>목록</button>
+      </div>
+    );
 
   return (
     <Box
@@ -901,6 +1068,11 @@ function ScenarioFormBuilder() {
         }}
       >
         <Toolbar sx={{ gap: 2, minHeight: "64px !important" }}>
+          {/* <Button disabled={saving} onClick={async () => {
+            if (!(await allowDiscard())) return;
+            resetForm();
+            router.push(returnTo);
+          }}>목록</Button> */}
           <LayersIcon
             sx={{ color: "primary.main", fontSize: 28 }}
             onClick={() => setIsElementManagementDialogOpen(true)}
@@ -952,6 +1124,7 @@ function ScenarioFormBuilder() {
             variant="contained"
             size="small"
             disableElevation
+            disabled={saving}
             onClick={saveFormBuilder}
           >
             {t("Save Form")}
@@ -1008,7 +1181,9 @@ function ScenarioFormBuilder() {
           >
             <RightPanel
               setIsJsonDialogOpen={setIsJsonDialogOpen}
-              onResetForm={handleResetForm}
+              onResetForm={async () => {
+                if (await allowDiscard()) handleResetForm();
+              }}
             />
           </Box>
         </Box>
@@ -1196,7 +1371,14 @@ function ScenarioFormBuilder() {
       <SavedFormContentModal
         isOpen={isSavedContentModalOpen}
         onClose={() => setIsSavedContentModalOpen(false)}
-        onSelect={loadFormJson}
+        onSelect={async (id, definition) => {
+          if (!(await allowDiscard())) return false;
+          captureBaseline.current = true;
+          loadFormJson(id, definition);
+          appliedEntry.current = "form:" + id;
+          setLoadedEntry(appliedEntry.current);
+          router.replace(editorUrl(id));
+        }}
       />
     </Box>
   );

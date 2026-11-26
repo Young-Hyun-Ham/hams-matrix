@@ -32,6 +32,9 @@ import appearanceStyles from "../BuilderAppearance.module.css";
  * @param {string} props.nodeColor - 노드 아이콘 영역 배경색
  * @param {string} props.textColor - 노드 아이콘 영역 색상
  * @param {React.ReactNode} props.children - 노드의 본문(body) 컨텐츠
+ * @param {{ inputPosition?: string, outputPosition?: string, outputPositions?: Record<string, string> } | null} [props.handleData] - 핸들 위치를 지정하는 노드 데이터
+ * @param {boolean} [props.bodyCollapsed] - 외부에서 관리하는 본문 접힘 상태
+ * @param {() => void} [props.onToggleBody] - 외부 접힘 상태를 전환하는 함수
  * @param {React.ReactNode} [props.handles=null] - (선택) 커스텀 핸들 (제공 시 기본 출력 핸들 대체)
  * @param {React.ReactNode} [props.headerButtons=null] - (선택) 헤더에 추가할 커스텀 버튼 (예: ApiNode의 테스트 버튼)
  * @param {string} [props.customClassName=""] - (선택) 래퍼 div에 추가할 클래스 (예: FormNode의 너비 조절용)
@@ -45,6 +48,7 @@ function NodeWrapper({
   textColor,
   children,
   handles = null,
+  handleData = null,
   headerButtons = null,
   nodeChrome = null,
   headerPrefix = null,
@@ -109,11 +113,12 @@ function NodeWrapper({
         node.type !== "scenario",
     );
   });
+  const positions = handleData ?? storeNodeData;
   const inputPos =
-    storeNodeData?.inputPosition === "top" ? Position.Top : Position.Left;
+    positions?.inputPosition === "top" ? Position.Top : Position.Left;
   const outputPos =
-    (storeNodeData?.outputPositions?.["default"] ||
-      storeNodeData?.outputPosition) === "bottom"
+    (positions?.outputPositions?.["default"] || positions?.outputPosition) ===
+    "bottom"
       ? Position.Bottom
       : Position.Right;
 
@@ -141,7 +146,7 @@ function NodeWrapper({
           ? { "--node-accent": nodeColor || "var(--builder-group)" }
           : {}),
         ...(isStandaloneRegularNode
-          ? { width: isBodyCollapsed ? 250 : 420, boxSizing: "border-box" }
+          ? { width: 250, boxSizing: "border-box" }
           : {}),
         ...(isSelectionGroupChild
           ? { width: "100%", boxSizing: "border-box" }

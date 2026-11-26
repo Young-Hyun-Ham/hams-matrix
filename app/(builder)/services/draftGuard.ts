@@ -1,8 +1,13 @@
+let blocked: (() => boolean) | undefined;
 let check: (() => boolean) | undefined;
-export function registerDraftGuard(next: () => boolean) {
+export function registerDraftGuard(
+  next: () => boolean,
+  isBlocked?: () => boolean,
+) {
   check = next;
+  blocked = isBlocked;
   const beforeUnload = (event: BeforeUnloadEvent) => {
-    if (next()) {
+    if (next() || isBlocked?.()) {
       event.preventDefault();
       event.returnValue = "";
     }
@@ -10,7 +15,12 @@ export function registerDraftGuard(next: () => boolean) {
   window.addEventListener("beforeunload", beforeUnload);
   return () => {
     window.removeEventListener("beforeunload", beforeUnload);
-    if (check === next) check = undefined;
+    if (check === next) {
+      check = undefined;
+      blocked = undefined;
+    }
   };
 }
 export const hasBuilderDraft = () => check?.() ?? false;
+
+export const isBuilderNavigationBlocked = () => blocked?.() ?? false;

@@ -596,6 +596,20 @@ try {
     ],
     startNodeId: "a",
   };
+  for (const [id, enabled, deployed, deletedAt] of [
+    ["command-on", 1, 1, null],
+    ["command-off", 0, 1, null],
+    ["command-draft", 1, null, null],
+    ["command-deleted", 1, 1, new Date().toISOString()],
+  ]) {
+    await db.execute({
+      sql: "INSERT INTO builder_scenarios(id,workspace_id,name,definition_json,created_by,updated_by,created_at,updated_at,command_enabled,deployed_version,deleted_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+      args: [id, owner.workspaceId, id, JSON.stringify(graph), owner.id, owner.id, new Date().toISOString(), new Date().toISOString(), enabled, deployed, deletedAt],
+    });
+  }
+  assert.deepEqual((await scenarios.availableScenarios(owner, true)).scenarios.map((row) => row.id), ["command-on"]);
+  assert.deepEqual((await scenarios.availableScenarios(owner)).scenarios.map((row) => row.id), ["command-off", "command-on"]);
+  checks += 2;
   const beforeRooms = (
     await db.execute("SELECT COUNT(*) AS n FROM chatbot_conversations")
   ).rows[0].n;

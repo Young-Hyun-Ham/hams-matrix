@@ -1,5 +1,7 @@
 "use client";
 
+import { projectScenarioCanvas } from "../../utils/scenarioCanvas";
+
 import { registerDraftGuard } from "../../services/draftGuard";
 import { sanitizeNodesForSave } from "../../store/edgeControlActionStore";
 import { useTranslation } from "@/app/(builder)/hooks/useTranslation";
@@ -2561,20 +2563,10 @@ const Flow = ({ scenario, scenarios }: any) => {
   }, [nodes]);
 
   // 그룹(시나리오) 접힘 처리도 safeNodes 기준으로
-  const visibleNodes = useMemo(() => {
-    const collapsedGroupIds = new Set(
-      safeNodes
-        .filter(
-          (n: any) =>
-            (n.type === "scenario" || n.type === "selectionGroup") &&
-            n?.data?.isCollapsed,
-        )
-        .map((n: any) => n.id),
-    );
-    return safeNodes.filter(
-      (n: any) => !n.parentNode || !collapsedGroupIds.has(n.parentNode),
-    );
-  }, [safeNodes]);
+  const canvas = useMemo(
+    () => projectScenarioCanvas(safeNodes, formattedEdges),
+    [safeNodes, formattedEdges],
+  );
 
   const selectionGroupLayoutSignature = useMemo(() => {
     const groupIds = new Set(
@@ -4334,8 +4326,8 @@ const Flow = ({ scenario, scenarios }: any) => {
                     <ReactFlow
                       className={`${pageStyles.canvas} ${isPanMode ? styles.panCanvas : styles.selectCanvas}`}
                       key={scenario?.id}
-                      nodes={visibleNodes}
-                      edges={formattedEdges}
+                      nodes={canvas.nodes}
+                      edges={canvas.edges}
                       onNodesChange={onNodesChange}
                       onEdgesChange={onEdgesChange}
                       onConnect={onConnect}

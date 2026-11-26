@@ -1,5 +1,7 @@
 "use client";
 
+import { projectScenarioCanvas } from "../../utils/scenarioCanvas";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
@@ -455,6 +457,8 @@ function EditorCanvas({
     });
   };
 
+  const canvas = projectScenarioCanvas(nodes, edges);
+
   return (
     <Box sx={{ display: "flex", flex: 1, minWidth: 0, minHeight: 0 }}>
       <Box
@@ -462,8 +466,8 @@ function EditorCanvas({
         sx={{ position: "relative", flex: 1, minWidth: 0 }}
       >
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={canvas.nodes}
+          edges={canvas.edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}

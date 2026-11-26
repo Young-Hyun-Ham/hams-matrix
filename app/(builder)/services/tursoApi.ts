@@ -34,6 +34,25 @@ export async function createScenario(input: any) {
   const { scenario } = await builderRequest("/scenarios", "POST", input);
   return scenario;
 }
+export async function toggleScenarioCommand(
+  scenarioId: string,
+  enabled: boolean,
+  expectedRevision: number,
+) {
+  const { scenario } = await builderRequest(
+    path(scenarioId) + "/command",
+    "PATCH",
+    {
+      enabled,
+      expectedRevision,
+    },
+  );
+  return remember(scenario) as {
+    id: string;
+    commandEnabled: boolean;
+    revision: number;
+  };
+}
 export async function patchScenario(input: any): Promise<any> {
   const { scenario } = await builderRequest(path(input.id), "PATCH", {
     ...input,

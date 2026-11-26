@@ -37,8 +37,8 @@ type ActivityDefinition = {
   category: string;
 };
 
-const uiPathBlue = "#0f6cbd";
-const panelBorder = "#d6dde5";
+const uiPathBlue = "var(--builder-accent)";
+const panelBorder = "var(--builder-border)";
 
 const activityList: ActivityDefinition[] = [
   {
@@ -187,27 +187,42 @@ export default function ActivityPickerModal({
         position: "fixed",
         inset: 0,
         zIndex: 1500,
-        bgcolor: "rgba(15, 23, 42, 0.18)",
+        bgcolor: "color-mix(in srgb, #000 45%, transparent)",
         display: "grid",
         placeItems: "center",
       }}
       onClick={onClose}
     >
       <Box
+        role="dialog"
+        aria-label={t("Add Node")}
         sx={{
           width: 750,
           maxWidth: "calc(100vw - 40px)",
           maxHeight: "calc(100vh - 56px)",
           bgcolor: "var(--builder-surface)",
-          border: "1px solid #aeb8c2",
-          boxShadow: "0 18px 42px rgba(15, 23, 42, 0.2)",
+          border: "1px solid var(--builder-border)",
+          boxShadow: "var(--builder-shadow)",
+          color: "var(--builder-text)",
+          "& :focus-visible": {
+            outline: "2px solid var(--builder-accent)",
+            outlineOffset: -2,
+          },
           p: 2.5,
           overflow: "hidden",
         }}
         onClick={(event) => event.stopPropagation()}
       >
         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-          <IconButton size="small" aria-label="Close" onClick={onClose}>
+          <IconButton
+            size="small"
+            aria-label="Close"
+            onClick={onClose}
+            sx={{
+              color: "var(--builder-text)",
+              "&:hover": { background: "var(--builder-accent-soft)" },
+            }}
+          >
             <X size={18} />
           </IconButton>
         </Box>
@@ -222,7 +237,7 @@ export default function ActivityPickerModal({
             mb: 1,
           }}
         >
-          <Search size={17} color="#31556f" />
+          <Search size={17} color="var(--builder-muted)" />
           <Box
             component="input"
             ref={searchInputRef}
@@ -236,7 +251,9 @@ export default function ActivityPickerModal({
               height: "100%",
               ml: 1.5,
               fontSize: 16,
-              color: "#33424f",
+              minWidth: 0,
+              background: "var(--builder-input)",
+              color: "var(--builder-text)",
             }}
           />
         </Box>
@@ -262,25 +279,33 @@ export default function ActivityPickerModal({
                 borderBottom: `1px solid ${panelBorder}`,
                 cursor: "pointer",
                 "&:hover": {
-                  bgcolor: "#f6f9fc",
+                  bgcolor: "var(--builder-accent-soft)",
                 },
               }}
             >
               <Box
-                sx={{ color: "#536675", display: "grid", placeItems: "center" }}
+                sx={{
+                  color: "var(--builder-muted)",
+                  display: "grid",
+                  placeItems: "center",
+                }}
               >
                 {getActivityIcon(activity.type)}
               </Box>
               <Box sx={{ minWidth: 0 }}>
                 <Typography
-                  sx={{ fontSize: 14, fontWeight: 700, color: "#4a5661" }}
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "var(--builder-text)",
+                  }}
                 >
                   {activity.title}
                 </Typography>
                 <Typography
                   sx={{
                     fontSize: 12,
-                    color: "#54616d",
+                    color: "var(--builder-muted)",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
                     whiteSpace: "nowrap",
@@ -297,9 +322,13 @@ export default function ActivityPickerModal({
                   justifyContent: "flex-start",
                 }}
               >
-                <PlugZap size={20} color="#ff4f1f" />
+                <PlugZap size={20} color="var(--builder-accent)" />
                 <Typography
-                  sx={{ fontSize: 14, fontWeight: 700, color: "#3c4650" }}
+                  sx={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "var(--builder-text)",
+                  }}
                 >
                   {activity.category}
                 </Typography>
@@ -314,7 +343,7 @@ export default function ActivityPickerModal({
               textAlign: "center",
               fontSize: 14,
               fontWeight: 700,
-              color: "#53616d",
+              color: "var(--builder-text)",
               mb: 2,
             }}
           >
@@ -345,7 +374,7 @@ export default function ActivityPickerModal({
                   justifyItems: "center",
                   gap: 0.75,
                   cursor: "pointer",
-                  color: "#52616e",
+                  color: "var(--builder-text)",
                   "&:hover": {
                     color: uiPathBlue,
                   },
@@ -355,7 +384,7 @@ export default function ActivityPickerModal({
                   sx={{
                     width: 42,
                     height: 40,
-                    bgcolor: "#f1f4f7",
+                    bgcolor: "var(--builder-accent-soft)",
                     display: "grid",
                     placeItems: "center",
                     color: uiPathBlue,

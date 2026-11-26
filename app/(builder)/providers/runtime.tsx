@@ -28,7 +28,10 @@ import { builderClipboardStore } from "../store/builderClipboardStore";
 import { useFormEditorStore } from "../form-builder/stores/useFormEditorStore";
 import { BuilderAppearanceContext } from "../components/BuilderAppearance";
 import ModalProvider, { useModal } from "./ModalProvider";
-import { hasBuilderDraft } from "../services/draftGuard";
+import {
+  hasBuilderDraft,
+  isBuilderNavigationBlocked,
+} from "../services/draftGuard";
 import usePreviewStore from "../components/emulator/store";
 type Runtime = {
   user: User & { chatModel?: string };
@@ -51,7 +54,7 @@ function BuilderNavigation({ name }: { name: string }) {
       {[
         ["/dashboard", "Matrix"],
         ["/react-flow/scenario-list", "시나리오"],
-        ["/form-builder", "폼"],
+        ["/form-builder/list", "폼"],
       ].map(([href, label], index) => (
         <Link
           key={href}
@@ -61,13 +64,23 @@ function BuilderNavigation({ name }: { name: string }) {
               event.ctrlKey ||
               event.metaKey ||
               event.shiftKey ||
-              !hasBuilderDraft()
+              event.altKey
             )
               return;
+            if (isBuilderNavigationBlocked()) {
+              event.preventDefault();
+              return;
+            }
+            if (!hasBuilderDraft()) return;
             event.preventDefault();
             void showConfirm("저장하지 않은 변경을 버리고 이동할까요?").then(
               (ok) => {
                 if (ok) {
+                  if (window.location.pathname === "/form-builder") {
+                    useFormEditorStore.getState().resetForm();
+                    router.push(href);
+                    return;
+                  }
                   const initial = useBuilderStore.getInitialState();
                   useBuilderStore.setState({
                     scenario: initial.scenario,

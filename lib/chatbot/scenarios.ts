@@ -70,11 +70,11 @@ export async function listRuns(u: User, source: string, scenarioId = "") {
     ).rows.map((r) => ({ ...r })),
   };
 }
-export async function availableScenarios(u: User) {
+export async function availableScenarios(u: User, commandsOnly = false) {
   return {
     scenarios: (
       await db().execute({
-        sql: "SELECT id,name FROM builder_scenarios WHERE workspace_id=? AND deleted_at IS NULL AND deployed_version IS NOT NULL ORDER BY name LIMIT 100",
+        sql: `SELECT id,name FROM builder_scenarios WHERE workspace_id=? AND deleted_at IS NULL AND deployed_version IS NOT NULL${commandsOnly ? " AND command_enabled=1" : ""} ORDER BY name,id${commandsOnly ? "" : " LIMIT 100"}`,
         args: [u.workspaceId],
       })
     ).rows.map((r) => ({ ...r })),

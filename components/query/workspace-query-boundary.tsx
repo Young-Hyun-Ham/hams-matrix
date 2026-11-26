@@ -12,16 +12,20 @@ import { matrixKeys } from "@/lib/query/keys";
 import { createWorkspaceQueryPolicy } from "@/lib/query/policy";
 import { serverGetJson } from "@/lib/query/server-fetch";
 import { WorkspaceQueryRuntime } from "./workspace-query-runtime";
+import { settings as readChatbotSettings } from "@/lib/chatbot/repository";
+
 export async function WorkspaceQueryBoundary({
   user,
   children,
   notifications = false,
   preferences,
+  withChatbot = false,
 }: {
   user: User;
   children: ReactNode;
   notifications?: boolean;
   preferences?: Preferences;
+  withChatbot?: boolean;
 }) {
   const scope = { userId: user.id, workspaceId: user.workspaceId };
   const settings = await getWorkspaceSystemSettings(user);
@@ -33,6 +37,13 @@ export async function WorkspaceQueryBoundary({
       [...matrixKeys.scope(scope), "preferences"],
       preferences,
     );
+  // WorkspaceQueryBoundary 내부, dehydrate(client) 호출 전
+  if (!withChatbot) {
+    client.setQueryData(
+      matrixKeys.chatbot(scope, "settings"),
+      await readChatbotSettings(user),
+    );
+  }
   if (notifications && user.accountRole === "master") {
     await client
       .query({

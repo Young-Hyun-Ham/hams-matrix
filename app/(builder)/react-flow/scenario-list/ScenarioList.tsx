@@ -14,6 +14,9 @@ import {
   Tooltip,
 } from "@mui/material";
 import RestartAltIcon from "@mui/icons-material/RestartAlt";
+import BookmarkIcon from "@mui/icons-material/Bookmark";
+import BookmarkBorderIcon from "@mui/icons-material/BookmarkBorder";
+import { toggleScenarioCommand } from "../../services/tursoApi";
 import BuildIcon from "@mui/icons-material/Build";
 import AppRegistrationIcon from "@mui/icons-material/AppRegistration";
 import CloseIcon from "@mui/icons-material/Close";
@@ -75,6 +78,8 @@ const ScenarioList = () => {
   const { t } = useTranslation();
   const { showAlert } = useModal();
   const router = useRouter();
+  const [commandSaving, setCommandSaving] = useState(false);
+  const [commandError, setCommandError] = useState("");
   const [loading, setLoading] = useState(false);
   const [scenarioDetail, setScenarioDetail] = useState<Scenario | null>(null);
   const [mode, setMode] = useState<MODE>(null);
@@ -250,6 +255,7 @@ const ScenarioList = () => {
       : null;
 
   const handleCloseScenario = () => {
+    setCommandError("");
     if (mode === "create") {
       setScenarios(scenarios.filter((item: Scenario) => Boolean(item.id)));
     }
@@ -465,7 +471,7 @@ const ScenarioList = () => {
       <AppLoadingOverlay loading={loading} />
       <Box sx={{ display: "flex", flex: 1, minHeight: 0, gap: 1 }}>
         <Box sx={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <Box sx={{ px: 2 }}>
+          <Box sx={{ px: 2, pt: "10px" }}>
             <Box
               sx={{
                 border: 1,
@@ -864,6 +870,78 @@ const ScenarioList = () => {
                               justifyContent: "flex-end",
                             }}
                           >
+                            <Tooltip
+                              title={
+                                scenarioDetail?.commandEnabled
+                                  ? "커맨드에 추가됨 (ON)"
+                                  : "커맨드에 추가 (OFF)"
+                              }
+                              arrow
+                            >
+                              <span>
+                                <IconButton
+                                  type="button"
+                                  size="small"
+                                  color={
+                                    scenarioDetail?.commandEnabled
+                                      ? "primary"
+                                      : "default"
+                                  }
+                                  aria-label="커맨드에 추가"
+                                  aria-pressed={
+                                    !!scenarioDetail?.commandEnabled
+                                  }
+                                  disabled={
+                                    loading ||
+                                    commandSaving ||
+                                    !scenarioDetail?.id ||
+                                    !scenarioDetail.revision
+                                  }
+                                  onClick={async () => {
+                                    const detail = scenarioDetail;
+                                    if (
+                                      !detail?.id ||
+                                      !detail.revision ||
+                                      commandSaving
+                                    )
+                                      return;
+                                    setCommandSaving(true);
+                                    setCommandError("");
+                                    try {
+                                      const saved = await toggleScenarioCommand(
+                                        detail.id,
+                                        !detail.commandEnabled,
+                                        detail.revision,
+                                      );
+                                      setScenarioDetail((current) =>
+                                        current?.id === saved.id
+                                          ? { ...current, ...saved }
+                                          : current,
+                                      );
+                                    } catch (error) {
+                                      setCommandError(
+                                        error instanceof Error
+                                          ? error.message
+                                          : "커맨드 등록을 저장하지 못했습니다.",
+                                      );
+                                    } finally {
+                                      setCommandSaving(false);
+                                    }
+                                  }}
+                                  sx={{
+                                    border: 1,
+                                    borderColor: "divider",
+                                    borderRadius: 1,
+                                  }}
+                                >
+                                  {scenarioDetail?.commandEnabled ? (
+                                    <BookmarkIcon fontSize="small" />
+                                  ) : (
+                                    <BookmarkBorderIcon fontSize="small" />
+                                  )}
+                                </IconButton>
+                              </span>
+                            </Tooltip>
                             <Tooltip title={t("View scenario versions")} arrow>
                               <span>
                                 <IconButton
@@ -911,6 +989,15 @@ const ScenarioList = () => {
                               </span>
                             </Tooltip>
                           </Box>
+                          {commandError && (
+                            <Typography
+                              role="alert"
+                              color="error"
+                              sx={{ gridColumn: "1 / -1" }}
+                            >
+                              {commandError}
+                            </Typography>
+                          )}
                         </Box>
                       </Box>
                     </Box>

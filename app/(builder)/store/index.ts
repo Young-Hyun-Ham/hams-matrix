@@ -1,5 +1,9 @@
-// app/builder/store/index.js
 "use client";
+import {
+  isContainerCollapsed,
+  projectScenarioCanvas,
+} from "../utils/scenarioCanvas";
+// app/builder/store/index.js
 
 import { create, type UseBoundStore, type StoreApi } from "zustand";
 import {
@@ -16,6 +20,7 @@ import {
 import { createNodeData, createFormElement } from "../utils/nodeFactory";
 import {
   fetchScenarioData,
+  getScenarioVersion,
   fetchScenarios,
   saveScenarioData,
   createScenario,
@@ -614,9 +619,35 @@ export const useBuilderStore: UseBoundStore<StoreApi<StoreState>> =
       }
       const prevNodes = get().nodes;
       const prevEdges = get().edges;
-      const nextNodes = applyNodeChanges(changes, prevNodes);
+      const moving = changes.some(
+        (change) => change.type === "position" && change.position,
+      );
+      const renderedById = moving
+        ? new Map(
+            projectScenarioCanvas(prevNodes, []).nodes.map((node) => [
+              node.id,
+              node,
+            ]),
+          )
+        : null;
+      const localChanges = changes.map((change) => {
+        if (change.type !== "position" || !change.position || !renderedById)
+          return change;
+        const node = prevNodes.find((item) => item.id === change.id);
+        const rendered = renderedById.get(change.id);
+        if (!node || !rendered || rendered.position === node.position)
+          return change;
+        return {
+          ...change,
+          position: {
+            x: change.position.x - (rendered.position.x - node.position.x),
+            y: change.position.y - (rendered.position.y - node.position.y),
+          },
+        };
+      });
+      const nextNodes = applyNodeChanges(localChanges, prevNodes);
 
-      const movedChanges = (changes as any[]).filter(
+      const movedChanges = (localChanges as any[]).filter(
         (change: any) =>
           change?.type === "position" && change?.position && change?.dragging,
       );
@@ -786,63 +817,38 @@ export const useBuilderStore: UseBoundStore<StoreApi<StoreState>> =
 
     toggleScenarioNode: (nodeId) => {
       set((state) => {
-        const PADDING = 40;
-        const newNodes = state.nodes.map((n) => {
+        const hasChildren = state.nodes.some(
+          (node) => node.parentNode === nodeId,
+        );
+        const newNodes = state.nodes.map((node) => {
           if (
-            n.id === nodeId &&
-            (n.type === "scenario" || n.type === "selectionGroup")
-          ) {
-            const isCollapsed = !(n.data?.isCollapsed ?? false);
-            const nextStyle: Record<string, any> = { ...(n.style as any) };
-
-            if (isCollapsed) {
-              nextStyle.width = 250;
-              nextStyle.height = 50;
-            } else {
-              const children = state.nodes.filter(
-                (c) => c.parentNode === nodeId,
-              );
-              if (n.type === "selectionGroup") {
-                nextStyle.width = 640;
-                nextStyle.height = Math.max(
-                  260,
-                  ...children.map(
-                    (child) =>
-                      child.position.y +
-                      (child.height || Number(child.style?.height) || 150) +
-                      60,
-                  ),
-                );
-              } else if (children.length) {
-                let minX = Infinity,
-                  minY = Infinity,
-                  maxX = 0,
-                  maxY = 0;
-                children.forEach((c) => {
-                  const x = c.position.x;
-                  const y = c.position.y;
-                  const w = (c.width as number) || 250;
-                  const h = (c.height as number) || 150;
-                  minX = Math.min(minX, x);
-                  minY = Math.min(minY, y);
-                  maxX = Math.max(maxX, x + w);
-                  maxY = Math.max(maxY, y + h);
-                });
-                nextStyle.width = maxX - minX + PADDING * 2;
-                nextStyle.height = maxY - minY + PADDING * 2;
-
-                children.forEach((c) => {
-                  c.position.x -= minX - PADDING;
-                  c.position.y -= minY - PADDING;
-                });
-              } else {
-                nextStyle.width = 250;
-                nextStyle.height = 100;
-              }
-            }
-            return { ...n, style: nextStyle, data: { ...n.data, isCollapsed } };
-          }
-          return n;
+            node.id !== nodeId ||
+            !["scenario", "selectionGroup"].includes(node.type ?? "")
+          )
+            return node;
+          const isCollapsed = !isContainerCollapsed(node, hasChildren);
+          return {
+            ...node,
+            style:
+              node.type === "selectionGroup"
+                ? {
+                    ...node.style,
+                    width: isCollapsed ? 250 : 640,
+                    height: isCollapsed
+                      ? 50
+                      : Math.max(
+                          260,
+                          ...state.nodes
+                            .filter((child) => child.parentNode === nodeId)
+                            .map(
+                              (child) =>
+                                child.position.y + (child.height || 150) + 60,
+                            ),
+                        ),
+                  }
+                : node.style,
+            data: { ...node.data, isCollapsed },
+          };
         });
         const nextEdges = state.edges.map((edge) => {
           if (edge.source !== nodeId && edge.target !== nodeId) return edge;
@@ -1150,79 +1156,118 @@ export const useBuilderStore: UseBoundStore<StoreApi<StoreState>> =
     },
 
     addScenarioAsGroup: async (scenario, position) => {
-      const { nodes: curNodes, edges: curEdges } = get();
-      const data = await fetchScenarioData(get().backend, {
-        scenarioId: scenario.id,
+      const { backend, scenario: owner } = get();
+      let active = true;
+      const unsubscribe = useBuilderStore.subscribe((state) => {
+        if (state.scenario.id !== owner.id) active = false;
       });
-      if (!data?.nodes?.length) {
-        alert(
-          `Failed to load scenario data for '${scenario.name}' or it is empty.`,
-        );
-        return;
-      }
-
-      const PADDING = 40;
-      let minX = Infinity,
-        minY = Infinity,
-        maxX = 0,
-        maxY = 0;
-      data.nodes.forEach((n: Node<any>) => {
-        minX = Math.min(minX, n.position.x);
-        minY = Math.min(minY, n.position.y);
-        const w = (n.width as number) || 250;
-        const h = (n.height as number) || 150;
-        maxX = Math.max(maxX, n.position.x + w);
-        maxY = Math.max(maxY, n.position.y + h);
-      });
-
-      const groupPos = position ?? { x: minX, y: minY };
-      const groupW = maxX - minX + PADDING * 2;
-      const groupH = maxY - minY + PADDING * 2;
-
-      const idPrefix = `group-${scenario.id}-${Date.now()}`;
-      const groupId = `group-${idPrefix}`;
-      const map = new Map<string, string>();
-
-      const childNodes: Node<any>[] = data.nodes.map((n: Node<any>) => {
-        const newId = `${idPrefix}-${n.id}`;
-        map.set(n.id, newId);
-        return {
-          ...n,
-          id: newId,
-          position: {
-            x: n.position.x - minX + PADDING,
-            y: n.position.y - minY + PADDING,
-          },
-          parentNode: groupId,
-          extent: "parent",
-        };
-      });
-
-      const groupNode: Node<any> = {
-        id: groupId,
-        type: "scenario",
-        position: groupPos,
-        data: {
-          label: scenario.name,
+      try {
+        const detail = await fetchScenarioData(backend, {
           scenarioId: scenario.id,
-          isCollapsed: false,
-        },
-        // 20260715 - 노드를 숨기고 모달 팝업에서 시나리오 뷰어를 보이도록 변경 처리
-        // 시나리오 그룹 노드의 크기를 자식 노드들의 범위에 맞게 설정
-        // style: { width: groupW, height: groupH },
-      };
+        });
+        if (!active) return;
+        const version = Number(detail?.deployed_version ?? detail?.depn_ver_id);
+        if (!Number.isInteger(version) || version <= 0) {
+          throw new Error("Select a deployed scenario.");
+        }
+        const snapshot = await getScenarioVersion(backend, {
+          scenario_id: scenario.id,
+          version_id: version,
+        });
+        if (!active) return;
+        const source: Node[] = snapshot?.nodes ?? [];
+        if (!source.length) throw new Error("The deployed scenario is empty.");
 
-      const newEdges: Edge<any>[] = (data.edges ?? []).map((e: Edge<any>) => ({
-        ...e,
-        id: `${idPrefix}-${e.id}`,
-        source: map.get(e.source)!,
-        target: map.get(e.target)!,
-      }));
-
-      set({
-        nodes: [...curNodes, groupNode, ...childNodes],
-        edges: [...curEdges, ...newEdges],
-      });
+        const groupId = `scenario-${crypto.randomUUID()}`;
+        const ids = new Map(
+          source.map((node) => [node.id, `${groupId}-${node.id}`]),
+        );
+        const roots = source.filter(
+          (node) => !node.parentNode || !ids.has(node.parentNode),
+        );
+        if (!roots.length)
+          throw new Error("The deployed scenario has no root nodes.");
+        const minX = Math.min(...roots.map((node) => node.position.x));
+        const minY = Math.min(...roots.map((node) => node.position.y));
+        const childNodes = source.map((node) => {
+          const parent = node.parentNode ? ids.get(node.parentNode) : undefined;
+          const data = { ...node.data };
+          if (ids.has(data.entryNodeId))
+            data.entryNodeId = ids.get(data.entryNodeId);
+          if (Array.isArray(data.exitNodeIds)) {
+            data.exitNodeIds = data.exitNodeIds.map(
+              (id: string) => ids.get(id) ?? id,
+            );
+          }
+          return {
+            ...node,
+            id: ids.get(node.id)!,
+            position: parent
+              ? node.position
+              : {
+                  x: node.position.x - minX + 40,
+                  y: node.position.y - minY + 110,
+                },
+            positionAbsolute: undefined,
+            selected: false,
+            dragging: false,
+            parentNode: parent ?? groupId,
+            extent: parent ? node.extent : ("parent" as const),
+            data,
+          };
+        });
+        const groupNode: Node = {
+          id: groupId,
+          type: "scenario",
+          position: position ?? { x: minX, y: minY },
+          data: {
+            label: detail.name || scenario.name,
+            scenarioId: scenario.id,
+            isCollapsed: false,
+          },
+        };
+        const newEdges: Edge[] = (snapshot.edges ?? []).flatMap(
+          (edge: Edge) => {
+            const source = ids.get(edge.source);
+            const target = ids.get(edge.target);
+            if (!source || !target) return [];
+            const data = { ...edge.data };
+            for (const key of [
+              "groupedBy",
+              "groupedSourceId",
+              "groupedTargetId",
+            ]) {
+              if (ids.has(data[key])) data[key] = ids.get(data[key]);
+            }
+            // Saved waypoints are absolute to the source canvas.
+            delete data.points;
+            return [
+              {
+                ...edge,
+                id: `${groupId}-${edge.id}`,
+                source,
+                target,
+                data,
+                selected: false,
+              },
+            ];
+          },
+        );
+        useBuilderHistoryStore.getState().push(makeSnapshot(get()));
+        set((state) => ({
+          nodes: [...state.nodes, groupNode, ...childNodes],
+          edges: [...state.edges, ...newEdges],
+        }));
+      } catch (error) {
+        if (active)
+          alert(
+            error instanceof Error
+              ? error.message
+              : "Failed to load the deployed scenario.",
+          );
+      } finally {
+        unsubscribe();
+      }
     },
 
     ...createGroupActionStore(set, get),

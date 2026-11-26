@@ -140,7 +140,9 @@ type FormEditorActions = {
   ) => void;
   replaceForm: (payload: FormElementData) => void;
   resetForm: () => void;
-  saveForm: (formData: FormDataJson) => void;
+  saveForm: (
+    formData: FormDataJson,
+  ) => Promise<{ id: string; revision: number }>;
 
   loadElementTypes: () => Promise<void>;
 };
@@ -261,6 +263,7 @@ export const useFormEditorStore = create<FormEditorStore>((set, get) => ({
   resetForm: () =>
     set({
       formId: null,
+      revision: 0,
       title: "new form",
       elements: [],
       selectedElementId: null,
@@ -280,6 +283,7 @@ export const useFormEditorStore = create<FormEditorStore>((set, get) => ({
       },
     );
     set({ formId: response.form.id, revision: response.form.revision });
+    return response.form;
   },
 
   loadElementTypes: async () => {

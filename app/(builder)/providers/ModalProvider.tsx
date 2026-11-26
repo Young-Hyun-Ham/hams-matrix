@@ -81,34 +81,36 @@ export default function ModalProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <Dialog
-        open={!!active}
-        onClose={(_, reason) => {
-          if (reason === "escapeKeyDown" && o?.closeOnEsc === false) return;
-          if (reason === "backdropClick" && !o?.closeOnOutside) return;
-          close(false);
-        }}
-        aria-labelledby="builder-dialog-title"
-      >
-        <DialogTitle id="builder-dialog-title">
-          {o?.title ?? (active?.confirm ? "확인" : "알림")}
-        </DialogTitle>
-        <DialogContent>{o?.message}</DialogContent>
-        <DialogActions>
-          {active?.confirm && (
-            <Button onClick={() => close(false)}>
-              {o?.cancelText ?? "취소"}
+      {active && o && (
+        <Dialog
+          open
+          onClose={(_, reason) => {
+            if (reason === "escapeKeyDown" && o.closeOnEsc === false) return;
+            if (reason === "backdropClick" && !o.closeOnOutside) return;
+            close(false);
+          }}
+          aria-labelledby="builder-dialog-title"
+        >
+          <DialogTitle id="builder-dialog-title">
+            {o.title ?? (active.confirm ? "확인" : "알림")}
+          </DialogTitle>
+          <DialogContent>{o.message}</DialogContent>
+          <DialogActions>
+            {active.confirm && (
+              <Button onClick={() => close(false)}>
+                {o.cancelText ?? "취소"}
+              </Button>
+            )}
+            <Button
+              autoFocus
+              color={o.destructive ? "error" : "primary"}
+              onClick={() => close(true)}
+            >
+              {o.okText ?? "확인"}
             </Button>
-          )}
-          <Button
-            autoFocus
-            color={o?.destructive ? "error" : "primary"}
-            onClick={() => close(true)}
-          >
-            {o?.okText ?? "확인"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          </DialogActions>
+        </Dialog>
+      )}
     </Context.Provider>
   );
 }

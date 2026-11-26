@@ -24,6 +24,7 @@ import {
 import { ChatbotApprovals } from "./chatbot-approvals";
 import { ChatbotSettings } from "./chatbot-settings";
 import { ConversationPane, ScenarioPane } from "./chatbot-panes";
+import { Minimize2Icon } from "lucide-react";
 import "@/styles/chatbot.css";
 const subscribeMounted = () => () => {};
 const clientMounted = () => true;
@@ -101,27 +102,6 @@ function ChatbotRuntime({
     },
     [],
   );
-  const openScenario = useCallback(
-    async (scenarioId: string, conversationId: string) => {
-      const { requestJson } = await import("@/lib/query/browser-fetch");
-      const result = await requestJson<{ id: string }>(
-        "/api/chatbot/scenario-runs",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            source: "chatbot",
-            scenarioId,
-            conversationId,
-            clientRequestId: crypto.randomUUID(),
-          }),
-        },
-      );
-      callback.current = undefined;
-      setSession({ type: "simulation", id: result.id });
-    },
-    [],
-  );
   return (
     <Runtime.Provider
       value={{
@@ -129,7 +109,6 @@ function ChatbotRuntime({
         drafts,
         saveDraft,
         openSimulation,
-        openScenario,
         showRunHistory: () => setHistory(true),
       }}
     >
@@ -220,6 +199,105 @@ function Layers({
     `scenario-runs?source=${history ? "builder-simulation" : "chatbot"}`,
     history || session?.type === "chat",
   );
+  const roomId = session?.type === "chat" ? session.id : null;
+  const [panelRoom, setPanelRoom] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<string | null>(null);
+  const [selectedScenario, setSelectedScenario] = useState("");
+  const [commandScenario, setCommandScenario] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [run, setRun] = useState<{ id: string; roomId: string } | null>(null);
+  const [runStatus, setRunStatus] = useState("");
+  const [chatRunning, setChatRunning] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const startingRef = useRef(false);
+  const startKey = useRef<{
+    roomId: string;
+    scenarioId: string;
+    key: string;
+  } | null>(null);
+  const [panelError, setPanelError] = useState("");
+  const panelToggle = useRef<HTMLButtonElement>(null);
+  const panelHeading = useRef<HTMLHeadingElement>(null);
+  const panelOpen = roomId !== null && panelRoom === roomId;
+  const currentRun = run !== null && run.roomId === roomId;
+  const liveRun =
+    run !== null &&
+    !["completed", "failed", "cancelled", "interrupted", "unknown"].includes(
+      runStatus,
+    );
+  const deployments = useChatbotQuery<{
+    scenarios: { id: string; name: string }[];
+  }>("scenarios", panelOpen && !historyId);
+  useEffect(() => {
+    if (panelOpen) panelHeading.current?.focus();
+  }, [panelOpen]);
+
+  function selectRoom(id: string) {
+    if (id !== roomId) {
+      setPanelRoom(null);
+      setHistoryId(null);
+      setSelectedScenario("");
+      setCommandScenario(null);
+      setPanelError("");
+    }
+    setSession({ type: "chat", id });
+  }
+  function hidePanel() {
+    setPanelRoom(null);
+    panelToggle.current?.focus();
+  }
+  function openPanel(scenarioId?: string, name?: string) {
+    if (!roomId) return;
+    setHistoryId(null);
+    if (scenarioId && name && !liveRun && !startingRef.current) {
+      if (currentRun) setRun(null);
+      setSelectedScenario(scenarioId);
+      setCommandScenario({ id: scenarioId, name });
+    }
+    setPanelRoom(roomId);
+  }
+  async function startScenario() {
+    if (
+      !roomId ||
+      !selectedScenario ||
+      startingRef.current ||
+      busy ||
+      liveRun ||
+      chatRunning
+    )
+      return;
+    startingRef.current = true;
+    setStarting(true);
+    setPanelError("");
+    if (
+      startKey.current?.roomId !== roomId ||
+      startKey.current.scenarioId !== selectedScenario
+    )
+      startKey.current = {
+        roomId,
+        scenarioId: selectedScenario,
+        key: crypto.randomUUID(),
+      };
+    try {
+      const result = await api.send<{ id: string }>("scenario-runs", "POST", {
+        source: "chatbot",
+        scenarioId: selectedScenario,
+        conversationId: roomId,
+        clientRequestId: startKey.current.key,
+      });
+      startKey.current = null;
+      setRunStatus("");
+      setRun({ id: result.id, roomId });
+      void runs.refetch();
+    } catch (e) {
+      setPanelError(errorMessage(e));
+    } finally {
+      startingRef.current = false;
+      setStarting(false);
+    }
+  }
   async function task(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -232,6 +310,7 @@ function Layers({
     }
   }
   async function newChat() {
+    if (startingRef.current || busy) return;
     await task(async () => {
       const result = await api.send<{ conversation: Conversation }>(
         "conversations",
@@ -241,20 +320,33 @@ function Layers({
       createKey.current = crypto.randomUUID();
       setRoomCursor("");
       setOlderRooms([]);
-      setSession({ type: "chat", id: result.conversation.id });
+      selectRoom(result.conversation.id);
       setMenu(false);
       await api.refresh();
     });
   }
   async function close() {
-    if (session?.type === "chat")
-      await task(async () => {
+    if (startingRef.current || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      if (session?.type === "chat")
         await api.send("conversations/" + session.id + "/stop");
-      });
-    if (session?.type === "simulation")
-      await task(async () => {
-        await api.send(`scenario-runs/${session.id}/stop`);
-      });
+      const activeRunId = session?.type === "simulation" ? session.id : run?.id;
+      if (activeRunId && (session?.type === "simulation" || liveRun))
+        await api.send("scenario-runs/" + activeRunId + "/stop");
+    } catch (e) {
+      setError(errorMessage(e));
+      return;
+    } finally {
+      setBusy(false);
+    }
+    setRun(null);
+    setPanelRoom(null);
+    setHistoryId(null);
+    setSelectedScenario("");
+    setCommandScenario(null);
+    setPanelError("");
     setSession(null);
     setSettingsOpen(false);
     setPreview(null);
@@ -296,6 +388,7 @@ function Layers({
         } else if (approvalsOpen) setApprovalsOpen(false);
         else if (history) setHistory(false);
         else if (menu) setMenu(false);
+        else if (panelOpen) hidePanel();
         else if (session) void close();
       }}
     >
@@ -325,7 +418,9 @@ function Layers({
             {last && (
               <button
                 onClick={() => {
-                  setSession(last);
+                  if (startingRef.current || busy) return;
+                  if (last.type === "chat") selectRoom(last.id);
+                  else setSession(last);
                   setMenu(false);
                 }}
               >
@@ -395,9 +490,10 @@ function Layers({
                 {runs.data?.runs.map((r) => (
                   <button
                     key={r.id}
-                    onClick={() =>
-                      setSession({ type: "run-history", id: r.id })
-                    }
+                    onClick={() => {
+                      setHistoryId(r.id);
+                      setPanelRoom(roomId);
+                    }}
                   >
                     {r.status === "completed" ? "✓" : "◷"} {r.title}
                   </button>
@@ -493,9 +589,10 @@ function Layers({
                         <>
                           <button
                             className="chatbot-room-title"
-                            onClick={() =>
-                              setSession({ type: "chat", id: r.id })
-                            }
+                            disabled={starting || busy}
+                            onClick={() => {
+                              if (!startingRef.current) selectRoom(r.id);
+                            }}
                           >
                             {r.title}
                           </button>
@@ -506,6 +603,11 @@ function Layers({
                             ✎
                           </button>
                           <button
+                            disabled={
+                              starting ||
+                              busy ||
+                              (liveRun && run?.roomId === r.id)
+                            }
                             aria-label="채팅방 삭제"
                             onClick={() => {
                               if (
@@ -573,6 +675,26 @@ function Layers({
                     : "시나리오 시뮬레이터"
                   : "HAMS Chatbot"}
               </strong>
+              {roomId && (
+                <button
+                  type="button"
+                  ref={panelToggle}
+                  aria-expanded={panelOpen}
+                  aria-controls="chatbot-scenario-panel"
+                  aria-label={
+                    panelOpen
+                      ? en
+                        ? "Hide scenario panel"
+                        : "시나리오 패널 닫기"
+                      : en
+                        ? "Open scenario panel"
+                        : "시나리오 패널 열기"
+                  }
+                  onClick={() => (panelOpen ? hidePanel() : openPanel())}
+                >
+                  ▤
+                </button>
+              )}
               <button
                 onClick={() => {
                   if (saved.data) {
@@ -602,11 +724,166 @@ function Layers({
             )}
             {saved.error && <p role="alert">{errorMessage(saved.error)}</p>}
             {session.type === "chat" ? (
-              <ConversationPane
-                key={session.id}
-                id={session.id}
-                settings={theme}
-              />
+              <div className="chatbot-workspace" data-panel-open={panelOpen}>
+                <div className="chatbot-chat-column">
+                  <ConversationPane
+                    key={session.id}
+                    id={session.id}
+                    settings={theme}
+                    onScenario={openPanel}
+                    onRunning={setChatRunning}
+                  />
+                </div>
+                <aside
+                  id="chatbot-scenario-panel"
+                  className="chatbot-scenario-panel"
+                  aria-labelledby="chatbot-scenario-title"
+                  hidden={!panelOpen}
+                >
+                  <header className="chatbot-scenario-header">
+                    <h2
+                      id="chatbot-scenario-title"
+                      tabIndex={-1}
+                      ref={panelHeading}
+                    >
+                      {en ? "Scenario" : "시나리오 실행"}
+                    </h2>
+                    <button
+                      type="button"
+                      aria-expanded={panelOpen}
+                      aria-controls="chatbot-scenario-panel"
+                      aria-label={
+                        en ? "Hide scenario panel" : "시나리오 패널 숨기기"
+                      }
+                      onClick={hidePanel}
+                    >
+                      <Minimize2Icon size={14} />
+                    </button>
+                  </header>
+                  {historyId && currentRun && (
+                    <button type="button" onClick={() => setHistoryId(null)}>
+                      {en ? "Current run" : "현재 실행"}
+                    </button>
+                  )}
+                  {run && (
+                    <div
+                      className="chatbot-scenario-content"
+                      hidden={!currentRun || !!historyId}
+                    >
+                      <ScenarioPane
+                        key={run.id}
+                        id={run.id}
+                        settings={theme}
+                        visible={panelOpen && currentRun && !historyId}
+                        onStatus={setRunStatus}
+                      />
+                      {currentRun && !liveRun && (
+                        <button type="button" onClick={() => setRun(null)}>
+                          {en ? "New run" : "새 실행"}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {historyId ? (
+                    <div className="chatbot-scenario-content">
+                      <ScenarioPane
+                        key={historyId}
+                        id={historyId}
+                        settings={theme}
+                        visible={panelOpen}
+                        readOnly
+                      />
+                    </div>
+                  ) : (
+                    !currentRun && (
+                      <div className="chatbot-scenario-picker">
+                        {deployments.isFetching && (
+                          <p role="status">
+                            {en
+                              ? "Loading scenarios…"
+                              : "시나리오 불러오는 중…"}
+                          </p>
+                        )}
+                        {deployments.error && (
+                          <p role="alert">
+                            {errorMessage(deployments.error)}{" "}
+                            <button
+                              type="button"
+                              onClick={() => void deployments.refetch()}
+                            >
+                              {en ? "Retry" : "다시 조회"}
+                            </button>
+                          </p>
+                        )}
+                        {deployments.data?.scenarios.length === 0 &&
+                          !commandScenario && (
+                            <p>
+                              {en
+                                ? "No deployed scenarios."
+                                : "배포된 시나리오가 없습니다."}
+                            </p>
+                          )}
+                        <select
+                          aria-label={
+                            en ? "Deployed scenarios" : "배포 시나리오"
+                          }
+                          value={selectedScenario}
+                          disabled={starting || liveRun}
+                          onChange={(e) => setSelectedScenario(e.target.value)}
+                        >
+                          <option value="">
+                            {en ? "Select scenario" : "시나리오 선택"}
+                          </option>
+                          {commandScenario &&
+                            !deployments.data?.scenarios.some(
+                              (item) => item.id === commandScenario.id,
+                            ) && (
+                              <option value={commandScenario.id}>
+                                {commandScenario.name}
+                              </option>
+                            )}
+                          {deployments.data?.scenarios.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="chatbot-primary"
+                          type="button"
+                          disabled={
+                            !selectedScenario ||
+                            starting ||
+                            busy ||
+                            liveRun ||
+                            chatRunning
+                          }
+                          onClick={() => void startScenario()}
+                        >
+                          {en ? "Run" : "실행"}
+                        </button>
+                        {liveRun && run && (
+                          <p>
+                            {en
+                              ? "A scenario is running in another chat."
+                              : "다른 채팅방에 진행 중인 시나리오가 있습니다."}{" "}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                selectRoom(run.roomId);
+                                setPanelRoom(run.roomId);
+                              }}
+                            >
+                              {en ? "Open run" : "실행으로 이동"}
+                            </button>
+                          </p>
+                        )}
+                        {panelError && <p role="alert">{panelError}</p>}
+                      </div>
+                    )
+                  )}
+                </aside>
+              </div>
             ) : (
               <ScenarioPane
                 key={session.id}

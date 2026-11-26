@@ -1,16 +1,24 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "@/app/(builder)/hooks/useTranslation";
 
 import styles from "./SavedFormContentModal.module.css";
 
 import type { SavedFormContent } from "../../type";
 
-import { builderList } from "../../../services/transport";
+import {
+  formDefinition,
+  listForms,
+  summarizeElements,
+} from "../../../services/forms";
+import { useBuilderAppearance } from "../../../components/BuilderAppearance";
 
 interface SavedFormContentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSelect: (id: string, formData: SavedFormContent["form_elem"]) => void;
+  onSelect: (
+    id: string,
+    formData: SavedFormContent["form_elem"],
+  ) => void | boolean | Promise<void | boolean>;
 }
 
 const PAGE_SIZE = 10;
@@ -31,22 +39,13 @@ const formatDateTime = (value: string) => {
   )}`;
 };
 
-const extractSavedForms = (response: any): SavedFormContent[] => {
-  if (Array.isArray(response)) return response as SavedFormContent[];
-  if (!response || typeof response !== "object") return [];
-
-  const responseData = response as Record<string, any>;
-  const nextForms = responseData.forms || responseData.data;
-
-  return Array.isArray(nextForms) ? (nextForms as SavedFormContent[]) : [];
-};
-
 function SavedFormContentModal({
   isOpen,
   onClose,
   onSelect,
 }: SavedFormContentModalProps) {
   const { t } = useTranslation();
+  const theme = useBuilderAppearance();
   const [forms, setForms] = useState<SavedFormContent[]>([]);
   const [searchTitle, setSearchTitle] = useState("");
   const [page, setPage] = useState(1);
@@ -54,45 +53,42 @@ function SavedFormContentModal({
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
+    let active = true;
     const fetchForms = async () => {
       setIsLoading(true);
       setErrorMessage("");
       try {
-        const response: any = (await builderList("/forms")).map(
-          (form: any) => ({
+        const response = await listForms();
+        if (!active) return;
+        setForms(
+          response.map((form) => ({
             form_id: form.id,
             form_tl: form.title,
             upd_dt: form.updatedAt,
             cre_dt: form.createdAt,
-            form_elem: {
-              ...form.definition,
-              revision: form.revision,
-              data: {
-                ...form.definition?.data,
-                id: form.definition?.data?.id ?? form.id,
-                title: form.title,
-                elements: form.elements,
-              },
-            },
-          }),
+            cre_usr_id: "",
+            upd_usr_id: "",
+            form_elem: formDefinition(form),
+          })),
         );
-        setForms(extractSavedForms(response));
         setPage(1);
       } catch (error) {
+        if (!active) return;
         setForms([]);
         setErrorMessage(
-          error instanceof Error
-            ? error.message
-            : t("Failed to load form content"),
+          error instanceof Error ? error.message : "폼을 불러오지 못했습니다.",
         );
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     };
 
     if (isOpen) {
       fetchForms();
     }
+    return () => {
+      active = false;
+    };
   }, [isOpen]);
 
   const filteredForms = useMemo(() => {
@@ -112,38 +108,18 @@ function SavedFormContentModal({
     return null;
   }
 
-  const handleSelect = (form: SavedFormContent) => {
-    onSelect(
+  const handleSelect = async (form: SavedFormContent) => {
+    const accepted = await onSelect(
       form.form_id,
       form.form_elem || ({} as SavedFormContent["form_elem"]),
     );
-    onClose();
-  };
-
-  const formatElementSummary = (form: SavedFormContent) => {
-    if (
-      !form.form_elem ||
-      typeof form.form_elem !== "object" ||
-      !("data" in form.form_elem)
-    ) {
-      return;
-    }
-    const elements = form.form_elem?.data?.elements ?? [];
-    if (elements.length === 0) return "-";
-
-    const counts = elements.reduce<Record<string, number>>((acc, element) => {
-      acc[element.type] = (acc[element.type] ?? 0) + 1;
-      return acc;
-    }, {});
-
-    return Object.entries(counts)
-      .map(([type, count]) => `${type} ${count}`)
-      .join(", ");
+    if (accepted !== false) onClose();
   };
 
   return (
     <div
       className={styles.modalOverlay}
+      data-builder-theme={theme ?? undefined}
       role="presentation"
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose();
@@ -209,7 +185,9 @@ function SavedFormContentModal({
                       <td>{(page - 1) * PAGE_SIZE + index + 1}</td>
                       <td className={styles.monoCell}>{form.form_id}</td>
                       <td className={styles.titleCell}>{form.form_tl}</td>
-                      <td>{formatElementSummary(form)}</td>
+                      <td>
+                        {summarizeElements(form.form_elem?.data?.elements)}
+                      </td>
                       <td>{form.cre_usr_id}</td>
                       <td>{form.upd_usr_id}</td>
                       <td>{formatDateTime(form.upd_dt)}</td>

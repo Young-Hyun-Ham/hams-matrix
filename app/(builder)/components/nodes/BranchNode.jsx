@@ -214,6 +214,7 @@ function BranchNode(props) {
     <NodeWrapper
       id={id}
       typeLabel={t("Branch")}
+      customClassName={styles.branchNode}
       icon={<NodeTypeIcon type="branch" />}
       nodeColor={nodeColor}
       textColor={textColor}

@@ -1,0 +1,115 @@
+.list {
+  padding: clamp(12px, 3vw, 32px);
+  min-width: 0;
+  color: var(--builder-text);
+}
+.searchBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--builder-border);
+  border-radius: 8px;
+}
+.searchBar label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+  font-size: 12px;
+}
+.searchActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-inline-start: auto;
+}
+.list button,
+.searchBar :is(input, select, a) {
+  max-width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--builder-border);
+  border-radius: 6px;
+  background: var(--builder-input);
+  color: var(--builder-text);
+}
+.searchBar :is(input, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+.searchActions :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+  line-height: 1.25;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.searchActions button[type="submit"] {
+  background: var(--builder-accent);
+  border-color: var(--builder-accent);
+  color: var(--builder-on-accent);
+}
+.searchActions button[type="submit"]:hover {
+  background: var(--builder-accent-hover);
+}
+.searchActions a {
+  border-color: var(--builder-accent);
+}
+.searchActions a:hover {
+  background: var(--builder-accent-soft);
+}
+.list :is(a, button, input, select):focus-visible {
+  outline: 2px solid var(--builder-accent);
+  outline-offset: 2px;
+}
+.list button:disabled {
+  color: var(--builder-muted);
+}
+.list button:not(:disabled):where(:hover),
+.list tr:hover td {
+  background: var(--builder-accent-soft);
+}
+.list nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.tableWrap {
+  overflow: auto;
+  border: 1px solid var(--builder-border);
+  border-radius: 8px;
+  background: var(--builder-surface);
+}
+.tableWrap table {
+  width: 100%;
+  min-width: 680px;
+  border-collapse: collapse;
+}
+.tableWrap th,
+.tableWrap td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--builder-border);
+}
+.tableWrap th {
+  background: var(--builder-muted-surface);
+}
+.tableWrap td:nth-child(2),
+.tableWrap td:nth-child(3) {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

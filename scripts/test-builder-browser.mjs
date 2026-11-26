@@ -114,6 +114,24 @@ async function checkCanvasPanels(mode) {
   await screenshot('canvas-tabs-'+mode);checks++;
   await call('Input.dispatchKeyEvent',{type:'keyDown',key:'Escape',code:'Escape',windowsVirtualKeyCode:27});
 }
+async function checkFormList() {
+  await navigate("/form-builder/list");
+  await waitFor(() => evaluate("document.querySelector('table[aria-label=\"저장된 폼\"]') !== null"), "form list");
+  const createdForm = await evaluate("(async () => {\n    const response = await fetch(\"/api/builder/forms\", {\n      method: \"POST\", headers: { \"Content-Type\": \"application/json\" },\n      body: JSON.stringify({ title: \"Browser Form\", elements: [], definition: { data: { id: \"local-form\", enableExcelUpload: true } } })\n    });\n    if (!response.ok) throw new Error(\"Could not seed browser form: \" + response.status);\n    return (await response.json()).form.id;\n  })()");
+  assert.ok(createdForm);
+  await navigate("/form-builder/list?title=browser&page=99");
+  await waitFor(() => evaluate("document.querySelector('table')?.innerText.includes('Browser Form')"), "filtered form list and page clamp");
+  await evaluate("Array.from(document.querySelectorAll('table a')).find(a => a.textContent === 'Browser Form').click()");
+  await waitFor(() => evaluate("location.search.includes('formId=') && Array.from(document.querySelectorAll('button')).some(b => /get saved content|저장된 콘텐츠/i.test(b.textContent))"), "open saved form");
+  await evaluate("Array.from(document.querySelectorAll('button')).find(b => /get saved content|저장된 콘텐츠/i.test(b.textContent)).click()");
+  const theme = await evaluate("document.querySelector('.builder-root').dataset.builderTheme");
+  if (theme === "light") {
+    await evaluate("document.querySelector(\"button[aria-label='다크 모드']\").click()");
+  }
+  await waitFor(() => evaluate("(() => {\n    const input = document.querySelector(\"#form-title-search\");\n    return input?.closest(\"[data-builder-theme]\")?.dataset.builderTheme === \"dark\" &&\n      getComputedStyle(input).getPropertyValue(\"--builder-input\").trim() !== \"\";\n  })()"), "dark saved form search");
+  checks++;
+}
+
 try {
   server = spawn(
     process.execPath,
@@ -206,6 +224,18 @@ try {
     httpOnly: true,
     sameSite: "Lax",
   });
+  if (process.argv.includes("--scenario-list-only")) {
+    await navigate("/react-flow/scenario-list");
+    await waitFor(() => evaluate("!!document.querySelector('.builder-root input')"), "scenario list hydration");
+    const idleDialogStyle = await evaluate("(async () => {\n      const response = await fetch(\"/react-flow/scenario-list\");\n      if (!response.ok) throw Error(\"Scenario list SSR request failed\");\n      const doc = new DOMParser().parseFromString(await response.text(), \"text/html\");\n      return [...doc.body.querySelectorAll(\"style[data-emotion]\")]\n        .some((style) => style.dataset.emotion.includes(\"MuiDialog-root\"));\n    })()");
+    assert.equal(idleDialogStyle, false, "Idle dialog must not emit an inline Emotion style during SSR");
+    await call("Page.reload");
+    await waitFor(() => evaluate("performance.getEntriesByType('navigation')[0]?.type === 'reload' && !!document.querySelector('.builder-root input')"), "scenario list reload");
+    assert.deepEqual(errors, []);
+    checks++;
+  } else if (process.argv.includes("--forms-only")) {
+    await checkFormList();
+  } else {
   await navigate("/react-flow/scenario-list");
   await waitFor(
     () => evaluate("!!document.querySelector('.builder-root input')"),
@@ -299,6 +329,47 @@ try {
   await checkScenarioModalTheme('dark');
   await navigate('/react-flow/scenario-flow?scenarioId='+id);
   await waitFor(()=>evaluate("document.querySelectorAll('.react-flow__node').length===1"),'return to dark editor');
+  const widths = await evaluate(`(() => {
+    const node = document.querySelector(".react-flow__node");
+    const button = node.querySelector("button[aria-expanded]");
+    const width = node.getBoundingClientRect().width;
+    button.click();
+    return width;
+  })()`);
+  await waitFor(() => evaluate(`(() => {
+    const node = document.querySelector(".react-flow__node");
+    return node.querySelector("button[aria-expanded=true]") &&
+      node.getBoundingClientRect().width === ${widths};
+  })()`), "regular node width remains fixed");
+  await evaluate(`(() => {
+    const pane = document.querySelector(".react-flow__pane");
+    const bounds = pane.getBoundingClientRect();
+    pane.dispatchEvent(new MouseEvent("contextmenu", {
+      bubbles: true, cancelable: true, button: 2,
+      clientX: bounds.left + 30, clientY: bounds.top + 30,
+    }));
+  })()`);
+  await waitFor(() => evaluate(`(() => {
+    const button = [...document.querySelectorAll("button")].find(item =>
+      /add node|\uB178\uB4DC\\s*\uCD94\uAC00/i.test(item.textContent));
+    if (!button) return false;
+    button.click();
+    return true;
+  })()`), "open canvas activity picker");
+  await waitFor(() => evaluate(`(() => {
+    const search = document.querySelector("input:focus");
+    if (!search || !search.placeholder || !search.closest("[role=dialog]")) return false;
+    const token = getComputedStyle(search).getPropertyValue("--builder-text").trim();
+    if (!token) return false;
+    const expected = document.createElement("span");
+    expected.style.color = token;
+    search.parentElement.append(expected);
+    const matches = getComputedStyle(search).color === getComputedStyle(expected).color;
+    expected.remove();
+    return matches;
+  })()`), "activity picker search uses builder theme");
+  await evaluate(`document.activeElement.closest("[role=dialog]").querySelector("button[aria-label=Close]").click()`);
+  checks += 2;
   const preview = await evaluate(
     "(()=>{const b=[...document.querySelectorAll('button')].find(x=>/simulator|시뮬레이터/i.test(x.title));if(!b)return false;b.click();return true;})()",
   );
@@ -322,13 +393,56 @@ try {
     "simulator unmounted",
   );
   checks++;
+  const prepareVersions = async (scenarioId) => {
+    const url = "/api/builder/scenarios/" + scenarioId;
+    const get = await fetch(url);
+    const { scenario } = await get.json();
+    const write = async (path, payload) => {
+      const response = await fetch(url + path, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return (await response.json()).scenario;
+    };
+    const deployed = await write("/deployments", {
+      expectedRevision: scenario.revision,
+      versionNumber: 1,
+      requestId: "browser-deploy-v1",
+    });
+    await write("/versions", {
+      expectedRevision: deployed.revision,
+      requestId: "browser-publish-v2",
+      nodes: [],
+      edges: [],
+      startNodeId: null,
+    });
+    const first = await fetch(url + "/versions/1").then((r) => r.json());
+    return first.scenario.nodes[0].id;
+  };
+  const historicalNodeId = await evaluate("(" + prepareVersions + ")(" + JSON.stringify(id) + ")");
   await navigate("/react-flow/scenario-view?scenarioId=" + id);
   await waitFor(
     () => evaluate("!!document.querySelector('.react-flow')"),
     "version view",
   );
+  const versionRows = "[aria-label='Version Tree'] button[aria-pressed]";
+  await waitFor(
+    () => evaluate(`Array.from(document.querySelectorAll(${JSON.stringify(versionRows)})).some(row => row.textContent.trim() === "2" && row.getAttribute("aria-pressed") === "true")`),
+    "latest version selected",
+  );
+  const deployedButton = "button:has([aria-label='Deployed'])";
+  assert.equal(await evaluate(`document.querySelector(${JSON.stringify(deployedButton)})?.textContent.trim()`), "1");
+  await evaluate(`document.querySelector(${JSON.stringify(deployedButton)}).click()`);
+  await waitFor(
+    () => evaluate(`document.querySelector(${JSON.stringify(deployedButton)})?.getAttribute("aria-pressed") === "true" && Array.from(document.querySelectorAll(".react-flow__node")).some(node => node.dataset.id === ${JSON.stringify(historicalNodeId)})`),
+    "selected historical version rendered on canvas",
+  );
   await screenshot("version-dark");
   checks++;
+  await checkFormList();
+
   await navigate("/form-builder");
   await waitFor(
     () => evaluate("!!document.querySelector('.builder-root input')"),
@@ -358,6 +472,7 @@ try {
     "viewer access denied",
   );
   checks++;
+  }
   assert.deepEqual(errors, []);
   console.log(
     `Builder browser: ${checks} checks passed; screenshots in .auth-tests/builder-browser`,

@@ -729,3 +729,43 @@
 .chatbot-clarification-controls button {
   white-space: nowrap;
 }
+
+.chatbot-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  gap: 12px;
+  container-type: inline-size;
+}
+.chatbot-chat-column,
+.chatbot-scenario-panel,
+.chatbot-scenario-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.chatbot-chat-column,
+.chatbot-scenario-content { flex: 1; }
+.chatbot-scenario-panel {
+  flex: 0 0 clamp(320px, calc(100% - 332px), 388px);
+  border-inline-start: 1px solid var(--chatbot-line);
+  background: var(--chatbot-surface);
+}
+.chatbot-scenario-panel[hidden],
+.chatbot-scenario-content[hidden] { display: none; }
+.chatbot-scenario-header, .chatbot-scenario-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+}
+.chatbot-scenario-header { border-bottom: 1px solid var(--chatbot-line); }
+.chatbot-scenario-header h2 { flex: 1; margin: 0; font-size: 15px; }
+.chatbot-scenario-picker select { min-width: 0; flex: 1; }
+.chatbot-scenario-picker p { flex-basis: 100%; }
+@container (max-width: 651px) {
+  .chatbot-workspace[data-panel-open="true"] .chatbot-chat-column { display: none; }
+  .chatbot-scenario-panel { flex: 1; }
+}

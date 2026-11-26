@@ -1,5 +1,7 @@
 "use client";
 
+import { projectScenarioCanvas } from "../../utils/scenarioCanvas";
+
 import { useEffect, useState } from "react";
 import CloseIcon from "@mui/icons-material/Close";
 import {
@@ -17,6 +19,7 @@ import ReactFlow, {
   Controls,
   MiniMap,
   ReactFlowProvider,
+  applyNodeChanges,
   type Edge,
   type Node,
 } from "reactflow";
@@ -112,6 +115,26 @@ export default function ScenarioViewModal({
     };
   }, [isOpen, scenario?.id, scenario?.ltst_ver_id, t]);
 
+  const canvas = projectScenarioCanvas(nodes, edges);
+  const displayNodes = canvas.nodes.map((node) =>
+    node.type === "scenario"
+      ? {
+          ...node,
+          data: {
+            ...node.data,
+            onToggleScenario: (id: string, isCollapsed: boolean) =>
+              setNodes((current) =>
+                current.map((item) =>
+                  item.id === id
+                    ? { ...item, data: { ...item.data, isCollapsed } }
+                    : item,
+                ),
+              ),
+          },
+        }
+      : node,
+  );
+
   return (
     <Dialog open={isOpen} onClose={onClose} fullScreen>
       <DialogTitle
@@ -146,8 +169,11 @@ export default function ScenarioViewModal({
           <Box sx={{ flex: 1, minWidth: 0, minHeight: 0 }}>
             <ReactFlowProvider>
               <ReactFlow
-                nodes={nodes}
-                edges={edges}
+                nodes={displayNodes}
+                edges={canvas.edges}
+                onNodesChange={(changes) =>
+                  setNodes((current) => applyNodeChanges(changes, current))
+                }
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 nodesDraggable={false}

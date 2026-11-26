@@ -2,99 +2,61 @@
 "use client";
 
 import { Box, IconButton, Typography } from "@mui/material";
-import { memo, useEffect, useMemo, useState } from "react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { memo, useEffect, useEffectEvent, useState } from "react";
 import { useTranslation } from "@/app/(builder)/hooks/useTranslation";
 
 import VersionsTree from "./VersionsTree";
-import { TreeItem, VersionTreeItem } from "../types/types";
 import { getScenarioVersions } from "../services/backendService";
 import { useBuilderStore } from "../store";
 
-import { COLORS } from "@/app/(builder)/constants/color";
 import { useModal } from "@/app/(builder)/providers/ModalProvider";
-import apiClient from "@/app/(builder)/services/apiClient";
 
-export const MOCK_UP_TREE_DATA: TreeItem[] = [
-  {
-    id: "sec-default",
-    index: 0,
-    label: "Default",
-    children: [
-      // {
-      //   id: 'DEV_1000_000025_15',
-      //   type: 'version',
-      //   index: 0,
-      //   label: '1.0.1',
-      //   children: [],
-      // },
-      // {
-      //   id: 'DEV_1000_000025_33',
-      //   type: 'version',
-      //   index: 1,
-      //   label: '1.0.2',
-      //   children: [],
-      // },
-      // {
-      //   id: 'DEV_1000_000025_34',
-      //   type: 'version',
-      //   index: 2,
-      //   label: '1.0.3',
-      //   children: [],
-      // },
-    ],
-  },
-];
+type Props = {
+  props?: { isMenuView?: boolean };
+  scenarioId: string;
+  selectedVersionId?: number | null;
+  onSelectVersion: (versionId: number) => void;
+};
 
-// [인수인계 메모]
-// - 역할: 좌측 카테고리 메뉴 트리 렌더링.
-function VersionsTreeUI({ props, versions }: any) {
+const expandedWidth = 132;
+const collapsedWidth = 46;
+
+function VersionsTreeUI({
+  props,
+  scenarioId,
+  selectedVersionId,
+  onSelectVersion,
+}: Props) {
   const { t } = useTranslation();
   const { showAlert } = useModal();
-  const [treeData, setTreeData] =
-    useState<VersionTreeItem[]>(MOCK_UP_TREE_DATA);
-
-  const { backend, scenario } = useBuilderStore() as any;
-
-  const [isDragMode, setIsDragMode] = useState(true);
+  const backend = useBuilderStore((state) => state.backend);
+  const [versionList, setVersionList] = useState<{
+    version_list: { ver_id: number }[];
+    deployed_version: number | null;
+  } | null>(null);
+  const reportLoadError = useEffectEvent(() =>
+    showAlert(t("Failed to load versions")),
+  );
   const [isUserCollapsed, setIsUserCollapsed] = useState(false);
   const isMenuCollapsed = Boolean(props?.isMenuView) || isUserCollapsed;
 
   useEffect(() => {
-    const loadVersions = async () => {
-      try {
-        const data: any = await getScenarioVersions(backend, {
-          scenario_id: scenario.id,
-        });
-        console.log("VersionsTreeUI - loadVersions - data: ", data);
-        // const versionList = Array.isArray(data) ? data : data?.version_list ?? [];
+    if (!scenarioId) return;
 
-        const versionChildren: any = (data?.version_list ?? []).map(
-          (item: any, index: number) => ({
-            id: item.snro_id + ":" + item.ver_id + ":" + item.depn_yn,
-            snro_id: item.snro_id,
-            ver_id: item.ver_id,
-            depn_yn: item.depn_yn,
-            type: "version",
-            index,
-            label: item.ver_id ?? "",
-          }),
-        );
+    let active = true;
+    void getScenarioVersions(backend, { scenario_id: scenarioId })
+      .then((data) => {
+        if (active) setVersionList(data);
+      })
+      .catch(() => {
+        if (active) void reportLoadError();
+      });
 
-        setTreeData([
-          {
-            id: "sec-default",
-            index: 0,
-            label: t("Default"),
-            children: versionChildren,
-          },
-        ]);
-      } catch (error) {
-        showAlert(t("Failed to load versions"));
-      }
+    return () => {
+      active = false;
     };
-
-    loadVersions();
-  }, [backend, scenario.id, showAlert, t]);
+  }, [backend, scenarioId]);
 
   return (
     <Box
@@ -103,7 +65,10 @@ function VersionsTreeUI({ props, versions }: any) {
       sx={{
         borderRight: 1,
         borderColor: "var(--builder-border)",
-        width: isMenuCollapsed ? "46px" : "264px",
+        bgcolor: "var(--builder-surface)",
+        width: isMenuCollapsed ? collapsedWidth : expandedWidth,
+        boxSizing: "border-box",
+        flexShrink: 0,
         ...{
           display: "flex",
           flexDirection: "column",
@@ -129,15 +94,21 @@ function VersionsTreeUI({ props, versions }: any) {
           aria-label={
             isMenuCollapsed ? "Expand Version Tree" : "Collapse Version Tree"
           }
+          size="small"
+          sx={{ color: "var(--builder-text)", flexShrink: 0 }}
           onClick={() => setIsUserCollapsed((prev) => !prev)}
         >
-          {/* {isMenuCollapsed ? <LeftPanelOpenIcon /> : <LeftPanelCloseIcon />} */}
+          {isMenuCollapsed ? (
+            <PanelLeftOpen size={16} />
+          ) : (
+            <PanelLeftClose size={16} />
+          )}
         </IconButton>
         <Typography
           sx={{
             fontSize: 14,
             fontWeight: 500,
-            color: "text.primary",
+            color: "var(--builder-text)",
             ...{
               transition: "opacity 200ms ease, transform 200ms ease",
               opacity: isMenuCollapsed ? 0 : 1,
@@ -156,19 +127,29 @@ function VersionsTreeUI({ props, versions }: any) {
       <Box
         sx={{
           flex: 1,
-          width: "264px",
-          minWidth: "264px",
+          width: expandedWidth - 1,
+          minHeight: 0,
           overflowY: "auto",
           overflowX: "hidden",
           transition: "opacity 200ms ease, transform 200ms ease",
           willChange: "transform, opacity",
           opacity: isMenuCollapsed ? 0 : 1,
-          transform: isMenuCollapsed ? "translateX(-218px)" : "none",
+          transform: isMenuCollapsed
+            ? `translateX(-${expandedWidth - collapsedWidth}px)`
+            : "none",
           pointerEvents: isMenuCollapsed ? "none" : "auto",
         }}
         aria-hidden={isMenuCollapsed}
+        inert={isMenuCollapsed}
       >
-        <VersionsTree data={treeData} isDragMode={false} />
+        <VersionsTree
+          versions={
+            versionList?.version_list.map((version) => version.ver_id) ?? []
+          }
+          deployedVersionId={versionList?.deployed_version}
+          selectedVersionId={selectedVersionId}
+          onSelectVersion={onSelectVersion}
+        />
       </Box>
     </Box>
   );

@@ -4,6 +4,7 @@ import { Node } from "reactflow";
 export type ScenarioType = "agent" | "multi" | "sub";
 
 type Scenario = {
+  commandEnabled?: boolean;
   id?: string;
   category_id?: string;
   edges?: any[];

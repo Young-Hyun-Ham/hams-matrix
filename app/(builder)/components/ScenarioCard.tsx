@@ -8,15 +8,14 @@ import {
   MenuItem,
   ListItemText,
 } from "@mui/material";
-import { CheckCircle, MoreVert } from "@mui/icons-material";
+import { useTheme } from "@mui/material/styles";
+import { MoreVert } from "@mui/icons-material";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslation } from "@/app/(builder)/hooks/useTranslation";
 
 import { Scenario } from "../types/types";
 import { ScenarioTypeBadge } from "./ScenarioType";
 
-import { COLORS } from "@/app/(builder)/constants/color";
 import { formatDateTime } from "../utils/util";
 
 export function ScenarioCard({
@@ -53,7 +52,7 @@ export function ScenarioCard({
   }>;
 }) {
   const { t } = useTranslation();
-  const router = useRouter();
+  const { palette } = useTheme();
 
   const [menuAnchorEl, setMenuAnchorEl] = useState<HTMLElement | null>(null);
   const isMenuOpen = Boolean(menuAnchorEl);
@@ -64,40 +63,41 @@ export function ScenarioCard({
   const closeMenu = () => setMenuAnchorEl(null);
 
   const isDeployed = Boolean(scenario.depn_ver_id);
+  const isPopupSelected = mode === "popup" && selected;
+  const isHighlighted = selected || focused;
+  const successColor = palette.success.main;
+  const deployedBackground = `color-mix(in srgb, ${successColor} 12%, var(--builder-surface))`;
 
   return (
     <Card
       key={scenario.id}
       sx={{
-        border: (mode === "popup" && selected) || selected ? 2 : 1,
-        borderColor:
-          mode === "popup" && selected
-            ? "#16a34a"
-            : selected
-              ? COLORS.primary.main
-              : focused
-                ? COLORS.primary.main
-                : COLORS.blueGrey[100],
+        border: selected ? 2 : 1,
+        borderColor: isPopupSelected
+          ? successColor
+          : isHighlighted
+            ? "var(--builder-accent)"
+            : "var(--builder-border)",
+        color: "var(--builder-text)",
         borderRadius: 2,
         minWidth: 0,
         width: "100%",
         cursor: disableClick ? "grab" : "pointer",
         height: "100%",
-        backgroundColor:
-          mode === "popup" && selected
-            ? "#f0fdf4"
-            : selected || focused
-              ? "#F3F8FF"
-              : isDeployed
-                ? "#e8f5e9"
-                : "background.paper",
-        boxShadow:
-          mode === "popup" && selected
-            ? "0 0 0 3px rgba(22,163,74,0.15)"
-            : selected || focused
-              ? "0 0 0 2px rgba(25,118,210,0.1)"
-              : undefined,
-        transition: "all .2s ease",
+        backgroundColor: isPopupSelected
+          ? deployedBackground
+          : isHighlighted
+            ? "var(--builder-accent-soft)"
+            : isDeployed
+              ? deployedBackground
+              : "var(--builder-surface)",
+        boxShadow: isPopupSelected
+          ? `0 0 0 3px color-mix(in srgb, ${successColor} 15%, transparent)`
+          : isHighlighted
+            ? "0 0 0 2px var(--builder-accent-soft)"
+            : undefined,
+        transition:
+          "background-color .2s ease, border-color .2s ease, box-shadow .2s ease",
       }}
       elevation={2}
       onClick={(e) => {
@@ -141,7 +141,7 @@ export function ScenarioCard({
               <Typography
                 variant="caption"
                 sx={{
-                  color: COLORS.grey[600],
+                  color: "var(--builder-muted)",
                   fontSize: "11px",
                   whiteSpace: "nowrap",
                   overflow: "hidden",
@@ -156,7 +156,7 @@ export function ScenarioCard({
             <Typography
               variant="caption"
               sx={{
-                color: COLORS.grey[600],
+                color: "var(--builder-muted)",
                 fontSize: "11px",
                 whiteSpace: "nowrap",
                 flexShrink: 1,
@@ -191,12 +191,14 @@ export function ScenarioCard({
             transformOrigin={{ vertical: "top", horizontal: "right" }}
             slotProps={{
               paper: {
+                ...{ "data-builder-theme": palette.mode },
                 elevation: 1,
                 sx: {
                   border: "1px solid",
                   borderColor: "var(--builder-border)",
                   borderRadius: 2,
-                  bgcolor: COLORS.common.white,
+                  bgcolor: "var(--builder-surface)",
+                  color: "var(--builder-text)",
                   overflow: "visible",
                 },
               },

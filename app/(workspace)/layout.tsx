@@ -52,7 +52,12 @@ async function AuthenticatedWorkspace({
     version: Number(row?.version ?? 0),
   };
   return (
-    <WorkspaceQueryBoundary user={user} preferences={initial} notifications>
+    <WorkspaceQueryBoundary 
+      user={user} 
+      preferences={initial} 
+      notifications 
+      withChatbot
+    >
       <PreferencesRuntime userId={user.id} initial={initial} />
       <ChatbotHost user={user}>
         <WorkspaceShell user={user}>{children}</WorkspaceShell>

@@ -70,7 +70,7 @@ async function wait(fn, label, timeout = 90000) {
     } catch {}
     await pause(250);
   }
-  throw Error("Timed out: " + label + "\n" + logs.slice(-3000));
+  throw Error("Timed out: " + label + "\n" + errors.slice(-3).join("\n") + "\n" + logs.slice(-3000));
 }
 function stop(child) {
   if (child?.pid)
@@ -180,6 +180,8 @@ try {
         m.params.exceptionDetails.exception?.description ||
           m.params.exceptionDetails.text,
       );
+    if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error")
+      errors.push(m.params.args.map((item) => item.description ?? item.value).join(" "));
     if (m.method === "Page.javascriptDialogOpening")
       void call("Page.handleJavaScriptDialog", { accept: true });
     const p = pending.get(m.id);
@@ -228,7 +230,11 @@ try {
   await wait(
     () => evaluate("!!document.querySelector('.chatbot-composer textarea')"),
     "new chat popup",
-  );
+    25000,
+  ).catch(async (error) => {
+    const state = await evaluate("JSON.stringify({ path: location.pathname, popup: document.querySelector('.chatbot-root')?.innerText, body: document.body.innerText.slice(-250) })");
+    throw new Error(error.message + "\nChatbot state: " + state);
+  });
   await wait(
     () =>
       evaluate(
@@ -316,6 +322,38 @@ try {
     "(()=>{const e=document.querySelector('.chatbot-composer textarea');Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype,'value').set.call(e,'');e.dispatchEvent(new Event('input',{bubbles:true}));})()",
   );
 
+  const commandScenario = await evaluate(`
+    (async () => {
+      const request = async (path, method, data) => {
+        const response = await fetch('/api/builder/scenarios' + path, {
+          method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(JSON.stringify(result));
+        return result.scenario;
+      };
+      const scenario = await request('', 'POST', {
+        name: 'Slash command fixture',
+        nodes: [{ id: 'start', type: 'message', position: {x: 0, y: 0}, data: { content: 'Slash command result' } }],
+        edges: [], startNodeId: 'start',
+      });
+      const published = await request('/' + scenario.id + '/versions', 'POST', {
+        expectedRevision: scenario.revision, requestId: 'slash-publish',
+      });
+      const deployed = await request('/' + scenario.id + '/deployments', 'POST', {
+        expectedRevision: published.revision, requestId: 'slash-deploy', versionNumber: 1,
+      });
+      return request('/' + scenario.id + '/command', 'PATCH', {
+        expectedRevision: deployed.revision, enabled: true,
+      });
+    })()
+  `);
+  const commandSelector = '.chatbot-command-menu button[role="menuitem"]';
+  const selectCommand = async () => {
+    await wait(() => evaluate(`document.querySelector('${commandSelector}')?.textContent.trim() === 'Slash command fixture'`), 'registered scenario');
+    await click(commandSelector);
+    await wait(() => evaluate(`document.querySelector('.chatbot-scenario-picker select')?.value === ${JSON.stringify(commandScenario.id)}`), 'scenario preselected');
+  };
   await evaluate(
     "document.querySelector('.chatbot-composer textarea').focus()",
   );
@@ -324,7 +362,8 @@ try {
     () => evaluate("!!document.querySelector('.chatbot-command-menu')"),
     "slash command menu",
   );
-  await click('.chatbot-command-menu button[title="시각화 및 수정"]');
+  await selectCommand();
+  await click('.chatbot-scenario-header button');
   assert.equal(
     await evaluate(
       "document.querySelector('.chatbot-composer textarea').value",
@@ -365,7 +404,15 @@ try {
     () => evaluate("!!document.querySelector('.chatbot-command-menu')"),
     "reopen slash command",
   );
-  await click('.chatbot-command-menu button[title="문서 및 수정"]');
+  await selectCommand();
+  assert.equal(await evaluate("!!document.querySelector('.chatbot-run-status')"), false);
+  await click(".chatbot-scenario-picker .chatbot-primary");
+  await wait(() => evaluate("document.querySelector('.chatbot-scenario-panel').textContent.includes('Slash command result')"), "scenario result");
+  await click(".chatbot-scenario-header button");
+  assert.equal(await evaluate("document.querySelector('.chatbot-scenario-panel').hidden"), true);
+  await click(".chatbot-header button[aria-controls='chatbot-scenario-panel']");
+  await wait(() => evaluate("!document.querySelector('.chatbot-scenario-panel').hidden && document.querySelector('.chatbot-scenario-panel').textContent.includes('Slash command result')"), "scenario restored");
+  await click(".chatbot-scenario-header button");
   assert.equal(
     await evaluate(
       "document.querySelector('.chatbot-composer textarea').value",

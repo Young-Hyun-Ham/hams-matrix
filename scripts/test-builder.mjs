@@ -221,6 +221,30 @@ try {
     )
   ).scenario;
   assert.equal(s.deployed_version, 1);
+  const versionList = await result(
+    await route("scenarios/[scenarioId]/versions", "GET")(
+      req("/scenarios/" + s.id + "/versions"),
+      ctx(s.id),
+    ),
+  );
+  assert.equal(versionList.deployed_version, 1);
+  assert.deepEqual(versionList.version_list.map((item) => [item.scenario_id, item.ver_id]), [[s.id, 1]]);
+  checks++;
+  const commandRoute = route("scenarios/[scenarioId]/command", "PATCH");
+  const commandReq = (enabled, expectedRevision) => req("/scenarios/" + s.id + "/command", "PATCH", { enabled, expectedRevision });
+  const graphBeforeCommand = JSON.stringify({ nodes: s.nodes, edges: s.edges });
+  const on = (await result(await commandRoute(commandReq(true, s.revision), ctx(s.id)))).scenario;
+  assert.equal(on.commandEnabled, true);
+  assert.equal((await commandRoute(commandReq(false, s.revision), ctx(s.id))).status, 409);
+  const afterCommand = (await result(await route("scenarios/[scenarioId]", "GET")(req("/scenarios/" + s.id, "GET"), ctx(s.id)))).scenario;
+  assert.equal(afterCommand.commandEnabled, true);
+  assert.equal(afterCommand.deployed_version, 1);
+  assert.equal(JSON.stringify({ nodes: afterCommand.nodes, edges: afterCommand.edges }), graphBeforeCommand);
+  const off = (await result(await commandRoute(commandReq(false, on.revision), ctx(s.id)))).scenario;
+  assert.equal(off.commandEnabled, false);
+  s = { ...s, ...off };
+  checks++;
+
   checks++;
   s = (
     await result(
@@ -238,7 +262,7 @@ try {
   checks++;
   const repo = load(resolve("app/(builder)/server/repository.ts"));
 
-  const beforeFailure = await repo.getScenario(owner, s.id, db);
+  const beforeFailure = (await result(await route("scenarios/[scenarioId]", "GET")(req("/scenarios/" + s.id, "GET"), ctx(s.id)))).scenario;
   const failingClient = {
     transaction: async (mode) => {
       const tx = await db.transaction(mode),
@@ -261,7 +285,7 @@ try {
     ),
   );
   assert.equal(
-    (await repo.getScenario(owner, s.id, db)).revision,
+    ((await result(await route("scenarios/[scenarioId]", "GET")(req("/scenarios/" + s.id, "GET"), ctx(s.id)))).scenario).revision,
     beforeFailure.revision,
   );
   checks++;

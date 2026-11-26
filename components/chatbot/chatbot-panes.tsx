@@ -270,11 +270,15 @@ function MessageBody({ text, collapse }: { text: string; collapse: boolean }) {
 export function ConversationPane({
   id,
   settings,
+  onScenario,
+  onRunning,
 }: {
   id: string;
   settings: Settings;
+  onScenario: (id: string, name: string) => void;
+  onRunning: (value: boolean) => void;
 }) {
-  const { drafts, saveDraft, openScenario } = useChatbot(),
+  const { drafts, saveDraft } = useChatbot(),
     initial = drafts[id] ?? {
       prompt: "",
       mode: "chat" as Mode,
@@ -288,11 +292,14 @@ export function ConversationPane({
     [error, setError] = useState(""),
     [before, setBefore] = useState<number | null>(null),
     [older, setOlder] = useState<Message[]>([]);
-  const [showScenarios, setShowScenarios] = useState(false),
-    [selectedScenario, setSelectedScenario] = useState("");
-  const deployments = useChatbotQuery<{
+  const commands = useChatbotQuery<{
     scenarios: { id: string; name: string }[];
-  }>("scenarios", showScenarios);
+  }>(
+    "scenarios?scope=command",
+    command && commandSlash !== null,
+    undefined,
+    true,
+  );
   const input = useRef<HTMLTextAreaElement>(null),
     bottom = useRef<HTMLDivElement>(null),
     sendKey = useRef<{ payload: string; key: string } | null>(null);
@@ -339,6 +346,9 @@ export function ConversationPane({
     running = rows.some(
       (v) => v.role === "status" && ["queued", "running"].includes(v.status),
     );
+  useEffect(() => {
+    onRunning(running);
+  }, [onRunning, running]);
   useEffect(() => {
     saveDraft(id, draft);
   }, [saveDraft, draft, id]);
@@ -537,48 +547,6 @@ export function ConversationPane({
         <div ref={bottom} />
       </div>
       <form className="chatbot-composer" onSubmit={send}>
-        <details
-          open={showScenarios}
-          onToggle={(e) => setShowScenarios(e.currentTarget.open)}
-        >
-          <summary>{en ? "Deployed scenarios" : "배포된 시나리오"}</summary>
-          {deployments.error && (
-            <p role="alert">{errorMessage(deployments.error)}</p>
-          )}
-          <div className="chatbot-actions">
-            <select
-              aria-label="배포 시나리오"
-              value={selectedScenario}
-              onChange={(e) => setSelectedScenario(e.target.value)}
-            >
-              <option value="">
-                {en ? "Select scenario" : "시나리오 선택"}
-              </option>
-              {deployments.data?.scenarios.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={!selectedScenario || busy || running}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  await openScenario(selectedScenario, id);
-                } catch (e) {
-                  setError(errorMessage(e));
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {en ? "Run" : "실행"}
-            </button>
-          </div>
-        </details>
-
         {error && <p role="alert">{error}</p>}
         {draft.mode === "chat" && available.error && (
           <p role="alert">
@@ -633,25 +601,84 @@ export function ConversationPane({
                 setCommandSlash(null);
               }}
             />
-            <div className="chatbot-command-menu chatbot-sub-layer" role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                title="시각화 및 수정"
-                onClick={() => switchMode("image")}
-              >
-                ▧ {en ? "Create image" : "이미지 생성"}
-                <small>{en ? "Visualize and edit" : "시각화 및 수정"}</small>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                title="문서 및 수정"
-                onClick={() => switchMode("file")}
-              >
-                ▤ {en ? "Create document" : "문서 생성"}
-                <small>{en ? "Document and edit" : "문서 및 수정"}</small>
-              </button>
+            <div
+              className="chatbot-command-menu chatbot-sub-layer"
+              role="menu"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  e.stopPropagation();
+                  setCommand(false);
+                  setCommandSlash(null);
+                  input.current?.focus();
+                }
+              }}
+            >
+              {commandSlash === null ? (
+                <>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    title="시각화 및 수정"
+                    onClick={() => switchMode("image")}
+                  >
+                    ▧ {en ? "Create image" : "이미지 생성"}
+                    <small>
+                      {en ? "Visualize and edit" : "시각화 및 수정"}
+                    </small>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    title="문서 및 수정"
+                    onClick={() => switchMode("file")}
+                  >
+                    ▤ {en ? "Create document" : "문서 생성"}
+                    <small>{en ? "Document and edit" : "문서 및 수정"}</small>
+                  </button>
+                </>
+              ) : commands.isFetching ? (
+                <p role="status">
+                  {en ? "Loading scenarios…" : "시나리오 불러오는 중…"}
+                </p>
+              ) : commands.error ? (
+                <p role="alert">
+                  {errorMessage(commands.error)}{" "}
+                  <button type="button" onClick={() => void commands.refetch()}>
+                    {en ? "Retry" : "다시 조회"}
+                  </button>
+                </p>
+              ) : commands.data?.scenarios.length ? (
+                commands.data.scenarios.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      onScenario(scenario.id, scenario.name);
+                      setDraft((value) =>
+                        value.prompt[commandSlash] === "/"
+                          ? {
+                              ...value,
+                              prompt:
+                                value.prompt.slice(0, commandSlash) +
+                                value.prompt.slice(commandSlash + 1),
+                            }
+                          : value,
+                      );
+                      setCommand(false);
+                      setCommandSlash(null);
+                    }}
+                  >
+                    {scenario.name}
+                  </button>
+                ))
+              ) : (
+                <p role="status">
+                  {en
+                    ? "No registered deployed scenarios."
+                    : "등록된 배포 시나리오가 없습니다."}
+                </p>
+              )}
             </div>
           </>
         )}
@@ -730,7 +757,11 @@ export function ConversationPane({
                   !e.nativeEvent.isComposing
                 ) {
                   e.preventDefault();
-                  void send(e);
+                  if (command && commandSlash !== null) {
+                    e.currentTarget.form
+                      ?.querySelector<HTMLButtonElement>('[role="menuitem"]')
+                      ?.focus();
+                  } else void send(e);
                 }
               }}
             />
@@ -1047,10 +1078,14 @@ export function ScenarioPane({
   id,
   settings,
   readOnly = false,
+  visible = true,
+  onStatus,
 }: {
   id: string;
   settings: Settings;
   readOnly?: boolean;
+  visible?: boolean;
+  onStatus?: (status: string) => void;
 }) {
   const [eventCursor, setEventCursor] = useState(0),
     [earlierEvents, setEarlierEvents] = useState<Run["events"]>([]);
@@ -1068,8 +1103,26 @@ export function ScenarioPane({
       true,
       (data) => ["queued", "running"].includes(data.status),
     ),
-    run = query.data,
+    run = query.error ? undefined : query.data,
     en = settings.language === "en";
+  const refetch = query.refetch;
+  const inputVersion = useRef("");
+  useEffect(() => {
+    if (visible) void refetch();
+  }, [visible, refetch]);
+  useEffect(() => {
+    if (!run) return;
+    onStatus?.(run.status);
+    const version =
+      run.status === "waiting_input"
+        ? run.currentNode?.id + ":" + run.version
+        : "";
+    if (inputVersion.current === version) return;
+    inputVersion.current = version;
+    setValues({});
+    setAnswer("");
+    key.current = null;
+  }, [onStatus, run]);
   async function send(value?: string) {
     if (!run || busy) return;
     setBusy(true);
@@ -1105,6 +1158,9 @@ export function ScenarioPane({
   return (
     <>
       <div className="chatbot-messages" aria-live="polite">
+        {!run && query.isPending && (
+          <p role="status">{en ? "Loading run…" : "실행 정보 불러오는 중…"}</p>
+        )}
         {query.error && (
           <p role="alert">
             {errorMessage(query.error)}{" "}
@@ -1119,20 +1175,27 @@ export function ScenarioPane({
               <button onClick={() => setDiagnostics(!diagnostics)}>
                 {en ? "Run details" : "실행 정보"}
               </button>
-              {["queued", "running"].includes(run.status) && (
-                <button
-                  onClick={async () => {
-                    try {
-                      await api.send(`scenario-runs/${id}/stop`);
-                      await query.refetch();
-                    } catch (e) {
-                      setError(errorMessage(e));
-                    }
-                  }}
-                >
-                  {en ? "Stop" : "중단"}
-                </button>
-              )}
+              {!readOnly &&
+                [
+                  "queued",
+                  "running",
+                  "waiting_input",
+                  "waiting_review",
+                  "waiting_policy_approval",
+                ].includes(run.status) && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.send(`scenario-runs/${id}/stop`);
+                        await query.refetch();
+                      } catch (e) {
+                        setError(errorMessage(e));
+                      }
+                    }}
+                  >
+                    {en ? "Stop" : "중단"}
+                  </button>
+                )}
             </div>
             {diagnostics && (
               <pre>

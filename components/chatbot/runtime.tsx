@@ -25,7 +25,6 @@ export const Runtime = createContext<{
   drafts: Record<string, Draft>;
   saveDraft: (id: string, draft: Draft) => void;
   openSimulation: (config: Simulation, onClose?: () => void) => void;
-  openScenario: (scenarioId: string, conversationId: string) => Promise<void>;
   showRunHistory: () => void;
 } | null>(null);
 export function useChatbot() {
@@ -37,6 +36,7 @@ export function useChatbotQuery<T>(
   path: string,
   enabled: boolean,
   active?: (data: T) => boolean,
+  fresh = false,
 ) {
   const { user } = useChatbot(),
     { scope, policy } = useWorkspaceQueryPolicy({
@@ -48,6 +48,7 @@ export function useChatbotQuery<T>(
     queryFn: ({ signal }) => requestJson<T>(`/api/chatbot/${path}`, { signal }),
     ...policy,
     enabled,
+    ...(fresh ? { staleTime: 0 } : {}),
     retry: false,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

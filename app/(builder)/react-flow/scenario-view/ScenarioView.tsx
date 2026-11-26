@@ -1,5 +1,7 @@
 "use client";
 
+import { projectScenarioCanvas } from "../../utils/scenarioCanvas";
+
 import { useTranslation } from "@/app/(builder)/hooks/useTranslation";
 
 import { getSafeUUID } from "../../utils/util";
@@ -7,6 +9,7 @@ import { getSafeUUID } from "../../utils/util";
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -81,9 +84,7 @@ import DelayNode from "../../components/nodes/DelayNode";
 import GroupNode from "../../components/nodes/GroupNode";
 import SlotDisplay from "../../components/SlotDisplay";
 import NodeController from "../../components/NodeController";
-import VersionTreeUI, {
-  MOCK_UP_TREE_DATA,
-} from "../../components/VersionsTreeUI";
+import VersionTreeUI from "../../components/VersionsTreeUI";
 import ScenarioSimulatorModal from "../../components/modals/ScenarioSimulatorModal";
 
 import "@reactflow/node-resizer/dist/style.css";
@@ -99,7 +100,7 @@ import CanvasMemoLayer from "../../components/CanvasMemoLayer";
 import { MemoCanvasItem } from "../../components/CanvasMemoItem";
 import ScenarioGroupModal from "../../components/modals/ScenarioGroupModal";
 import LogPreview from "../../components/modals/LogPreview";
-import { Scenario, TreeItem } from "../../types/types";
+import { Scenario } from "../../types/types";
 import {
   getScenarioVersion,
   restoreScenarioVersion,
@@ -110,7 +111,6 @@ import DeployHistoryListModal from "../../components/modals/DeployHistoryModal";
 import type { Edge, Node } from "reactflow";
 
 import { useModal } from "@/app/(builder)/providers/ModalProvider";
-import { COLORS } from "@/app/(builder)/constants/color";
 
 import { useBuilderRuntime as useStore } from "@/app/(builder)/providers/runtime";
 
@@ -129,6 +129,18 @@ const nodeTypes = {
   setSlot: SetSlotNode,
   delay: DelayNode,
   selectionGroup: GroupNode,
+} as const;
+
+const toolbarSpacing = 1.5;
+
+const compactOutlineSx = {
+  borderColor: "var(--builder-border)",
+  color: "var(--builder-text)",
+  textTransform: "none",
+  "&:hover": {
+    borderColor: "var(--builder-accent)",
+    bgcolor: "var(--builder-accent-soft)",
+  },
 } as const;
 
 const edgeTypes = {
@@ -241,33 +253,49 @@ const Flow = ({ scenario, scenarios }: any) => {
     };
   }, [nodes, isSimulatorVisible]);
 
+  const scenarioId = scenario?.id;
+  const initialVersionId = selectedVersionId ?? scenario?.ltst_ver_id;
+  const [versionRequest, setVersionRequest] = useState<{
+    versionId: number | null;
+  }>(() => ({
+    versionId: initialVersionId == null ? null : Number(initialVersionId),
+  }));
+  const reportVersionError = useEffectEvent((error: Error) =>
+    showAlert(error.message),
+  );
+
   useEffect(() => {
-    // admin sidebar를 닫는 로직 추가
+    if (!scenarioId) return;
 
     let active = true;
-    const onload = async () => {
-      if (scenario) {
-        const payload = {
-          scenario_id: scenario.id,
-          version_id: selectedVersionId ?? scenario.ltst_ver_id,
-        };
-        // console.log("===========================> detail 조회: ", scenario)
-        const res: any = await getScenarioVersion(backend, payload);
+    const { versionId } = versionRequest;
+    void getScenarioVersion(backend, {
+      scenario_id: scenarioId,
+      version_id: versionId,
+    })
+      .then((snapshot) => {
         if (!active) return;
-        setSelectedVersionId(selectedVersionId ?? scenario.ltst_ver_id);
-        setNodes(res.nodes || []);
-        setEdges(res.edges || []);
-        setStartNodeId(res.startNodeId || null);
-      }
-    };
+        setNodes(snapshot.nodes ?? []);
+        setEdges(snapshot.edges ?? []);
+        setStartNodeId(snapshot.startNodeId ?? null);
+        setSelectedVersionId(versionId);
+      })
+      .catch((error) => {
+        if (active) void reportVersionError(error);
+      });
 
-    void onload().catch((error) => {
-      if (active) void showAlert(error.message);
-    });
     return () => {
       active = false;
     };
-  }, []);
+  }, [
+    backend,
+    scenarioId,
+    versionRequest,
+    setNodes,
+    setEdges,
+    setStartNodeId,
+    setSelectedVersionId,
+  ]);
 
   const { selectBranchReply, cancelBranchReplySelection } = useBuilderExecution(
     { nodes, edges } as any,
@@ -661,20 +689,10 @@ const Flow = ({ scenario, scenarios }: any) => {
   }, [nodes]);
 
   // 그룹(시나리오) 접힘 처리도 safeNodes 기준으로
-  const visibleNodes = useMemo(() => {
-    const collapsedGroupIds = new Set(
-      safeNodes
-        .filter(
-          (n: any) =>
-            (n.type === "scenario" || n.type === "selectionGroup") &&
-            n?.data?.isCollapsed,
-        )
-        .map((n: any) => n.id),
-    );
-    return safeNodes.filter(
-      (n: any) => !n.parentNode || !collapsedGroupIds.has(n.parentNode),
-    );
-  }, [safeNodes]);
+  const canvas = useMemo(
+    () => projectScenarioCanvas(safeNodes, edges),
+    [safeNodes, edges],
+  );
 
   const handlePaneClick = () => {
     setSelectedNodeId(null);
@@ -833,20 +851,9 @@ const Flow = ({ scenario, scenarios }: any) => {
   const [isDeployHistoryModalOpen, setIsDeployHistoryModalOpen] =
     useState(false);
 
-  const handleSelectDeployHistory = (history: any) => {
-    setSelectedVersionId(history.ver_id);
+  const handleSelectDeployHistory = (history: { ver_id: number }) => {
+    setVersionRequest({ versionId: history.ver_id });
     setIsDeployHistoryModalOpen(false);
-    // 버전 상세 조회 후 노드/엣지 업데이트
-    // console.log("선택한 버전 ID: ", versionId);
-    const payload = {
-      scenario_id: scenario.id,
-      version_id: history.ver_id,
-    };
-    getScenarioVersion(backend, payload).then((res: any) => {
-      setNodes(res.nodes || []);
-      setEdges(res.edges || []);
-      setStartNodeId(res.startNodeId || null);
-    });
   };
 
   function goList() {
@@ -854,21 +861,6 @@ const Flow = ({ scenario, scenarios }: any) => {
   }
 
   // version 관리
-  const [selectedVersion, setSelectedVersion] = useState<Scenario | null>(
-    scenario ?? null,
-  );
-
-  const getVersionNumber = (version?: string) =>
-    Number(String(version ?? "").replace(/[^0-9]/g, "")) || 0;
-
-  const selectedScenarioVersions = (scenarios ?? [])
-    .filter((item: any) => item.groupId && item.groupId === scenario?.groupId)
-    .sort(
-      (a: any, b: any) =>
-        getVersionNumber(a.versions) - getVersionNumber(b.versions),
-    );
-
-  // 상세보기 version 이동
   const handleSelectedVersionDeploy = async () => {
     if (!scenario?.id) return;
     // console.log(scenario);
@@ -887,7 +879,6 @@ const Flow = ({ scenario, scenarios }: any) => {
       depn_usr_id: currentUser?.id ?? userInfoJson?.id ?? "",
     });
     setSelectedVersionId(null);
-    setSelectedVersion(null);
     router.push(`/react-flow/scenario-list`);
   };
 
@@ -898,10 +889,6 @@ const Flow = ({ scenario, scenarios }: any) => {
     if (!confirmed) return;
 
     if (data?.id) {
-      // console.log('============================>', selectedVersionId, scenario, data,);
-      setSelectedVersion(null);
-      // setScenario(null);
-
       const versionId = selectedVersionId ?? data.ltst_ver_id;
       const payload = {
         scenario_id: data.id,
@@ -930,73 +917,52 @@ const Flow = ({ scenario, scenarios }: any) => {
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        gap: 1.5,
+        gap: toolbarSpacing,
+        pt: toolbarSpacing,
+        boxSizing: "border-box",
         ...{ minHeight: 0 },
       }}
     >
-      {/* Deploy History */}
       <Box
         sx={{
           display: "flex",
-          width: "100%",
           justifyContent: "space-between",
           alignItems: "center",
+          flexWrap: "wrap",
           gap: 0.5,
+          px: 1,
         }}
       >
-        {/* 1. 좌측 뒤로가기 버튼 */}
-        <button
+        <Button
+          size="small"
+          startIcon={<ArrowLeft size={14} />}
           onClick={goList}
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "8px",
-            backgroundColor: "transparent",
-            color: "#666", // 너무 튀지 않는 회색톤 추천
-            fontWeight: "bold",
-            fontSize: "18px",
-            cursor: "pointer",
-            border: "none",
-            padding: "12px 0", // 좌우 패딩을 줄여 끝에 붙게 함
-          }}
+          sx={{ color: "var(--builder-text)", textTransform: "none" }}
         >
-          <ArrowLeft size={20} />
           {t("Back")}
-        </button>
-        <Button
-          variant="outlined"
-          startIcon={<Play size={18} />}
-          title="시나리오 시뮬레이터"
-          onClick={() => setIsSimulatorVisible(true)}
-        >
-          시뮬레이터
         </Button>
-        <Button
-          variant="outlined"
-          size="medium"
-          startIcon={<History size={18} />}
-          title={t("View the deployment history for this scenario")}
-          onClick={() => {
-            setIsDeployHistoryModalOpen(true);
-          }}
-          sx={{
-            minHeight: 40,
-            px: 2,
-            borderRadius: 2,
-            borderColor: "var(--builder-border)",
-            color: COLORS.grey[700],
-            bgcolor: "background.paper",
-            fontWeight: 600,
-            textTransform: "none",
-            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.06)",
-            "&:hover": {
-              borderColor: "primary.main",
-              bgcolor: COLORS.primary.states.hover,
-            },
-          }}
-        >
-          {t("Deployment History")}
-        </Button>
+        <Stack direction="row" sx={{ gap: 0.75, flexWrap: "wrap", ml: "auto" }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Play size={14} />}
+            title="시나리오 시뮬레이터"
+            onClick={() => setIsSimulatorVisible(true)}
+            sx={compactOutlineSx}
+          >
+            시뮬레이터
+          </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<History size={14} />}
+            title={t("View the deployment history for this scenario")}
+            onClick={() => setIsDeployHistoryModalOpen(true)}
+            sx={compactOutlineSx}
+          >
+            {t("Deployment History")}
+          </Button>
+        </Stack>
       </Box>
 
       <Box
@@ -1024,12 +990,15 @@ const Flow = ({ scenario, scenarios }: any) => {
         {/* 좌측 메뉴바 영역 */}
         <VersionTreeUI
           props={nodeTreeUIOptions}
-          versions={selectedScenarioVersions}
+          scenarioId={scenarioId}
+          selectedVersionId={selectedVersionId}
+          onSelectVersion={(versionId) => setVersionRequest({ versionId })}
         />
 
         {/* 우측 react flow 영역 */}
-        <div
+        <Box
           className={styles.mainContent}
+          sx={{ minWidth: { xs: 0, sm: 300 } }}
           ref={reactFlowWrapper}
           onContextMenuCapture={handleSelectionContextMenuCapture}
         >
@@ -1053,73 +1022,69 @@ const Flow = ({ scenario, scenarios }: any) => {
             </div>
           )}
 
-          <div
-            className={styles.topRightControls}
-            style={{
+          <Box
+            sx={{
+              position: "absolute",
+              top: 8,
+              insetInline: 8,
+              zIndex: 10,
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              width: "100%",
+              flexWrap: "wrap",
+              gap: 0.75,
+              pointerEvents: "none",
             }}
           >
-            {/* 1. 좌측으로 보낼 버전 정보 */}
-            <div
-              style={{ fontSize: "20px", color: "#333", paddingLeft: "30px" }}
+            <Typography
+              component="h1"
+              sx={{
+                fontSize: 14,
+                fontWeight: 700,
+                color: "var(--builder-text)",
+              }}
             >
-              <b>
-                {t("Version")}{" "}
-                {selectedVersionId
-                  ? `${selectedVersionId}`
-                  : `${scenario.ltst_ver_id}`}
-              </b>
-            </div>
-
-            {/* 2. 우측 버튼들을 감싸는 컨테이너 */}
-            <Stack sx={{ alignItems: "center" }} direction="row" spacing={1}>
+              {t("Version")} {selectedVersionId || scenario.ltst_ver_id}
+            </Typography>
+            <Stack
+              direction="row"
+              sx={{
+                gap: 0.75,
+                flexWrap: "wrap",
+                ml: "auto",
+                pointerEvents: "auto",
+              }}
+            >
               <Button
                 variant="outlined"
-                size="medium"
-                startIcon={<RotateCcw size={18} />}
+                size="small"
+                startIcon={<RotateCcw size={14} />}
                 title={t(
                   "Restore the selected version as the current working scenario",
                 )}
-                onClick={() => {
-                  handleMoveScenario(scenario);
-                }}
-                sx={{
-                  minHeight: 40,
-                  px: 2,
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  textTransform: "none",
-                }}
+                onClick={() => handleMoveScenario(scenario)}
+                sx={compactOutlineSx}
               >
                 {t("Restore Version")}
               </Button>
               <Button
                 variant="contained"
-                size="medium"
-                startIcon={<Rocket size={18} />}
+                size="small"
+                disableElevation
+                startIcon={<Rocket size={14} />}
                 title={t("Deploy the selected scenario version")}
                 onClick={handleSelectedVersionDeploy}
-                sx={{
-                  minHeight: 40,
-                  px: 2.25,
-                  borderRadius: 2,
-                  fontWeight: 700,
-                  textTransform: "none",
-                  boxShadow: "0 4px 10px rgba(37, 99, 235, 0.2)",
-                }}
+                sx={{ textTransform: "none" }}
               >
                 {t("Deploy Version")}
               </Button>
             </Stack>
-          </div>
+          </Box>
           <ReactFlow
             className={isPanMode ? styles.panCanvas : styles.selectCanvas}
-            key={scenario?.id}
-            nodes={visibleNodes}
-            edges={edges}
+            key={selectedVersionId ?? scenarioId}
+            nodes={canvas.nodes}
+            edges={canvas.edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
@@ -1174,6 +1139,9 @@ const Flow = ({ scenario, scenarios }: any) => {
                   ? nodeColors[(n as { type: string }).type]
                   : "#ddd"
               }
+              style={{ backgroundColor: "var(--builder-muted-surface)" }}
+              maskColor="color-mix(in srgb, var(--builder-canvas) 65%, transparent)"
+              maskStrokeColor="var(--builder-accent)"
               nodeStrokeWidth={3}
               zoomable
               pannable
@@ -1260,7 +1228,7 @@ const Flow = ({ scenario, scenarios }: any) => {
             onDragStart={handleMemoPointerDown}
             onResizeStart={handleMemoResizeStart}
           />
-        </div>
+        </Box>
 
         <div
           className={`${styles.controllerPanel} ${selectedNodeId ? styles.visible : ""}`}
@@ -1447,7 +1415,12 @@ function ScenarioView(props: any) {
   // console.log('scenarios==========================> ', scenarios);
   return (
     <ReactFlowProvider>
-      <Flow {...props} scenario={selectedScenario} scenarios={scenarios} />
+      <Flow
+        key={selectedScenario?.id}
+        {...props}
+        scenario={selectedScenario}
+        scenarios={scenarios}
+      />
     </ReactFlowProvider>
   );
 }
